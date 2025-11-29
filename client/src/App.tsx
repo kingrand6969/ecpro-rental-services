@@ -13,6 +13,7 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Cars from "@/pages/Cars";
 import Rentals from "@/pages/Rentals";
+import Customers from "@/pages/Customers";
 import Finances from "@/pages/Finances";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
@@ -71,6 +72,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/cars" component={Cars} />
         <Route path="/rentals" component={Rentals} />
+        <Route path="/customers" component={Customers} />
         <Route path="/finances" component={Finances} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

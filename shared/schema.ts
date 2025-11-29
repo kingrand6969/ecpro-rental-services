@@ -37,6 +37,19 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Customers table
+export const customers = pgTable("customers", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  address: text("address"),
+  idNumber: varchar("id_number", { length: 100 }), // driver's license or ID
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Cars table
 export const cars = pgTable("cars", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -61,6 +74,7 @@ export const rentals = pgTable("rentals", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   carId: integer("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull().references(() => users.id),
+  customerId: integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
   customerName: varchar("customer_name", { length: 255 }).notNull(),
   customerEmail: varchar("customer_email", { length: 255 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
@@ -107,6 +121,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   expenses: many(expenses),
 }));
 
+export const customersRelations = relations(customers, ({ many }) => ({
+  rentals: many(rentals),
+}));
+
 export const carsRelations = relations(cars, ({ many }) => ({
   rentals: many(rentals),
   expenses: many(expenses),
@@ -121,6 +139,10 @@ export const rentalsRelations = relations(rentals, ({ one }) => ({
   user: one(users, {
     fields: [rentals.userId],
     references: [users.id],
+  }),
+  customer: one(customers, {
+    fields: [rentals.customerId],
+    references: [customers.id],
   }),
 }));
 
@@ -144,6 +166,12 @@ export const monthlyPaymentsRelations = relations(monthlyPayments, ({ one }) => 
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -175,6 +203,9 @@ export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
 export type Car = typeof cars.$inferSelect;
 export type InsertCar = z.infer<typeof insertCarSchema>;
 
@@ -190,3 +221,4 @@ export type InsertMonthlyPayment = z.infer<typeof insertMonthlyPaymentSchema>;
 // Extended types with relations
 export type RentalWithCar = Rental & { car: Car };
 export type ExpenseWithCar = Expense & { car: Car };
+export type CustomerWithRentals = Customer & { rentals: RentalWithCar[] };

@@ -23,6 +23,7 @@ import {
   BarChart3,
   Settings,
   Wrench,
+  Users,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -40,6 +41,11 @@ const mainNavItems = [
     title: "Rentals",
     url: "/rentals",
     icon: BarChart3,
+  },
+  {
+    title: "Customers",
+    url: "/customers",
+    icon: Users,
   },
   {
     title: "Finances",

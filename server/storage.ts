@@ -4,6 +4,7 @@ import {
   rentals,
   expenses,
   monthlyPayments,
+  customers,
   type User,
   type UpsertUser,
   type Car,
@@ -14,9 +15,11 @@ import {
   type InsertExpense,
   type MonthlyPayment,
   type InsertMonthlyPayment,
+  type Customer,
+  type InsertCustomer,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -24,6 +27,15 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   toggleUserAdmin(id: string): Promise<User | undefined>;
+
+  // Customer operations
+  getAllCustomers(): Promise<Customer[]>;
+  getCustomerById(id: number): Promise<Customer | undefined>;
+  getCustomerByEmail(email: string): Promise<Customer | undefined>;
+  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
+  deleteCustomer(id: number): Promise<void>;
+  getCustomerRentals(customerId: number): Promise<Rental[]>;
 
   // Car operations
   getAllCars(): Promise<Car[]>;
@@ -56,6 +68,7 @@ export interface IStorage {
     totalCars: number;
     totalRentals: number;
     activeRentals: number;
+    totalCustomers: number;
   }>;
 }
 
@@ -95,6 +108,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated;
+  }
+
+  // Customer operations
+  async getAllCustomers(): Promise<Customer[]> {
+    return db.select().from(customers).orderBy(desc(customers.createdAt));
+  }
+
+  async getCustomerById(id: number): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer;
+  }
+
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+    return customer;
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [created] = await db.insert(customers).values(customer).returning();
+    return created;
+  }
+
+  async updateCustomer(id: number, customer: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    const [updated] = await db
+      .update(customers)
+      .set({ ...customer, updatedAt: new Date() })
+      .where(eq(customers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomer(id: number): Promise<void> {
+    await db.delete(customers).where(eq(customers.id, id));
+  }
+
+  async getCustomerRentals(customerId: number): Promise<Rental[]> {
+    return db
+      .select()
+      .from(rentals)
+      .where(eq(rentals.customerId, customerId))
+      .orderBy(desc(rentals.createdAt));
   }
 
   // Car operations
@@ -230,10 +284,12 @@ export class DatabaseStorage implements IStorage {
     totalCars: number;
     totalRentals: number;
     activeRentals: number;
+    totalCustomers: number;
   }> {
     const allUsers = await db.select().from(users);
     const allCars = await db.select().from(cars);
     const allRentals = await db.select().from(rentals);
+    const allCustomers = await db.select().from(customers);
     const activeRentalsList = allRentals.filter((r) => !r.isFinalized);
 
     return {
@@ -241,6 +297,7 @@ export class DatabaseStorage implements IStorage {
       totalCars: allCars.length,
       totalRentals: allRentals.length,
       activeRentals: activeRentalsList.length,
+      totalCustomers: allCustomers.length,
     };
   }
 }
