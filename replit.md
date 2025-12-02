@@ -4,12 +4,12 @@
 A comprehensive car rental booking system with user authentication, calendar-based reservations with color-coded cars, financial tracking, and admin controls.
 
 ## Core Features
-- **User Authentication**: Local username/password authentication with session management
+- **User Authentication**: Local username/password authentication with session management + admin approval system
 - **Calendar Dashboard**: Color-coded calendar view showing all reservations
 - **Fleet Management**: Add/edit cars with maintenance tracking (oil change alerts)
 - **Rental Bookings**: Create and manage rental reservations with payment screenshot uploads
-- **Financial Tracking**: Track income, expenses, and net profit by month
-- **Admin Controls**: User management, role-based access control
+- **Financial Tracking**: Monthly/Quarterly/Yearly reporting with income, expenses, net profit, and amortization deductions
+- **Admin Controls**: User management, role-based access control, user approval system
 - **Customer Management**: Track customer history, rental patterns, and contact information
 
 ## Tech Stack
@@ -65,7 +65,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ```
 
 ## Database Schema
-- **users**: User profiles (id, username, password, email, firstName, lastName, isAdmin)
+- **users**: User profiles (id, username, password, email, firstName, lastName, isAdmin, isApproved)
 - **customers**: Customer profiles (name, phone, email, notes, rental history)
 - **cars**: Fleet vehicles (name, model, plateNumber, colorCode, monthlyPayment, mileage tracking)
 - **rentals**: Booking records (customer info, dates, amount, payment screenshot)
@@ -76,8 +76,8 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ## API Endpoints
 
 ### Authentication
-- `POST /api/register` - Register new user (reserved usernames blocked)
-- `POST /api/login` - Login with username/password
+- `POST /api/register` - Register new user (requires admin approval, reserved usernames blocked)
+- `POST /api/login` - Login with username/password (checks approval status)
 - `POST /api/logout` - Logout
 - `GET /api/auth/user` - Get current user
 
@@ -108,14 +108,25 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 
 ### Admin
 - `GET /api/admin/users` - List all users (admin only)
-- `PATCH /api/admin/users/:id/toggle-admin` - Toggle user admin status
-- `GET /api/admin/stats` - Get system stats
+- `PATCH /api/admin/users/:id/toggle-admin` - Toggle user admin status (admin only)
+- `PATCH /api/admin/users/:id/approve` - Approve pending user (admin only)
+- `GET /api/admin/pending-users` - List pending user approvals (admin only)
+- `GET /api/admin/stats` - Get system stats (admin only)
 
 ## Business Rules
-1. **Non-editable rentals**: Once finalized, only admins can edit
-2. **Payment screenshots**: Required for each rental
-3. **Oil change alerts**: Automatically calculated based on mileage intervals
-4. **Color-coded calendar**: 8 distinct colors for different cars
+1. **User Approval**: New users must be approved by admin before they can login
+2. **Non-editable rentals**: Once finalized, only admins can edit
+3. **Payment screenshots**: Required for each rental
+4. **Oil change alerts**: Automatically calculated based on mileage intervals
+5. **Color-coded calendar**: 8 distinct colors for different cars
+6. **Amortization tracking**: Monthly car payments deducted from net profit in financial reports
+
+## Recent Changes (Dec 2, 2025)
+- **Template literal bugs fixed**: Fixed broken `₱{` patterns throughout app
+- **Quarterly/Yearly reporting**: Added period type selector (Monthly/Quarterly/Yearly) in Finances page
+- **Amortization deduction**: Income by Car table now shows amortization deduction with net after amortization
+- **User approval system**: New users are created with `isApproved: false` and cannot login until admin approval
+- **Pending approvals**: Admin page now shows pending user registrations with approve button
 
 ## Development
 ```bash

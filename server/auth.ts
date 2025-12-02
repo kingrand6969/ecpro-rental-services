@@ -80,6 +80,9 @@ export function setupAuth(app: Express) {
         if (!user || !user.password) {
           return done(null, false, { message: "Invalid username or password" });
         }
+        if (!user.isApproved && !user.isAdmin) {
+          return done(null, false, { message: "Your account is pending admin approval" });
+        }
         const isValid = await comparePasswords(password, user.password);
         if (!isValid) {
           return done(null, false, { message: "Invalid username or password" });
@@ -130,12 +133,13 @@ export function setupAuth(app: Express) {
         firstName: firstName || null,
         lastName: lastName || null,
         isAdmin: false,
+        isApproved: false,
       });
 
-      req.login(user, (err) => {
-        if (err) return next(err);
-        const { password: _, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json({ 
+        ...userWithoutPassword,
+        message: "Account created. Awaiting admin approval to login."
       });
     } catch (error) {
       console.error("Registration error:", error);

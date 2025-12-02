@@ -29,6 +29,8 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   toggleUserAdmin(id: string): Promise<User | undefined>;
+  approveUser(id: string): Promise<User | undefined>;
+  getPendingUsers(): Promise<User[]>;
 
   // Customer operations
   getAllCustomers(): Promise<Customer[]>;
@@ -120,6 +122,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated;
+  }
+
+  async approveUser(id: string): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ isApproved: true, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getPendingUsers(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.isApproved, false)).orderBy(desc(users.createdAt));
   }
 
   // Customer operations

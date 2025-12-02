@@ -34,9 +34,15 @@ export default function Admin() {
   const { user: currentUser, isAdmin } = useAuth();
   const { toast } = useToast();
   const [userToToggle, setUserToToggle] = useState<User | null>(null);
+  const [userToApprove, setUserToApprove] = useState<User | null>(null);
 
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
+    enabled: isAdmin,
+  });
+
+  const { data: pendingUsers, isLoading: pendingLoading } = useQuery<User[]>({
+    queryKey: ["/api/admin/pending-users"],
     enabled: isAdmin,
   });
 
@@ -56,7 +62,7 @@ export default function Admin() {
 
   const toggleAdminMutation = useMutation({
     mutationFn: async (userId: string) => {
-      await apiRequest("PATCH", `/api/admin/users/₱{userId}/toggle-admin`);
+      await apiRequest("PATCH", `/api/admin/users/${userId}/toggle-admin`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -70,6 +76,28 @@ export default function Admin() {
       toast({
         title: "Error",
         description: "Failed to update user status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest("PATCH", `/api/admin/users/${userId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Success",
+        description: "User has been approved",
+      });
+      setUserToApprove(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve user",
         variant: "destructive",
       });
     },
@@ -168,6 +196,80 @@ export default function Admin() {
         </div>
       )}
 
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Pending User Approvals</CardTitle>
+          <CardDescription>
+            Review and approve new user registrations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pendingLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : pendingUsers && pendingUsers.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Joined</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={user.profileImageUrl ?? undefined}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="text-xs">
+                            {user.firstName?.[0] ?? user.email?.[0] ?? "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">
+                          {user.firstName && user.lastName
+                            ? `${user.firstName} ${user.lastName}`
+                            : user.email ?? "Unknown"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {user.email ?? "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {user.createdAt
+                        ? new Date(user.createdAt).toLocaleDateString()
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        onClick={() => setUserToApprove(user)}
+                        data-testid={`button-approve-${user.id}`}
+                      >
+                        Approve
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No pending approvals
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">User Management</CardTitle>
@@ -197,7 +299,7 @@ export default function Admin() {
                 {users.map((user) => {
                   const isCurrentUser = user.id === currentUser?.id;
                   return (
-                    <TableRow key={user.id} data-testid={`user-row-₱{user.id}`}>
+                    <TableRow key={user.id} data-testid={`user-row-${user.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
@@ -211,7 +313,7 @@ export default function Admin() {
                           </Avatar>
                           <span className="font-medium">
                             {user.firstName && user.lastName
-                              ? `₱{user.firstName} ₱{user.lastName}`
+                              ? `${user.firstName} ${user.lastName}`
                               : user.email ?? "Unknown"}
                           </span>
                         </div>
@@ -234,7 +336,7 @@ export default function Admin() {
                           checked={user.isAdmin}
                           disabled={isCurrentUser}
                           onCheckedChange={() => setUserToToggle(user)}
-                          data-testid={`switch-admin-₱{user.id}`}
+                          data-testid={`switch-admin-${user.id}`}
                         />
                       </TableCell>
                     </TableRow>
@@ -258,8 +360,8 @@ export default function Admin() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {userToToggle?.isAdmin
-                ? `Are you sure you want to remove admin privileges from ₱{userToToggle?.email ?? "this user"}?`
-                : `Are you sure you want to grant admin privileges to ₱{userToToggle?.email ?? "this user"}? They will be able to edit rentals and manage cars.`}
+                ? `Are you sure you want to remove admin privileges from ${userToToggle?.email ?? "this user"}?`
+                : `Are you sure you want to grant admin privileges to ${userToToggle?.email ?? "this user"}? They will be able to edit rentals and manage cars.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -269,6 +371,26 @@ export default function Admin() {
               disabled={toggleAdminMutation.isPending}
             >
               {toggleAdminMutation.isPending ? "Updating..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!userToApprove} onOpenChange={() => setUserToApprove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to approve {userToApprove?.email ?? "this user"}? They will be able to login to the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => userToApprove && approveMutation.mutate(userToApprove.id)}
+              disabled={approveMutation.isPending}
+            >
+              {approveMutation.isPending ? "Approving..." : "Approve"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

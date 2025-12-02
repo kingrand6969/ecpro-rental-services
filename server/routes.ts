@@ -448,6 +448,42 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/admin/users/:id/approve", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = (req.user as User).id;
+      const currentUser = await storage.getUser(currentUserId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const targetId = req.params.id;
+      const user = await storage.approveUser(targetId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error approving user:", error);
+      res.status(500).json({ message: "Failed to approve user" });
+    }
+  });
+
+  app.get("/api/admin/pending-users", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const pendingUsers = await storage.getPendingUsers();
+      res.json(pendingUsers);
+    } catch (error) {
+      console.error("Error fetching pending users:", error);
+      res.status(500).json({ message: "Failed to fetch pending users" });
+    }
+  });
+
   app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as User).id;
