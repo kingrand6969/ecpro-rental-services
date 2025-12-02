@@ -37,6 +37,7 @@ import type { Car } from "@shared/schema";
 import { useEffect } from "react";
 
 const updateCarSchema = z.object({
+  brand: z.string().optional(),
   plateNumber: z.string().optional(),
   currentMileage: z.string().min(1, "Mileage is required"),
   lastOilChangeMileage: z.string().optional(),
@@ -57,6 +58,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const form = useForm<UpdateCarFormData>({
     resolver: zodResolver(updateCarSchema),
     defaultValues: {
+      brand: "",
       plateNumber: "",
       currentMileage: "",
       lastOilChangeMileage: "",
@@ -67,6 +69,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   useEffect(() => {
     if (car) {
       form.reset({
+        brand: car.brand ?? "",
         plateNumber: car.plateNumber ?? "",
         currentMileage: car.currentMileage?.toString() ?? "0",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
@@ -78,6 +81,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateCarFormData) => {
       await apiRequest("PATCH", `/api/cars/${car?.id}`, {
+        brand: data.brand || undefined,
         plateNumber: data.plateNumber,
         currentMileage: parseInt(data.currentMileage),
         lastOilChangeMileage: data.lastOilChangeMileage
@@ -148,7 +152,9 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
             />
             <DialogTitle>{car.name}</DialogTitle>
           </div>
-          <DialogDescription>{car.model} - {car.plateNumber}</DialogDescription>
+          <DialogDescription>
+            {car.brand && `${car.brand} `}{car.model} - {car.plateNumber}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -227,6 +233,24 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <h4 className="font-medium">Update Car Information</h4>
+
+              <FormField
+                control={form.control}
+                name="brand"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Brand</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g. Toyota, Suzuki, Isuzu"
+                        {...field}
+                        data-testid="input-brand"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
