@@ -119,6 +119,17 @@ export const monthlyPayments = pgTable("monthly_payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Edit logs table for tracking car edits
+export const editLogs = pgTable("edit_logs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  carId: integer("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  fieldName: varchar("field_name", { length: 100 }).notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  editedAt: timestamp("edited_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   rentals: many(rentals),
@@ -168,6 +179,17 @@ export const monthlyPaymentsRelations = relations(monthlyPayments, ({ one }) => 
   }),
 }));
 
+export const editLogsRelations = relations(editLogs, ({ one }) => ({
+  car: one(cars, {
+    fields: [editLogs.carId],
+    references: [cars.id],
+  }),
+  user: one(users, {
+    fields: [editLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -202,6 +224,11 @@ export const insertMonthlyPaymentSchema = createInsertSchema(monthlyPayments).om
   createdAt: true,
 });
 
+export const insertEditLogSchema = createInsertSchema(editLogs).omit({
+  id: true,
+  editedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -222,7 +249,11 @@ export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type MonthlyPayment = typeof monthlyPayments.$inferSelect;
 export type InsertMonthlyPayment = z.infer<typeof insertMonthlyPaymentSchema>;
 
+export type EditLog = typeof editLogs.$inferSelect;
+export type InsertEditLog = z.infer<typeof insertEditLogSchema>;
+
 // Extended types with relations
 export type RentalWithCar = Rental & { car: Car };
 export type ExpenseWithCar = Expense & { car: Car };
 export type CustomerWithRentals = Customer & { rentals: RentalWithCar[] };
+export type EditLogWithDetails = EditLog & { car: Car; user: User };

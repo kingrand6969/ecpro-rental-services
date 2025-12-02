@@ -26,6 +26,7 @@ import {
   Settings,
   Settings2,
   Users,
+  History,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -53,6 +54,11 @@ const mainNavItems = [
     title: "Finances",
     url: "/finances",
     icon: DollarSign,
+  },
+  {
+    title: "Logs",
+    url: "/logs",
+    icon: History,
   },
 ];
 

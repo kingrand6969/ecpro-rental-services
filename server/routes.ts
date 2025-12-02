@@ -74,25 +74,62 @@ export async function registerRoutes(
   app.patch("/api/cars/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as User).id;
-      const user = await storage.getUser(userId);
-      
       const id = parseInt(req.params.id);
       
-      // Only allow non-admins to update plateNumber and currentMileage
-      if (!user?.isAdmin) {
-        const allowedFields = ['plateNumber', 'currentMileage'];
-        const requestedFields = Object.keys(req.body);
-        const hasDisallowedFields = requestedFields.some(field => !allowedFields.includes(field));
-        if (hasDisallowedFields) {
-          return res.status(403).json({ message: "Only admins can modify car status or other fields" });
+      // Get current car state BEFORE update to capture old values
+      const currentCar = await storage.getCarById(id);
+      if (!currentCar) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+
+      // Capture the old values before update
+      const beforeUpdate = { ...currentCar };
+
+      // Perform the update first
+      const updatedCar = await storage.updateCar(id, req.body);
+      if (!updatedCar) {
+        return res.status(500).json({ message: "Failed to update car" });
+      }
+
+      // Log each field change AFTER successful update
+      const fieldLabels: Record<string, string> = {
+        name: 'Name',
+        model: 'Model',
+        plateNumber: 'Plate Number',
+        color: 'Color',
+        colorCode: 'Color Code',
+        monthlyPayment: 'Monthly Payment',
+        currentMileage: 'Current Mileage',
+        lastOilChangeMileage: 'Last Oil Change Mileage',
+        oilChangeIntervalKm: 'Oil Change Interval (km)',
+        lastMaintenanceDate: 'Last Maintenance Date',
+        status: 'Status',
+        imageUrl: 'Image URL',
+      };
+
+      // Compare actual persisted values (updatedCar) with before values
+      for (const field of Object.keys(fieldLabels)) {
+        const oldValue = (beforeUpdate as any)[field];
+        const newValue = (updatedCar as any)[field];
+        const oldStr = oldValue !== null && oldValue !== undefined ? String(oldValue) : '';
+        const newStr = newValue !== null && newValue !== undefined ? String(newValue) : '';
+        
+        if (oldStr !== newStr) {
+          try {
+            await storage.createEditLog({
+              carId: id,
+              userId,
+              fieldName: fieldLabels[field],
+              oldValue: oldStr,
+              newValue: newStr,
+            });
+          } catch (logError) {
+            console.error(`Failed to create edit log:`, logError);
+          }
         }
       }
 
-      const car = await storage.updateCar(id, req.body);
-      if (!car) {
-        return res.status(404).json({ message: "Car not found" });
-      }
-      res.json(car);
+      res.json(updatedCar);
     } catch (error) {
       console.error("Error updating car:", error);
       res.status(500).json({ message: "Failed to update car" });
@@ -404,6 +441,28 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching monthly payments:", error);
       res.status(500).json({ message: "Failed to fetch monthly payments" });
+    }
+  });
+
+  // Edit log routes
+  app.get("/api/edit-logs", isAuthenticated, async (req, res) => {
+    try {
+      const logs = await storage.getAllEditLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching edit logs:", error);
+      res.status(500).json({ message: "Failed to fetch edit logs" });
+    }
+  });
+
+  app.get("/api/cars/:carId/edit-logs", isAuthenticated, async (req, res) => {
+    try {
+      const carId = parseInt(req.params.carId);
+      const logs = await storage.getEditLogsByCarId(carId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching car edit logs:", error);
+      res.status(500).json({ message: "Failed to fetch car edit logs" });
     }
   });
 

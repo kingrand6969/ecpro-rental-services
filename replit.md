@@ -71,6 +71,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 - **rentals**: Booking records (customer info, dates, amount, payment screenshot)
 - **expenses**: Car-related expenses (category, amount, mileage)
 - **monthly_payments**: Car payment tracking by month/year
+- **edit_logs**: Car edit history (carId, userId, fieldName, oldValue, newValue, editedAt)
 - **sessions**: Express session storage
 
 ## API Endpoints
@@ -118,6 +119,10 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ### User
 - `POST /api/user/change-password` - Change own password (current password required unless mustChangePassword is set)
 
+### Edit Logs
+- `GET /api/edit-logs` - Get all car edit logs with car and user details
+- `GET /api/cars/:carId/edit-logs` - Get edit logs for a specific car
+
 ## Business Rules
 1. **User Approval**: New users must be approved by admin before they can login
 2. **Non-editable rentals**: Once finalized, only admins can edit
@@ -136,6 +141,8 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 - **Reset password**: Admin can reset user password to default "12345678"
 - **Settings page**: Users can change their own password in the Settings page
 - **Mandatory password change**: Users with reset passwords must change password before accessing other features
+- **Logs page**: All users can edit car information, with changes tracked in a new Logs page
+- **Edit history**: All car edits are logged with timestamp, user, field name, old and new values
 
 ## Development
 ```bash

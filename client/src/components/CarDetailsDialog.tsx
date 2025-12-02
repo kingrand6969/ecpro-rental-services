@@ -88,6 +88,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/edit-logs"] });
       toast({
         title: "Success",
         description: "Car updated successfully",
@@ -109,6 +110,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/edit-logs"] });
       toast({
         title: "Success",
         description: "Oil change recorded successfully",

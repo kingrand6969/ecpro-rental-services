@@ -5,6 +5,7 @@ import {
   expenses,
   monthlyPayments,
   customers,
+  editLogs,
   type User,
   type UpsertUser,
   type Car,
@@ -17,6 +18,9 @@ import {
   type InsertMonthlyPayment,
   type Customer,
   type InsertCustomer,
+  type EditLog,
+  type InsertEditLog,
+  type EditLogWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -68,6 +72,11 @@ export interface IStorage {
   // Monthly payment operations
   getMonthlyPayments(month: number, year: number): Promise<MonthlyPayment[]>;
   createOrUpdateMonthlyPayment(payment: InsertMonthlyPayment): Promise<MonthlyPayment>;
+
+  // Edit log operations
+  getAllEditLogs(): Promise<EditLogWithDetails[]>;
+  getEditLogsByCarId(carId: number): Promise<EditLogWithDetails[]>;
+  createEditLog(log: InsertEditLog): Promise<EditLog>;
 
   // Stats
   getStats(): Promise<{
@@ -327,6 +336,47 @@ export class DatabaseStorage implements IStorage {
     }
 
     const [created] = await db.insert(monthlyPayments).values(payment).returning();
+    return created;
+  }
+
+  // Edit log operations
+  async getAllEditLogs(): Promise<EditLogWithDetails[]> {
+    const logs = await db
+      .select()
+      .from(editLogs)
+      .orderBy(desc(editLogs.editedAt));
+    
+    const logsWithDetails: EditLogWithDetails[] = [];
+    for (const log of logs) {
+      const [car] = await db.select().from(cars).where(eq(cars.id, log.carId));
+      const [user] = await db.select().from(users).where(eq(users.id, log.userId));
+      if (car && user) {
+        logsWithDetails.push({ ...log, car, user });
+      }
+    }
+    return logsWithDetails;
+  }
+
+  async getEditLogsByCarId(carId: number): Promise<EditLogWithDetails[]> {
+    const logs = await db
+      .select()
+      .from(editLogs)
+      .where(eq(editLogs.carId, carId))
+      .orderBy(desc(editLogs.editedAt));
+    
+    const logsWithDetails: EditLogWithDetails[] = [];
+    for (const log of logs) {
+      const [car] = await db.select().from(cars).where(eq(cars.id, log.carId));
+      const [user] = await db.select().from(users).where(eq(users.id, log.userId));
+      if (car && user) {
+        logsWithDetails.push({ ...log, car, user });
+      }
+    }
+    return logsWithDetails;
+  }
+
+  async createEditLog(log: InsertEditLog): Promise<EditLog> {
+    const [created] = await db.insert(editLogs).values(log).returning();
     return created;
   }
 
