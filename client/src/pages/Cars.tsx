@@ -80,10 +80,7 @@ export default function Cars() {
               />
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-lg">{car.name}</CardTitle>
-                    <CardDescription>{car.model}</CardDescription>
-                  </div>
+                  <CardTitle className="text-lg">{car.name}</CardTitle>
                   <Badge className={statusColors[car.status] ?? ""}>
                     {car.status.charAt(0).toUpperCase() + car.status.slice(1)}
                   </Badge>
