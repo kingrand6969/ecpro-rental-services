@@ -88,6 +88,7 @@ export const rentals = pgTable("rentals", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentScreenshotUrl: varchar("payment_screenshot_url", { length: 500 }),
   isFinalized: boolean("is_finalized").default(false).notNull(),
+  lastFinalizeReminder: timestamp("last_finalize_reminder"), // tracks when we last asked about finalization
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
