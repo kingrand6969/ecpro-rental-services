@@ -19,19 +19,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Upload } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { CalendarIcon, ChevronRight, ChevronLeft } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -65,6 +59,7 @@ export function CreateRentalDialog({
   selectedDate,
 }: CreateRentalDialogProps) {
   const { toast } = useToast();
+  const [step, setStep] = useState<"car" | "dates" | "details">("car");
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState<string | null>(null);
 
   const { data: cars } = useQuery<Car[]>({
@@ -84,18 +79,21 @@ export function CreateRentalDialog({
   });
 
   useEffect(() => {
-    if (selectedDate) {
+    if (selectedDate && step === "dates") {
       form.setValue("startDate", selectedDate);
       form.setValue("endDate", addDays(selectedDate, 1));
     }
-  }, [selectedDate, form]);
+  }, [selectedDate, form, step]);
 
   const startDate = form.watch("startDate");
   const endDate = form.watch("endDate");
+  const selectedCarId = form.watch("carId");
 
   const daysRented = startDate && endDate
     ? Math.max(1, differenceInDays(endDate, startDate) + 1)
     : 0;
+
+  const selectedCar = cars?.find((car) => car.id === parseInt(selectedCarId));
 
   const createMutation = useMutation({
     mutationFn: async (data: RentalFormData) => {
@@ -116,373 +114,386 @@ export function CreateRentalDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
       toast({
         title: "Success",
-        description: "Rental created successfully",
+        description: "Rental booked successfully",
       });
       form.reset();
       setPaymentScreenshotUrl(null);
+      setStep("car");
       onOpenChange(false);
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to create rental",
+        description: error.message || "Failed to create rental",
         variant: "destructive",
       });
     },
   });
 
-  const finalizeMutation = useMutation({
-    mutationFn: async (data: RentalFormData) => {
-      const payload = {
-        carId: parseInt(data.carId),
-        customerName: data.customerName,
-        customerEmail: data.customerEmail || null,
-        customerPhone: data.customerPhone || null,
-        startDate: format(data.startDate, "yyyy-MM-dd"),
-        endDate: format(data.endDate, "yyyy-MM-dd"),
-        daysRented,
-        totalAmount: data.totalAmount,
-        paymentScreenshotUrl,
-        notes: data.notes || null,
-        isFinalized: true,
-      };
-      await apiRequest("POST", "/api/rentals", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
-      toast({
-        title: "Success",
-        description: "Rental created and finalized successfully",
-      });
-      form.reset();
-      setPaymentScreenshotUrl(null);
-      onOpenChange(false);
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create rental",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload");
-    const data = await response.json();
-    return {
-      method: "PUT" as const,
-      url: data.uploadURL,
-    };
-  };
-
-  const handleUploadComplete = async (result: { successful: Array<{ uploadURL?: string }> }) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadedUrl = result.successful[0].uploadURL;
-      if (uploadedUrl) {
-        const response = await apiRequest("PUT", "/api/payment-screenshots", {
-          screenshotURL: uploadedUrl,
-        });
-        const data = await response.json();
-        setPaymentScreenshotUrl(data.objectPath);
-        toast({
-          title: "Upload Complete",
-          description: "Payment screenshot uploaded successfully",
-        });
-      }
-    }
-  };
-
-  const onSubmit = (data: RentalFormData) => {
+  const handleSubmit = form.handleSubmit(async (data) => {
     createMutation.mutate(data);
+  });
+
+  const canProceedToDateSelection = !!selectedCarId;
+  const canProceedToDetails = canProceedToDateSelection && startDate && endDate;
+
+  const handleReset = () => {
+    setStep("car");
+    form.reset();
+    setPaymentScreenshotUrl(null);
   };
 
-  const onFinalize = () => {
-    const values = form.getValues();
-    if (form.formState.isValid) {
-      finalizeMutation.mutate(values);
-    } else {
-      form.trigger();
-    }
+  const handleClose = () => {
+    onOpenChange(false);
+    handleReset();
   };
-
-  const availableCars = cars?.filter((car) => car.status !== "maintenance");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>New Rental</DialogTitle>
+          <DialogTitle data-testid="text-booking-title">
+            {step === "car" && "Select a Vehicle"}
+            {step === "dates" && "Choose Rental Dates"}
+            {step === "details" && "Complete Your Booking"}
+          </DialogTitle>
           <DialogDescription>
-            Create a new rental booking. Once finalized, only admins can edit.
+            {step === "car" && "Choose the car you want to rent"}
+            {step === "dates" && `Rental dates for ${selectedCar?.name}`}
+            {step === "details" && "Enter customer details and payment information"}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="carId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Car</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-car">
-                        <SelectValue placeholder="Select a car" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {availableCars?.map((car) => (
-                        <SelectItem key={car.id} value={car.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: car.colorCode }}
-                            />
-                            {car.name} - {car.plateNumber}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="customerName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Customer Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="John Doe"
-                        {...field}
-                        data-testid="input-customer-name"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="customerEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email (Optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="john@example.com"
-                        {...field}
-                        data-testid="input-customer-email"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="customerPhone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone (Optional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="+1 234 567 8900"
-                      {...field}
-                      data-testid="input-customer-phone"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Start Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                            data-testid="button-start-date"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : "Pick a date"}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* STEP 1: Car Selection */}
+            {step === "car" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
+                {cars?.map((car) => (
+                  <Card
+                    key={car.id}
+                    className={`cursor-pointer transition-all hover-elevate ${
+                      selectedCarId === car.id.toString()
+                        ? "ring-2 ring-primary"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      form.setValue("carId", car.id.toString());
+                    }}
+                    data-testid={`card-car-${car.id}`}
+                  >
+                    <CardContent className="p-4">
+                      {car.imageUrl && (
+                        <img
+                          src={car.imageUrl}
+                          alt={car.name}
+                          className="w-full h-32 object-cover rounded-md mb-3"
+                          data-testid={`img-car-${car.id}`}
                         />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>End Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                            data-testid="button-end-date"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : "Pick a date"}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => startDate && date < startDate}
-                          initialFocus
+                      )}
+                      <div className="flex items-start gap-2 mb-2">
+                        <div
+                          className="w-4 h-4 rounded-full flex-shrink-0 mt-1"
+                          style={{ backgroundColor: car.colorCode }}
                         />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {daysRented > 0 && (
-              <div className="p-3 rounded-md bg-muted text-sm">
-                <span className="font-medium">{daysRented}</span> day{daysRented > 1 ? "s" : ""} rental
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate" data-testid={`text-car-name-${car.id}`}>
+                            {car.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground truncate" data-testid={`text-car-model-${car.id}`}>
+                            {car.model}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1" data-testid={`text-car-plate-${car.id}`}>
+                            {car.plateNumber}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
 
-            <FormField
-              control={form.control}
-              name="totalAmount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Amount Paid ($)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                      {...field}
-                      data-testid="input-total-amount"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* STEP 2: Date Selection */}
+            {step === "dates" && (
+              <div className="space-y-4">
+                <div className="bg-accent/50 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-medium" data-testid="text-selected-car-info">
+                    {selectedCar?.name} • {selectedCar?.model}
+                  </p>
+                </div>
 
-            <div>
-              <FormLabel>Payment Screenshot (Optional)</FormLabel>
-              <div className="mt-2">
-                {paymentScreenshotUrl ? (
-                  <div className="flex items-center gap-3 p-3 rounded-md bg-muted">
-                    <span className="text-sm text-muted-foreground">Screenshot uploaded</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPaymentScreenshotUrl(null)}
-                    >
-                      Remove
-                    </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start"
+                              data-testid="button-start-date"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value ? format(field.value, "MMM d, yyyy") : "Select date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={(date) => {
+                                field.onChange(date);
+                              }}
+                              disabled={(date) =>
+                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start"
+                              data-testid="button-end-date"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {field.value ? format(field.value, "MMM d, yyyy") : "Select date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={(date) => {
+                                field.onChange(date);
+                              }}
+                              disabled={(date) =>
+                                date <
+                                (startDate || new Date(new Date().setHours(0, 0, 0, 0)))
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {daysRented > 0 && (
+                  <div className="bg-primary/10 rounded-lg p-3">
+                    <p className="text-sm font-medium" data-testid="text-days-count">
+                      Total: {daysRented} day{daysRented !== 1 ? "s" : ""}
+                    </p>
                   </div>
-                ) : (
-                  <ObjectUploader
-                    maxNumberOfFiles={1}
-                    maxFileSize={10485760}
-                    onGetUploadParameters={handleGetUploadParameters}
-                    onComplete={handleUploadComplete}
-                    buttonClassName="w-full"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      <span>Upload Payment Screenshot</span>
-                    </div>
-                  </ObjectUploader>
                 )}
               </div>
-            </div>
+            )}
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any additional notes..."
-                      {...field}
-                      data-testid="input-notes"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* STEP 3: Details and Payment */}
+            {step === "details" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 bg-accent/50 rounded-lg p-3 mb-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Vehicle</p>
+                    <p className="text-sm font-medium" data-testid="text-detail-car-name">
+                      {selectedCar?.name}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Duration</p>
+                    <p className="text-sm font-medium" data-testid="text-detail-days">
+                      {daysRented} day{daysRented !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">From</p>
+                    <p className="text-sm font-medium" data-testid="text-detail-start-date">
+                      {startDate ? format(startDate, "MMM d") : ""}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">To</p>
+                    <p className="text-sm font-medium" data-testid="text-detail-end-date">
+                      {endDate ? format(endDate, "MMM d") : ""}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-3 pt-4">
+                <FormField
+                  control={form.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Full name" data-testid="input-customer-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="customerEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="email"
+                            placeholder="email@example.com"
+                            data-testid="input-customer-email"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="customerPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Phone number" data-testid="input-customer-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="totalAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Total Rental Amount ($)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          data-testid="input-total-amount"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Additional Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          placeholder="Any special requests or notes..."
+                          className="resize-none"
+                          data-testid="input-notes"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Payment Screenshot (Optional)</p>
+                  <ObjectUploader
+                    onGetUploadParameters={async () => {
+                      const response = await apiRequest("POST", "/api/objects/upload", {});
+                      const data = await response.json();
+                      return { method: "PUT" as const, url: data.url };
+                    }}
+                    onComplete={(result) => {
+                      if (result.successful[0]?.uploadURL) {
+                        setPaymentScreenshotUrl(result.successful[0].uploadURL);
+                      }
+                    }}
+                    data-testid="uploader-payment-screenshot"
+                  >
+                    Upload Payment Screenshot
+                  </ObjectUploader>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <div className="flex justify-between gap-3 pt-4 border-t">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1"
+                onClick={() => {
+                  if (step === "dates") setStep("car");
+                  else if (step === "details") setStep("dates");
+                  else handleClose();
+                }}
+                data-testid={`button-${step === "car" ? "close" : "back"}`}
               >
-                Cancel
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                {step === "car" ? "Cancel" : "Back"}
               </Button>
-              <Button
-                type="submit"
-                variant="secondary"
-                className="flex-1"
-                disabled={createMutation.isPending}
-                data-testid="button-save-draft"
-              >
-                {createMutation.isPending ? "Saving..." : "Save as Draft"}
-              </Button>
-              <Button
-                type="button"
-                className="flex-1"
-                onClick={onFinalize}
-                disabled={finalizeMutation.isPending}
-                data-testid="button-finalize"
-              >
-                {finalizeMutation.isPending ? "Finalizing..." : "Finalize"}
-              </Button>
+
+              {step !== "details" && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (step === "car" && canProceedToDateSelection) {
+                      setStep("dates");
+                    } else if (step === "dates" && canProceedToDetails) {
+                      setStep("details");
+                    }
+                  }}
+                  disabled={
+                    (step === "car" && !canProceedToDateSelection) ||
+                    (step === "dates" && !canProceedToDetails)
+                  }
+                  data-testid="button-next-step"
+                >
+                  Next
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+
+              {step === "details" && (
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending}
+                  data-testid="button-complete-booking"
+                >
+                  {createMutation.isPending ? "Booking..." : "Complete Booking"}
+                </Button>
+              )}
             </div>
           </form>
         </Form>

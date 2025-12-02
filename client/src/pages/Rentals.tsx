@@ -68,9 +68,9 @@ export default function Rentals() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
         <h1 className="text-2xl font-semibold">Rentals</h1>
-        <Button onClick={() => setCreateOpen(true)} data-testid="button-new-rental">
+        <Button onClick={() => setCreateOpen(true)} data-testid="button-book-rent">
           <Plus className="h-4 w-4 mr-2" />
-          New Rental
+          Book a Rent
         </Button>
       </div>
 
