@@ -58,6 +58,7 @@ export const customers = pgTable("customers", {
 export const cars = pgTable("cars", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: varchar("name", { length: 255 }).notNull(),
+  brand: varchar("brand", { length: 100 }), // Toyota, Suzuki, Isuzu, etc.
   model: varchar("model", { length: 255 }).notNull(),
   plateNumber: varchar("plate_number", { length: 50 }).notNull().unique(),
   color: varchar("color", { length: 50 }).notNull(),
