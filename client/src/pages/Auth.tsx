@@ -130,7 +130,7 @@ export default function Auth() {
         </CardHeader>
         <CardContent>
           {isRegistering ? (
-            <Form {...registerForm}>
+            <Form {...registerForm} key="register-form">
               <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
                 <FormField
                   control={registerForm.control}
@@ -221,7 +221,7 @@ export default function Auth() {
               </form>
             </Form>
           ) : (
-            <Form {...loginForm}>
+            <Form {...loginForm} key="login-form">
               <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
                 <FormField
                   control={loginForm.control}
