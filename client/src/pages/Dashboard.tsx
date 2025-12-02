@@ -44,10 +44,33 @@ export default function Dashboard() {
     return cars?.find((car) => car.id === carId);
   };
 
+  const getAvailableCarsForDate = (date: Date) => {
+    if (!cars) return [];
+    const dayRentals = getRentalsForDay(date);
+    const rentedCarIds = new Set(dayRentals.map(r => r.carId));
+    return cars.filter(car => !rentedCarIds.has(car.id));
+  };
+
+  const getNextRentalDateForCar = (carId: number, fromDate: Date) => {
+    if (!rentals) return null;
+    const carRentals = rentals
+      .filter(r => r.carId === carId)
+      .map(r => ({ startDate: parseISO(r.startDate as string), endDate: parseISO(r.endDate as string) }))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    
+    const nextRental = carRentals.find(r => r.startDate > fromDate);
+    return nextRental ? nextRental.startDate : null;
+  };
+
   const selectedDayRentals = useMemo(() => {
     if (!selectedDate) return [];
     return getRentalsForDay(selectedDate);
   }, [selectedDate, rentals]);
+
+  const selectedDayAvailableCars = useMemo(() => {
+    if (!selectedDate) return [];
+    return getAvailableCarsForDate(selectedDate);
+  }, [selectedDate, cars, rentals]);
 
   const isLoading = carsLoading || rentalsLoading;
 
@@ -117,7 +140,7 @@ export default function Dashboard() {
                   </div>
                   <div className="grid grid-cols-7 gap-px bg-border rounded-md overflow-hidden">
                     {paddingDays.map((_, index) => (
-                      <div key={`pad-₱{index}`} className="bg-background p-2 min-h-24" />
+                      <div key={`pad-${index}`} className="bg-background p-2 min-h-24" />
                     ))}
                     {calendarDays.map((day) => {
                       const dayRentals = getRentalsForDay(day);
@@ -128,13 +151,13 @@ export default function Dashboard() {
                         <button
                           key={day.toISOString()}
                           onClick={() => setSelectedDate(day)}
-                          className={`bg-background p-2 min-h-24 text-left hover-elevate transition-colors cursor-pointer ₱{
+                          className={`bg-background p-2 min-h-24 text-left hover-elevate transition-colors cursor-pointer ${
                             isSelected ? "ring-2 ring-primary ring-inset" : ""
                           }`}
-                          data-testid={`calendar-day-₱{format(day, "yyyy-MM-dd")}`}
+                          data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
                         >
                           <span
-                            className={`inline-flex items-center justify-center w-7 h-7 text-sm rounded-full ₱{
+                            className={`inline-flex items-center justify-center w-7 h-7 text-sm rounded-full ${
                               isToday
                                 ? "bg-primary text-primary-foreground font-semibold"
                                 : "font-medium"
@@ -208,8 +231,39 @@ export default function Dashboard() {
                   Click on a day to see rental details
                 </p>
               ) : selectedDayRentals.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">No rentals on this day</p>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">Available Cars</h4>
+                    {selectedDayAvailableCars.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedDayAvailableCars.map((car) => {
+                          const nextRental = getNextRentalDateForCar(car.id, selectedDate);
+                          return (
+                            <div
+                              key={car.id}
+                              className="p-2 rounded-md border"
+                              data-testid={`available-car-${car.id}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: car.colorCode }}
+                                />
+                                <span className="font-medium text-sm">{car.name}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {nextRental
+                                  ? `Available until ${format(new Date(nextRental.getTime() - 86400000), "MMM d")}`
+                                  : "Available all month"}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No cars available today</p>
+                    )}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -229,7 +283,7 @@ export default function Dashboard() {
                       <div
                         key={rental.id}
                         className="p-3 rounded-md border"
-                        data-testid={`rental-card-₱{rental.id}`}
+                        data-testid={`rental-card-${rental.id}`}
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <div
