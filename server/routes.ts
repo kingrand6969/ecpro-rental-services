@@ -75,11 +75,19 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
+      
+      const id = parseInt(req.params.id);
+      
+      // Only allow non-admins to update plateNumber and currentMileage
       if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+        const allowedFields = ['plateNumber', 'currentMileage'];
+        const requestedFields = Object.keys(req.body);
+        const hasDisallowedFields = requestedFields.some(field => !allowedFields.includes(field));
+        if (hasDisallowedFields) {
+          return res.status(403).json({ message: "Only admins can modify car status or other fields" });
+        }
       }
 
-      const id = parseInt(req.params.id);
       const car = await storage.updateCar(id, req.body);
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
@@ -256,6 +264,26 @@ export async function registerRoutes(
         userId,
       };
       const validated = insertRentalSchema.parse(rentalData);
+      
+      // Check for duplicate or overlapping rental for the same car
+      const allRentals = await storage.getAllRentals();
+      const carRentals = allRentals.filter(r => r.carId === validated.carId);
+      
+      const newStart = new Date(validated.startDate);
+      const newEnd = new Date(validated.endDate);
+      
+      for (const existing of carRentals) {
+        const existStart = new Date(existing.startDate);
+        const existEnd = new Date(existing.endDate);
+        
+        // Check for overlapping dates
+        if ((newStart <= existEnd && newEnd >= existStart)) {
+          return res.status(400).json({ 
+            message: "This car has an overlapping rental during the selected dates" 
+          });
+        }
+      }
+      
       const rental = await storage.createRental(validated);
       res.status(201).json(rental);
     } catch (error) {

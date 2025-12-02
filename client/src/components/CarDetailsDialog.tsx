@@ -37,6 +37,7 @@ import type { Car } from "@shared/schema";
 import { useEffect } from "react";
 
 const updateCarSchema = z.object({
+  plateNumber: z.string().optional(),
   currentMileage: z.string().min(1, "Mileage is required"),
   lastOilChangeMileage: z.string().optional(),
   status: z.string().min(1, "Status is required"),
@@ -56,6 +57,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const form = useForm<UpdateCarFormData>({
     resolver: zodResolver(updateCarSchema),
     defaultValues: {
+      plateNumber: "",
       currentMileage: "",
       lastOilChangeMileage: "",
       status: "available",
@@ -65,6 +67,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   useEffect(() => {
     if (car) {
       form.reset({
+        plateNumber: car.plateNumber ?? "",
         currentMileage: car.currentMileage?.toString() ?? "0",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
         status: car.status,
@@ -74,7 +77,8 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateCarFormData) => {
-      await apiRequest("PATCH", `/api/cars/₱{car?.id}`, {
+      await apiRequest("PATCH", `/api/cars/${car?.id}`, {
+        plateNumber: data.plateNumber,
         currentMileage: parseInt(data.currentMileage),
         lastOilChangeMileage: data.lastOilChangeMileage
           ? parseInt(data.lastOilChangeMileage)
@@ -101,7 +105,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
   const recordOilChangeMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/cars/₱{car?.id}/oil-change`);
+      await apiRequest("POST", `/api/cars/${car?.id}/oil-change`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
@@ -216,78 +220,93 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
             )}
           </div>
 
-          {isAdmin && (
-            <>
-              <Separator />
+          <Separator />
 
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <h4 className="font-medium">Update Car</h4>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <h4 className="font-medium">Update Car Information</h4>
 
-                  <FormField
-                    control={form.control}
-                    name="currentMileage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Current Mileage (km)</FormLabel>
+              <FormField
+                control={form.control}
+                name="plateNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plate Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-plate-number"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="currentMileage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Mileage (km)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        {...field}
+                        data-testid="input-update-mileage"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {isAdmin && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status (Admin Only)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            {...field}
-                            data-testid="input-update-mileage"
-                          />
+                          <SelectTrigger data-testid="select-car-status">
+                            <SelectValue />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                        <SelectContent>
+                          <SelectItem value="available">Available</SelectItem>
+                          <SelectItem value="rented">Rented</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-car-status">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="available">Available</SelectItem>
-                            <SelectItem value="rented">Rented</SelectItem>
-                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={onClose}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="flex-1"
-                      disabled={updateMutation.isPending}
-                      data-testid="button-update-car"
-                    >
-                      {updateMutation.isPending ? "Updating..." : "Update"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </>
-          )}
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={updateMutation.isPending}
+                  data-testid="button-update-car"
+                >
+                  {updateMutation.isPending ? "Updating..." : "Update"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </div>
       </DialogContent>
     </Dialog>
