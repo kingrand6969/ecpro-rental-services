@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
+import { AvailableCarsDialog } from "@/components/AvailableCarsDialog";
 import type { Car, Rental } from "@shared/schema";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
+  const [availableCarsOpen, setAvailableCarsOpen] = useState(false);
 
   const { data: cars, isLoading: carsLoading } = useQuery<Car[]>({
     queryKey: ["/api/cars"],
@@ -231,39 +233,8 @@ export default function Dashboard() {
                   Click on a day to see rental details
                 </p>
               ) : selectedDayRentals.length === 0 ? (
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Available Cars</h4>
-                    {selectedDayAvailableCars.length > 0 ? (
-                      <div className="space-y-2">
-                        {selectedDayAvailableCars.map((car) => {
-                          const nextRental = getNextRentalDateForCar(car.id, selectedDate);
-                          return (
-                            <div
-                              key={car.id}
-                              className="p-2 rounded-md border"
-                              data-testid={`available-car-${car.id}`}
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                <div
-                                  className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: car.colorCode }}
-                                />
-                                <span className="font-medium text-sm">{car.name}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {nextRental
-                                  ? `Available until ${format(new Date(nextRental.getTime() - 86400000), "MMM d")}`
-                                  : "Available all month"}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No cars available today</p>
-                    )}
-                  </div>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">No rentals on this day</p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -273,6 +244,15 @@ export default function Dashboard() {
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Rental
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setAvailableCarsOpen(true)}
+                    data-testid="button-view-available-cars"
+                  >
+                    View Available Cars
                   </Button>
                 </div>
               ) : (
@@ -319,6 +299,16 @@ export default function Dashboard() {
         onOpenChange={setCreateRentalOpen}
         selectedDate={selectedDate}
       />
+
+      {selectedDate && (
+        <AvailableCarsDialog
+          open={availableCarsOpen}
+          onOpenChange={setAvailableCarsOpen}
+          selectedDate={selectedDate}
+          cars={cars || []}
+          rentals={rentals || []}
+        />
+      )}
     </div>
   );
 }
