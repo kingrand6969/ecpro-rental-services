@@ -58,9 +58,9 @@ const EXPENSE_CATEGORIES = [
 ];
 
 const expenseSchema = z.object({
-  category: z.string().min(1, "Category is required"),
+  category: z.string().min(1, "Kind of expense is required"),
   description: z.string().min(1, "Description is required"),
-  amount: z.string().min(1, "Amount is required"),
+  amount: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, "Amount must be a positive number"),
   mileageAtExpense: z.string().optional(),
   expenseDate: z.string().min(1, "Date is required"),
 });

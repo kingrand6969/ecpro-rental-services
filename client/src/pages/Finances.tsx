@@ -240,9 +240,9 @@ export default function Finances() {
 
           <Card className="mb-6">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Payment Progress by Car</CardTitle>
+              <CardTitle className="text-lg">Monthly Amortization Progress</CardTitle>
               <CardDescription>
-                Track how much of each car's monthly payment is covered by net income
+                Income milestone showing progress toward covering each car's monthly payment
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -277,14 +277,24 @@ export default function Finances() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Progress
-                          value={Math.max(0, paymentProgress)}
-                          className="h-2 flex-1"
+                          value={Math.max(0, Math.min(100, paymentProgress))}
+                          className="h-3 flex-1"
+                          data-testid={`progress-payment-${car.id}`}
                         />
-                        <span className={`text-sm font-medium w-12 text-right ${
-                          paymentProgress >= 100 ? "text-green-600 dark:text-green-400" : ""
-                        }`}>
-                          {Math.round(paymentProgress)}%
-                        </span>
+                        <div className="text-right">
+                          <span className={`text-sm font-bold w-16 tabular-nums ${
+                            paymentProgress >= 100 
+                              ? "text-green-600 dark:text-green-400" 
+                              : paymentProgress >= 50
+                              ? "text-blue-600 dark:text-blue-400"
+                              : "text-orange-600 dark:text-orange-400"
+                          }`}>
+                            {Math.round(paymentProgress)}%
+                          </span>
+                          {paymentProgress >= 100 && (
+                            <div className="text-xs text-green-600 dark:text-green-400 font-medium">Covered</div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
