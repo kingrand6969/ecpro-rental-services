@@ -72,7 +72,7 @@ export default function Cars() {
               key={car.id}
               className="overflow-hidden hover-elevate cursor-pointer"
               onClick={() => setSelectedCar(car)}
-              data-testid={`car-card-${car.id}`}
+              data-testid={`car-card-₱{car.id}`}
             >
               <div
                 className="h-3"
@@ -98,7 +98,7 @@ export default function Cars() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Monthly Payment</span>
                     <span className="font-medium">
-                      ${parseFloat(car.monthlyPayment).toLocaleString()}
+                      ₱{parseFloat(car.monthlyPayment).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
@@ -129,7 +129,7 @@ export default function Cars() {
                       e.stopPropagation();
                       setExpensesCarId(car.id);
                     }}
-                    data-testid={`button-expenses-${car.id}`}
+                    data-testid={`button-expenses-₱{car.id}`}
                   >
                     <Wrench className="h-4 w-4 mr-2" />
                     Expenses

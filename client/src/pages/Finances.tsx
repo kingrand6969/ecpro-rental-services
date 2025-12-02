@@ -178,7 +178,7 @@ export default function Finances() {
                   <div>
                     <p className="text-sm text-muted-foreground">Total Income</p>
                     <p className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                      ${financialSummary.totalIncome.toLocaleString()}
+                      ₱{financialSummary.totalIncome.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -194,7 +194,7 @@ export default function Finances() {
                   <div>
                     <p className="text-sm text-muted-foreground">Total Expenses</p>
                     <p className="text-xl font-semibold tabular-nums text-red-600 dark:text-red-400">
-                      ${financialSummary.totalExpenses.toLocaleString()}
+                      ₱{financialSummary.totalExpenses.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -209,12 +209,12 @@ export default function Finances() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Net Profit</p>
-                    <p className={`text-xl font-semibold tabular-nums ${
+                    <p className={`text-xl font-semibold tabular-nums ₱{
                       financialSummary.netProfit >= 0
                         ? "text-green-600 dark:text-green-400"
                         : "text-red-600 dark:text-red-400"
                     }`}>
-                      ${financialSummary.netProfit.toLocaleString()}
+                      ₱{financialSummary.netProfit.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -230,7 +230,7 @@ export default function Finances() {
                   <div>
                     <p className="text-sm text-muted-foreground">Monthly Payments</p>
                     <p className="text-xl font-semibold tabular-nums">
-                      ${financialSummary.totalMonthlyPayments.toLocaleString()}
+                      ₱{financialSummary.totalMonthlyPayments.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -249,7 +249,7 @@ export default function Finances() {
               {carFinancials.length > 0 ? (
                 <div className="space-y-6">
                   {carFinancials.map(({ car, income, expenses, netProfit, monthlyPayment, paymentProgress }) => (
-                    <div key={car.id} className="space-y-2" data-testid={`car-progress-${car.id}`}>
+                    <div key={car.id} className="space-y-2" data-testid={`car-progress-₱{car.id}`}>
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <div
@@ -261,16 +261,16 @@ export default function Finances() {
                         <div className="flex items-center gap-6 text-sm">
                           <div className="text-right">
                             <span className="text-muted-foreground">Net: </span>
-                            <span className={`font-medium tabular-nums ${
+                            <span className={`font-medium tabular-nums ₱{
                               netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                             }`}>
-                              ${netProfit.toLocaleString()}
+                              ₱{netProfit.toLocaleString()}
                             </span>
                           </div>
                           <div className="text-right w-28">
                             <span className="text-muted-foreground">Payment: </span>
                             <span className="font-medium tabular-nums">
-                              ${monthlyPayment.toLocaleString()}
+                              ₱{monthlyPayment.toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -279,10 +279,10 @@ export default function Finances() {
                         <Progress
                           value={Math.max(0, Math.min(100, paymentProgress))}
                           className="h-3 flex-1"
-                          data-testid={`progress-payment-${car.id}`}
+                          data-testid={`progress-payment-₱{car.id}`}
                         />
                         <div className="text-right">
-                          <span className={`text-sm font-bold w-16 tabular-nums ${
+                          <span className={`text-sm font-bold w-16 tabular-nums ₱{
                             paymentProgress >= 100 
                               ? "text-green-600 dark:text-green-400" 
                               : paymentProgress >= 50
@@ -335,15 +335,15 @@ export default function Finances() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">
-                          ${income.toLocaleString()}
+                          ₱{income.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">
-                          ${expenses.toLocaleString()}
+                          ₱{expenses.toLocaleString()}
                         </TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ${
+                        <TableCell className={`text-right tabular-nums font-medium ₱{
                           netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                         }`}>
-                          ${netProfit.toLocaleString()}
+                          ₱{netProfit.toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -362,7 +362,7 @@ export default function Finances() {
                     <div className="flex items-center justify-between">
                       <span className="text-green-700 dark:text-green-300 font-medium">Total Revenue</span>
                       <span className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                        ${financialSummary.totalIncome.toLocaleString()}
+                        ₱{financialSummary.totalIncome.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -371,7 +371,7 @@ export default function Finances() {
                     <div className="flex items-center justify-between">
                       <span className="text-red-700 dark:text-red-300 font-medium">Total Expenses</span>
                       <span className="text-xl font-semibold tabular-nums text-red-600 dark:text-red-400">
-                        -${financialSummary.totalExpenses.toLocaleString()}
+                        -₱{financialSummary.totalExpenses.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -379,12 +379,12 @@ export default function Finances() {
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-lg">Net Profit</span>
-                      <span className={`text-2xl font-bold tabular-nums ${
+                      <span className={`text-2xl font-bold tabular-nums ₱{
                         financialSummary.netProfit >= 0
                           ? "text-green-600 dark:text-green-400"
                           : "text-red-600 dark:text-red-400"
                       }`}>
-                        ${financialSummary.netProfit.toLocaleString()}
+                        ₱{financialSummary.netProfit.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -394,7 +394,7 @@ export default function Finances() {
                       <span className="text-muted-foreground">Payment Coverage</span>
                       <span className="font-medium">
                         {financialSummary.totalMonthlyPayments > 0
-                          ? `${Math.round((financialSummary.netProfit / financialSummary.totalMonthlyPayments) * 100)}%`
+                          ? `₱{Math.round((financialSummary.netProfit / financialSummary.totalMonthlyPayments) * 100)}%`
                           : "N/A"}
                       </span>
                     </div>
@@ -409,7 +409,7 @@ export default function Finances() {
                     <p className="text-xs text-muted-foreground mt-2">
                       {financialSummary.netProfit >= financialSummary.totalMonthlyPayments
                         ? "All monthly payments covered!"
-                        : `$${Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.netProfit).toLocaleString()} remaining to cover payments`}
+                        : `$₱{Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.netProfit).toLocaleString()} remaining to cover payments`}
                     </p>
                   </div>
                 </div>

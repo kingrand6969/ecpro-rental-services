@@ -74,7 +74,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateCarFormData) => {
-      await apiRequest("PATCH", `/api/cars/${car?.id}`, {
+      await apiRequest("PATCH", `/api/cars/₱{car?.id}`, {
         currentMileage: parseInt(data.currentMileage),
         lastOilChangeMileage: data.lastOilChangeMileage
           ? parseInt(data.lastOilChangeMileage)
@@ -101,7 +101,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
   const recordOilChangeMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/cars/${car?.id}/oil-change`);
+      await apiRequest("POST", `/api/cars/₱{car?.id}/oil-change`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
@@ -150,7 +150,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
             <div className="p-3 rounded-md bg-muted">
               <p className="text-sm text-muted-foreground">Monthly Payment</p>
               <p className="text-lg font-semibold">
-                ${parseFloat(car.monthlyPayment).toLocaleString()}
+                ₱{parseFloat(car.monthlyPayment).toLocaleString()}
               </p>
             </div>
             <div className="p-3 rounded-md bg-muted">

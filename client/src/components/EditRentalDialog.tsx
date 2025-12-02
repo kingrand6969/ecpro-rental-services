@@ -120,7 +120,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
         notes: data.notes || null,
         isFinalized: data.isFinalized,
       };
-      await apiRequest("PATCH", `/api/rentals/${rental?.id}`, payload);
+      await apiRequest("PATCH", `/api/rentals/₱{rental?.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
@@ -141,7 +141,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/rentals/${rental?.id}`);
+      await apiRequest("DELETE", `/api/rentals/₱{rental?.id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });

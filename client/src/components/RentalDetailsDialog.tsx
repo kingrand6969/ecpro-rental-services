@@ -123,7 +123,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Total Amount Paid</span>
                 <span className="text-xl font-semibold">
-                  ${parseFloat(rental.totalAmount).toLocaleString()}
+                  ₱{parseFloat(rental.totalAmount).toLocaleString()}
                 </span>
               </div>
             </div>

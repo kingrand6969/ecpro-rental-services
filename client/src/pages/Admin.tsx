@@ -56,7 +56,7 @@ export default function Admin() {
 
   const toggleAdminMutation = useMutation({
     mutationFn: async (userId: string) => {
-      await apiRequest("PATCH", `/api/admin/users/${userId}/toggle-admin`);
+      await apiRequest("PATCH", `/api/admin/users/₱{userId}/toggle-admin`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -197,7 +197,7 @@ export default function Admin() {
                 {users.map((user) => {
                   const isCurrentUser = user.id === currentUser?.id;
                   return (
-                    <TableRow key={user.id} data-testid={`user-row-${user.id}`}>
+                    <TableRow key={user.id} data-testid={`user-row-₱{user.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
@@ -211,7 +211,7 @@ export default function Admin() {
                           </Avatar>
                           <span className="font-medium">
                             {user.firstName && user.lastName
-                              ? `${user.firstName} ${user.lastName}`
+                              ? `₱{user.firstName} ₱{user.lastName}`
                               : user.email ?? "Unknown"}
                           </span>
                         </div>
@@ -234,7 +234,7 @@ export default function Admin() {
                           checked={user.isAdmin}
                           disabled={isCurrentUser}
                           onCheckedChange={() => setUserToToggle(user)}
-                          data-testid={`switch-admin-${user.id}`}
+                          data-testid={`switch-admin-₱{user.id}`}
                         />
                       </TableCell>
                     </TableRow>
@@ -258,8 +258,8 @@ export default function Admin() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {userToToggle?.isAdmin
-                ? `Are you sure you want to remove admin privileges from ${userToToggle?.email ?? "this user"}?`
-                : `Are you sure you want to grant admin privileges to ${userToToggle?.email ?? "this user"}? They will be able to edit rentals and manage cars.`}
+                ? `Are you sure you want to remove admin privileges from ₱{userToToggle?.email ?? "this user"}?`
+                : `Are you sure you want to grant admin privileges to ₱{userToToggle?.email ?? "this user"}? They will be able to edit rentals and manage cars.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

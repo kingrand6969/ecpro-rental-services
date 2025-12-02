@@ -117,7 +117,7 @@ export default function Dashboard() {
                   </div>
                   <div className="grid grid-cols-7 gap-px bg-border rounded-md overflow-hidden">
                     {paddingDays.map((_, index) => (
-                      <div key={`pad-${index}`} className="bg-background p-2 min-h-24" />
+                      <div key={`pad-₱{index}`} className="bg-background p-2 min-h-24" />
                     ))}
                     {calendarDays.map((day) => {
                       const dayRentals = getRentalsForDay(day);
@@ -128,13 +128,13 @@ export default function Dashboard() {
                         <button
                           key={day.toISOString()}
                           onClick={() => setSelectedDate(day)}
-                          className={`bg-background p-2 min-h-24 text-left hover-elevate transition-colors cursor-pointer ${
+                          className={`bg-background p-2 min-h-24 text-left hover-elevate transition-colors cursor-pointer ₱{
                             isSelected ? "ring-2 ring-primary ring-inset" : ""
                           }`}
-                          data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+                          data-testid={`calendar-day-₱{format(day, "yyyy-MM-dd")}`}
                         >
                           <span
-                            className={`inline-flex items-center justify-center w-7 h-7 text-sm rounded-full ${
+                            className={`inline-flex items-center justify-center w-7 h-7 text-sm rounded-full ₱{
                               isToday
                                 ? "bg-primary text-primary-foreground font-semibold"
                                 : "font-medium"
@@ -229,7 +229,7 @@ export default function Dashboard() {
                       <div
                         key={rental.id}
                         className="p-3 rounded-md border"
-                        data-testid={`rental-card-${rental.id}`}
+                        data-testid={`rental-card-₱{rental.id}`}
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <div

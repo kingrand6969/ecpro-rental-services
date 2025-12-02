@@ -211,14 +211,14 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                         key={color.code}
                         type="button"
                         onClick={() => field.onChange(color.code)}
-                        className={`w-8 h-8 rounded-full border-2 transition-all ${
+                        className={`w-8 h-8 rounded-full border-2 transition-all ₱{
                           selectedColorCode === color.code
                             ? "border-foreground scale-110"
                             : "border-transparent"
                         }`}
                         style={{ backgroundColor: color.code }}
                         title={color.name}
-                        data-testid={`color-${color.name.toLowerCase()}`}
+                        data-testid={`color-₱{color.name.toLowerCase()}`}
                       />
                     ))}
                   </div>

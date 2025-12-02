@@ -162,7 +162,7 @@ export function CreateRentalDialog({
           </DialogTitle>
           <DialogDescription>
             {step === "car" && "Choose the car you want to rent"}
-            {step === "dates" && `Rental dates for ${selectedCar?.name}`}
+            {step === "dates" && `Rental dates for ₱{selectedCar?.name}`}
             {step === "details" && "Enter customer details and payment information"}
           </DialogDescription>
         </DialogHeader>
@@ -175,7 +175,7 @@ export function CreateRentalDialog({
                 {cars?.map((car) => (
                   <Card
                     key={car.id}
-                    className={`cursor-pointer transition-all hover-elevate ${
+                    className={`cursor-pointer transition-all hover-elevate ₱{
                       selectedCarId === car.id.toString()
                         ? "ring-2 ring-primary"
                         : ""
@@ -183,7 +183,7 @@ export function CreateRentalDialog({
                     onClick={() => {
                       form.setValue("carId", car.id.toString());
                     }}
-                    data-testid={`card-car-${car.id}`}
+                    data-testid={`card-car-₱{car.id}`}
                   >
                     <CardContent className="p-4">
                       {car.imageUrl && (
@@ -191,7 +191,7 @@ export function CreateRentalDialog({
                           src={car.imageUrl}
                           alt={car.name}
                           className="w-full h-32 object-cover rounded-md mb-3"
-                          data-testid={`img-car-${car.id}`}
+                          data-testid={`img-car-₱{car.id}`}
                         />
                       )}
                       <div className="flex items-start gap-2 mb-2">
@@ -200,13 +200,13 @@ export function CreateRentalDialog({
                           style={{ backgroundColor: car.colorCode }}
                         />
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate" data-testid={`text-car-name-${car.id}`}>
+                          <h3 className="font-semibold truncate" data-testid={`text-car-name-₱{car.id}`}>
                             {car.name}
                           </h3>
-                          <p className="text-sm text-muted-foreground truncate" data-testid={`text-car-model-${car.id}`}>
+                          <p className="text-sm text-muted-foreground truncate" data-testid={`text-car-model-₱{car.id}`}>
                             {car.model}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1" data-testid={`text-car-plate-${car.id}`}>
+                          <p className="text-xs text-muted-foreground mt-1" data-testid={`text-car-plate-₱{car.id}`}>
                             {car.plateNumber}
                           </p>
                         </div>
@@ -458,7 +458,7 @@ export function CreateRentalDialog({
                   else if (step === "details") setStep("dates");
                   else handleClose();
                 }}
-                data-testid={`button-${step === "car" ? "close" : "back"}`}
+                data-testid={`button-₱{step === "car" ? "close" : "back"}`}
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 {step === "car" ? "Cancel" : "Back"}

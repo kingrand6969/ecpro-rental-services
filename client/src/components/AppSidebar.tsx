@@ -79,7 +79,7 @@ export function AppSidebar() {
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+      return `₱{user.firstName[0]}₱{user.lastName[0]}`.toUpperCase();
     }
     if (user?.username) {
       return user.username[0].toUpperCase();
@@ -111,7 +111,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location === item.url}
-                    data-testid={`nav-${item.title.toLowerCase()}`}
+                    data-testid={`nav-₱{item.title.toLowerCase()}`}
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -136,7 +136,7 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         asChild
                         isActive={location === item.url}
-                        data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                        data-testid={`nav-₱{item.title.toLowerCase().replace(" ", "-")}`}
                       >
                         <Link href={item.url}>
                           <item.icon className="h-4 w-4" />
@@ -165,7 +165,7 @@ export function AppSidebar() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate" data-testid="text-user-display-name">
               {user?.firstName && user?.lastName
-                ? `${user.firstName} ${user.lastName}`
+                ? `₱{user.firstName} ₱{user.lastName}`
                 : user?.username ?? user?.email ?? "User"}
             </p>
             {isAdmin && (
