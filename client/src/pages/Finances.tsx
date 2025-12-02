@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -39,7 +39,9 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
 export default function Finances() {
+  const [periodType, setPeriodType] = useState<"monthly" | "quarterly" | "yearly">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(new Date().getMonth() / 3) + 1);
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
   const { data: cars, isLoading: carsLoading } = useQuery<Car[]>({
@@ -60,8 +62,20 @@ export default function Finances() {
 
   const isLoading = carsLoading || rentalsLoading || expensesLoading || paymentsLoading;
 
-  const periodStart = startOfMonth(new Date(selectedYear, selectedMonth - 1));
-  const periodEnd = endOfMonth(periodStart);
+  const getPeriodDates = () => {
+    if (periodType === "monthly") {
+      const start = startOfMonth(new Date(selectedYear, selectedMonth - 1));
+      return { start, end: endOfMonth(start) };
+    } else if (periodType === "quarterly") {
+      const start = startOfQuarter(new Date(selectedYear, (selectedQuarter - 1) * 3));
+      return { start, end: endOfQuarter(start) };
+    } else {
+      const start = startOfYear(new Date(selectedYear, 0));
+      return { start, end: endOfYear(start) };
+    }
+  };
+
+  const { start: periodStart, end: periodEnd } = getPeriodDates();
 
   const financialSummary = useMemo(() => {
     if (!rentals || !expenses || !cars) {
@@ -89,6 +103,14 @@ export default function Finances() {
   const carFinancials = useMemo(() => {
     if (!cars || !rentals || !expenses) return [];
 
+    // Calculate number of periods for amortization
+    let periodCount = 1;
+    if (periodType === "quarterly") {
+      periodCount = 3;
+    } else if (periodType === "yearly") {
+      periodCount = 12;
+    }
+
     return cars.map((car) => {
       const carRentals = rentals.filter((r) => {
         const startDate = parseISO(r.startDate as string);
@@ -103,7 +125,9 @@ export default function Finances() {
       const income = carRentals.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
       const expenseTotal = carExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
       const monthlyPayment = parseFloat(car.monthlyPayment);
+      const totalAmortization = monthlyPayment * periodCount;
       const netProfit = income - expenseTotal;
+      const netAfterAmortization = netProfit - totalAmortization;
       const paymentProgress = monthlyPayment > 0 ? Math.min(100, (netProfit / monthlyPayment) * 100) : 0;
 
       return {
@@ -111,32 +135,68 @@ export default function Finances() {
         income,
         expenses: expenseTotal,
         netProfit,
+        netAfterAmortization,
         monthlyPayment,
+        totalAmortization,
         paymentProgress,
       };
     });
-  }, [cars, rentals, expenses, periodStart, periodEnd]);
+  }, [cars, rentals, expenses, periodStart, periodEnd, periodType]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
         <h1 className="text-2xl font-semibold">Finances</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Select
-            value={selectedMonth.toString()}
-            onValueChange={(v) => setSelectedMonth(parseInt(v))}
+            value={periodType}
+            onValueChange={(v) => setPeriodType(v as "monthly" | "quarterly" | "yearly")}
           >
-            <SelectTrigger className="w-36" data-testid="select-month">
+            <SelectTrigger className="w-36" data-testid="select-period-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {months.map((month, i) => (
-                <SelectItem key={month} value={(i + 1).toString()}>
-                  {month}
-                </SelectItem>
-              ))}
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="quarterly">Quarterly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
             </SelectContent>
           </Select>
+
+          {periodType === "monthly" && (
+            <Select
+              value={selectedMonth.toString()}
+              onValueChange={(v) => setSelectedMonth(parseInt(v))}
+            >
+              <SelectTrigger className="w-36" data-testid="select-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((month, i) => (
+                  <SelectItem key={month} value={(i + 1).toString()}>
+                    {month}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {periodType === "quarterly" && (
+            <Select
+              value={selectedQuarter.toString()}
+              onValueChange={(v) => setSelectedQuarter(parseInt(v))}
+            >
+              <SelectTrigger className="w-36" data-testid="select-quarter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Q1</SelectItem>
+                <SelectItem value="2">Q2</SelectItem>
+                <SelectItem value="3">Q3</SelectItem>
+                <SelectItem value="4">Q4</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
           <Select
             value={selectedYear.toString()}
             onValueChange={(v) => setSelectedYear(parseInt(v))}
@@ -209,7 +269,7 @@ export default function Finances() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Net Profit</p>
-                    <p className={`text-xl font-semibold tabular-nums ₱{
+                    <p className={`text-xl font-semibold tabular-nums ${
                       financialSummary.netProfit >= 0
                         ? "text-green-600 dark:text-green-400"
                         : "text-red-600 dark:text-red-400"
@@ -249,7 +309,7 @@ export default function Finances() {
               {carFinancials.length > 0 ? (
                 <div className="space-y-6">
                   {carFinancials.map(({ car, income, expenses, netProfit, monthlyPayment, paymentProgress }) => (
-                    <div key={car.id} className="space-y-2" data-testid={`car-progress-₱{car.id}`}>
+                    <div key={car.id} className="space-y-2" data-testid={`car-progress-${car.id}`}>
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <div
@@ -261,7 +321,7 @@ export default function Finances() {
                         <div className="flex items-center gap-6 text-sm">
                           <div className="text-right">
                             <span className="text-muted-foreground">Net: </span>
-                            <span className={`font-medium tabular-nums ₱{
+                            <span className={`font-medium tabular-nums ${
                               netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                             }`}>
                               ₱{netProfit.toLocaleString()}
@@ -279,10 +339,10 @@ export default function Finances() {
                         <Progress
                           value={Math.max(0, Math.min(100, paymentProgress))}
                           className="h-3 flex-1"
-                          data-testid={`progress-payment-₱{car.id}`}
+                          data-testid={`progress-payment-${car.id}`}
                         />
                         <div className="text-right">
-                          <span className={`text-sm font-bold w-16 tabular-nums ₱{
+                          <span className={`text-sm font-bold w-16 tabular-nums ${
                             paymentProgress >= 100 
                               ? "text-green-600 dark:text-green-400" 
                               : paymentProgress >= 50
@@ -319,11 +379,12 @@ export default function Finances() {
                       <TableHead>Car</TableHead>
                       <TableHead className="text-right">Income</TableHead>
                       <TableHead className="text-right">Expenses</TableHead>
-                      <TableHead className="text-right">Net</TableHead>
+                      <TableHead className="text-right">Amortization</TableHead>
+                      <TableHead className="text-right">Net After Amortization</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {carFinancials.map(({ car, income, expenses, netProfit }) => (
+                    {carFinancials.map(({ car, income, expenses, netAfterAmortization, totalAmortization }) => (
                       <TableRow key={car.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -340,10 +401,13 @@ export default function Finances() {
                         <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">
                           ₱{expenses.toLocaleString()}
                         </TableCell>
+                        <TableCell className="text-right tabular-nums text-orange-600 dark:text-orange-400">
+                          ₱{totalAmortization.toLocaleString()}
+                        </TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${
-                          netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                          netAfterAmortization >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                         }`}>
-                          ₱{netProfit.toLocaleString()}
+                          ₱{netAfterAmortization.toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
