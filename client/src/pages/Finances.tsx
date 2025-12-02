@@ -340,7 +340,7 @@ export default function Finances() {
                         <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">
                           ₱{expenses.toLocaleString()}
                         </TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ₱{
+                        <TableCell className={`text-right tabular-nums font-medium ${
                           netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                         }`}>
                           ₱{netProfit.toLocaleString()}
@@ -379,7 +379,7 @@ export default function Finances() {
                   <div className="border-t pt-4">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-lg">Net Profit</span>
-                      <span className={`text-2xl font-bold tabular-nums ₱{
+                      <span className={`text-2xl font-bold tabular-nums ${
                         financialSummary.netProfit >= 0
                           ? "text-green-600 dark:text-green-400"
                           : "text-red-600 dark:text-red-400"
@@ -394,7 +394,7 @@ export default function Finances() {
                       <span className="text-muted-foreground">Payment Coverage</span>
                       <span className="font-medium">
                         {financialSummary.totalMonthlyPayments > 0
-                          ? `₱{Math.round((financialSummary.netProfit / financialSummary.totalMonthlyPayments) * 100)}%`
+                          ? `${Math.round((financialSummary.netProfit / financialSummary.totalMonthlyPayments) * 100)}%`
                           : "N/A"}
                       </span>
                     </div>
@@ -409,7 +409,7 @@ export default function Finances() {
                     <p className="text-xs text-muted-foreground mt-2">
                       {financialSummary.netProfit >= financialSummary.totalMonthlyPayments
                         ? "All monthly payments covered!"
-                        : `$₱{Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.netProfit).toLocaleString()} remaining to cover payments`}
+                        : `₱${Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.netProfit).toLocaleString()} remaining to cover payments`}
                     </p>
                   </div>
                 </div>

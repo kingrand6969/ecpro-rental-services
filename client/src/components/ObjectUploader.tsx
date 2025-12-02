@@ -36,7 +36,7 @@ export function ObjectUploader({
 
       const file = files[0];
       if (file.size > maxFileSize) {
-        alert(`File size must be less than ₱{Math.round(maxFileSize / 1024 / 1024)}MB`);
+        alert(`File size must be less than ${Math.round(maxFileSize / 1024 / 1024)}MB`);
         return;
       }
 
