@@ -1,24 +1,25 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertCarSchema, insertRentalSchema, insertExpenseSchema, insertCustomerSchema } from "@shared/schema";
 import { z } from "zod";
+import type { User } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication
-  await setupAuth(app);
+  // Setup local authentication
+  setupAuth(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      const user = req.user as User;
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -52,7 +53,7 @@ export async function registerRoutes(
 
   app.post("/api/cars", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -72,7 +73,7 @@ export async function registerRoutes(
 
   app.patch("/api/cars/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -92,7 +93,7 @@ export async function registerRoutes(
 
   app.delete("/api/cars/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -109,7 +110,7 @@ export async function registerRoutes(
 
   app.post("/api/cars/:id/oil-change", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -183,7 +184,7 @@ export async function registerRoutes(
 
   app.patch("/api/customers/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -207,7 +208,7 @@ export async function registerRoutes(
 
   app.delete("/api/customers/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -249,7 +250,7 @@ export async function registerRoutes(
 
   app.post("/api/rentals", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const rentalData = {
         ...req.body,
         userId,
@@ -268,7 +269,7 @@ export async function registerRoutes(
 
   app.patch("/api/rentals/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
       const existing = await storage.getRentalById(id);
@@ -292,7 +293,7 @@ export async function registerRoutes(
 
   app.delete("/api/rentals/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -331,7 +332,7 @@ export async function registerRoutes(
 
   app.post("/api/expenses", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const expenseData = {
         ...req.body,
         userId,
@@ -350,7 +351,7 @@ export async function registerRoutes(
 
   app.delete("/api/expenses/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -381,7 +382,7 @@ export async function registerRoutes(
   // Admin routes
   app.get("/api/admin/users", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -397,7 +398,7 @@ export async function registerRoutes(
 
   app.patch("/api/admin/users/:id/toggle-admin", isAuthenticated, async (req: any, res) => {
     try {
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = (req.user as User).id;
       const currentUser = await storage.getUser(currentUserId);
       if (!currentUser?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -421,7 +422,7 @@ export async function registerRoutes(
 
   app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
@@ -481,7 +482,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "screenshotURL is required" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = (req.user as User).id;
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         req.body.screenshotURL,
         {

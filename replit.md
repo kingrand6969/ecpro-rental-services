@@ -4,19 +4,24 @@
 A comprehensive car rental booking system with user authentication, calendar-based reservations with color-coded cars, financial tracking, and admin controls.
 
 ## Core Features
-- **User Authentication**: Replit Auth (OpenID Connect) with session management
+- **User Authentication**: Local username/password authentication with session management
 - **Calendar Dashboard**: Color-coded calendar view showing all reservations
 - **Fleet Management**: Add/edit cars with maintenance tracking (oil change alerts)
 - **Rental Bookings**: Create and manage rental reservations with payment screenshot uploads
 - **Financial Tracking**: Track income, expenses, and net profit by month
 - **Admin Controls**: User management, role-based access control
+- **Customer Management**: Track customer history, rental patterns, and contact information
 
 ## Tech Stack
 - **Frontend**: React 18, TypeScript, TailwindCSS, shadcn/ui components
 - **Backend**: Express.js, Drizzle ORM
 - **Database**: PostgreSQL (Neon)
-- **Auth**: Replit Auth (OIDC)
+- **Auth**: Local authentication (passport-local with scrypt password hashing)
 - **File Storage**: Google Cloud Storage (Object Storage)
+
+## Default Admin Account
+- **Username**: Admin
+- **Password**: Admin999
 
 ## Project Structure
 ```
@@ -37,10 +42,11 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 │   │   │   ├── useAuth.ts
 │   │   │   └── useTheme.ts
 │   │   ├── pages/           # Route pages
-│   │   │   ├── Landing.tsx
+│   │   │   ├── Auth.tsx
 │   │   │   ├── Dashboard.tsx
 │   │   │   ├── Cars.tsx
 │   │   │   ├── Rentals.tsx
+│   │   │   ├── Customers.tsx
 │   │   │   ├── Finances.tsx
 │   │   │   └── Admin.tsx
 │   │   ├── lib/             # Utilities
@@ -50,7 +56,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 │   ├── db.ts                # Database connection
 │   ├── storage.ts           # Data access layer
 │   ├── routes.ts            # API endpoints
-│   ├── replitAuth.ts        # Replit Auth setup
+│   ├── auth.ts              # Local authentication setup
 │   ├── objectStorage.ts     # File upload handling
 │   └── objectAcl.ts         # Access control for files
 ├── shared/
@@ -59,7 +65,8 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ```
 
 ## Database Schema
-- **users**: User profiles from Replit Auth (id, email, firstName, lastName, isAdmin)
+- **users**: User profiles (id, username, password, email, firstName, lastName, isAdmin)
+- **customers**: Customer profiles (name, phone, email, notes, rental history)
 - **cars**: Fleet vehicles (name, model, plateNumber, colorCode, monthlyPayment, mileage tracking)
 - **rentals**: Booking records (customer info, dates, amount, payment screenshot)
 - **expenses**: Car-related expenses (category, amount, mileage)
@@ -69,9 +76,9 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ## API Endpoints
 
 ### Authentication
-- `GET /api/login` - Initiate Replit Auth login
-- `GET /api/callback` - OAuth callback
-- `GET /api/logout` - Logout
+- `POST /api/register` - Register new user (reserved usernames blocked)
+- `POST /api/login` - Login with username/password
+- `POST /api/logout` - Logout
 - `GET /api/auth/user` - Get current user
 
 ### Cars
@@ -119,6 +126,4 @@ npm run db:push    # Push schema changes to database
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - Express session secret
-- `REPL_ID` - Replit project ID (auto-set)
-- `ISSUER_URL` - Replit OIDC issuer (auto-set)
 - Object Storage environment variables (auto-configured)

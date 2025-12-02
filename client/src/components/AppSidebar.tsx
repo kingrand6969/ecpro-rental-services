@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Calendar,
   Car,
@@ -22,7 +24,6 @@ import {
   LogOut,
   BarChart3,
   Settings,
-  Wrench,
   Users,
 } from "lucide-react";
 
@@ -63,12 +64,25 @@ const adminNavItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, isAdmin } = useAuth();
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/logout");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setLocation("/");
+    },
+  });
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
       return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.username) {
+      return user.username[0].toUpperCase();
     }
     if (user?.email) {
       return user.email[0].toUpperCase();
@@ -149,10 +163,10 @@ export function AppSidebar() {
             <AvatarFallback className="text-xs">{getInitials()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
+            <p className="text-sm font-medium truncate" data-testid="text-user-display-name">
               {user?.firstName && user?.lastName
                 ? `${user.firstName} ${user.lastName}`
-                : user?.email ?? "User"}
+                : user?.username ?? user?.email ?? "User"}
             </p>
             {isAdmin && (
               <p className="text-xs text-muted-foreground">Admin</p>
@@ -161,13 +175,12 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size="icon"
-            asChild
             className="shrink-0"
             data-testid="button-logout"
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
           >
-            <a href="/api/logout">
-              <LogOut className="h-4 w-4" />
-            </a>
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </SidebarFooter>
