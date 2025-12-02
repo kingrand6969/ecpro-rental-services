@@ -65,7 +65,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ```
 
 ## Database Schema
-- **users**: User profiles (id, username, password, email, firstName, lastName, isAdmin, isApproved)
+- **users**: User profiles (id, username, password, email, firstName, lastName, isAdmin, isApproved, mustChangePassword)
 - **customers**: Customer profiles (name, phone, email, notes, rental history)
 - **cars**: Fleet vehicles (name, model, plateNumber, colorCode, monthlyPayment, mileage tracking)
 - **rentals**: Booking records (customer info, dates, amount, payment screenshot)
@@ -110,8 +110,13 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 - `GET /api/admin/users` - List all users (admin only)
 - `PATCH /api/admin/users/:id/toggle-admin` - Toggle user admin status (admin only)
 - `PATCH /api/admin/users/:id/approve` - Approve pending user (admin only)
+- `DELETE /api/admin/users/:id` - Delete user (admin only, cannot delete self)
+- `POST /api/admin/users/:id/reset-password` - Reset user password to default 12345678 (admin only)
 - `GET /api/admin/pending-users` - List pending user approvals (admin only)
 - `GET /api/admin/stats` - Get system stats (admin only)
+
+### User
+- `POST /api/user/change-password` - Change own password (current password required unless mustChangePassword is set)
 
 ## Business Rules
 1. **User Approval**: New users must be approved by admin before they can login
@@ -127,6 +132,10 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 - **Amortization deduction**: Income by Car table now shows amortization deduction with net after amortization
 - **User approval system**: New users are created with `isApproved: false` and cannot login until admin approval
 - **Pending approvals**: Admin page now shows pending user registrations with approve button
+- **Delete user**: Admin can delete users from the User Management table
+- **Reset password**: Admin can reset user password to default "12345678"
+- **Settings page**: Users can change their own password in the Settings page
+- **Mandatory password change**: Users with reset passwords must change password before accessing other features
 
 ## Development
 ```bash

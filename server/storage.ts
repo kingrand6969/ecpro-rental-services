@@ -31,6 +31,9 @@ export interface IStorage {
   toggleUserAdmin(id: string): Promise<User | undefined>;
   approveUser(id: string): Promise<User | undefined>;
   getPendingUsers(): Promise<User[]>;
+  deleteUser(id: string): Promise<void>;
+  updateUserPassword(id: string, hashedPassword: string, mustChangePassword?: boolean): Promise<User | undefined>;
+  setMustChangePassword(id: string, mustChange: boolean): Promise<User | undefined>;
 
   // Customer operations
   getAllCustomers(): Promise<Customer[]>;
@@ -135,6 +138,28 @@ export class DatabaseStorage implements IStorage {
 
   async getPendingUsers(): Promise<User[]> {
     return db.select().from(users).where(eq(users.isApproved, false)).orderBy(desc(users.createdAt));
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string, mustChangePassword: boolean = false): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ password: hashedPassword, mustChangePassword, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async setMustChangePassword(id: string, mustChange: boolean): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ mustChangePassword: mustChange, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 
   // Customer operations

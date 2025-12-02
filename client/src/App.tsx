@@ -16,6 +16,7 @@ import Rentals from "@/pages/Rentals";
 import Customers from "@/pages/Customers";
 import Finances from "@/pages/Finances";
 import Admin from "@/pages/Admin";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -43,7 +44,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -66,6 +67,14 @@ function Router() {
     );
   }
 
+  if (user?.mustChangePassword) {
+    return (
+      <AuthenticatedLayout>
+        <Settings />
+      </AuthenticatedLayout>
+    );
+  }
+
   return (
     <AuthenticatedLayout>
       <Switch>
@@ -75,6 +84,7 @@ function Router() {
         <Route path="/customers" component={Customers} />
         <Route path="/finances" component={Finances} />
         <Route path="/admin" component={Admin} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

@@ -24,6 +24,7 @@ import {
   LogOut,
   BarChart3,
   Settings,
+  Settings2,
   Users,
 } from "lucide-react";
 
@@ -63,6 +64,14 @@ const adminNavItems = [
   },
 ];
 
+const userNavItems = [
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings2,
+  },
+];
+
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, isAdmin } = useAuth();
@@ -79,7 +88,7 @@ export function AppSidebar() {
 
   const getInitials = () => {
     if (user?.firstName && user?.lastName) {
-      return `₱{user.firstName[0]}₱{user.lastName[0]}`.toUpperCase();
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
     }
     if (user?.username) {
       return user.username[0].toUpperCase();
@@ -102,41 +111,38 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+        {user?.mustChangePassword ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Action Required</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
-                    data-testid={`nav-₱{item.title.toLowerCase()}`}
+                    isActive={true}
+                    data-testid="nav-settings"
                   >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                    <Link href="/settings">
+                      <Settings2 className="h-4 w-4" />
+                      <span>Change Password</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {isAdmin && (
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
           <>
-            <SidebarSeparator />
             <SidebarGroup>
-              <SidebarGroupLabel>Admin</SidebarGroupLabel>
+              <SidebarGroupLabel>Navigation</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {adminNavItems.map((item) => (
+                  {mainNavItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         asChild
                         isActive={location === item.url}
-                        data-testid={`nav-₱{item.title.toLowerCase().replace(" ", "-")}`}
+                        data-testid={`nav-${item.title.toLowerCase()}`}
                       >
                         <Link href={item.url}>
                           <item.icon className="h-4 w-4" />
@@ -148,6 +154,56 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Account</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {userNavItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location === item.url}
+                        data-testid={`nav-${item.title.toLowerCase()}`}
+                      >
+                        <Link href={item.url}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {isAdmin && (
+              <>
+                <SidebarSeparator />
+                <SidebarGroup>
+                  <SidebarGroupLabel>Admin</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {adminNavItems.map((item) => (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={location === item.url}
+                            data-testid={`nav-${item.title.toLowerCase().replace(" ", "-")}`}
+                          >
+                            <Link href={item.url}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </>
+            )}
           </>
         )}
       </SidebarContent>
@@ -165,7 +221,7 @@ export function AppSidebar() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate" data-testid="text-user-display-name">
               {user?.firstName && user?.lastName
-                ? `₱{user.firstName} ₱{user.lastName}`
+                ? `${user.firstName} ${user.lastName}`
                 : user?.username ?? user?.email ?? "User"}
             </p>
             {isAdmin && (

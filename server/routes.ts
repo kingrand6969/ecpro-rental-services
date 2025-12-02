@@ -500,6 +500,88 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = (req.user as User).id;
+      const currentUser = await storage.getUser(currentUserId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const targetId = req.params.id;
+      if (targetId === currentUserId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      await storage.deleteUser(targetId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = (req.user as User).id;
+      const currentUser = await storage.getUser(currentUserId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { hashPassword } = await import("./auth");
+      const targetId = req.params.id;
+      const defaultPassword = "12345678";
+      const hashedPassword = await hashPassword(defaultPassword);
+      
+      const user = await storage.updateUserPassword(targetId, hashedPassword, true);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ message: "Password reset to default. User must change password on next login." });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  app.post("/api/user/change-password", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || !user.password) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { comparePasswords, hashPassword } = await import("./auth");
+      
+      // Skip current password check if user must change password (was reset by admin)
+      if (!user.mustChangePassword) {
+        if (!currentPassword) {
+          return res.status(400).json({ message: "Current password is required" });
+        }
+        const isValid = await comparePasswords(currentPassword, user.password);
+        if (!isValid) {
+          return res.status(401).json({ message: "Current password is incorrect" });
+        }
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUserPassword(userId, hashedPassword, false);
+      
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   // Object storage routes
   const objectStorageService = new ObjectStorageService();
 
