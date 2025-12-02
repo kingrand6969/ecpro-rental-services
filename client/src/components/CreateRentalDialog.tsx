@@ -171,11 +171,11 @@ export function CreateRentalDialog({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* STEP 1: Car Selection */}
             {step === "car" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-2">
                 {cars?.map((car) => (
                   <Card
                     key={car.id}
-                    className={`cursor-pointer transition-all hover-elevate ₱{
+                    className={`cursor-pointer transition-all hover-elevate ${
                       selectedCarId === car.id.toString()
                         ? "ring-2 ring-primary"
                         : ""
@@ -183,34 +183,33 @@ export function CreateRentalDialog({
                     onClick={() => {
                       form.setValue("carId", car.id.toString());
                     }}
-                    data-testid={`card-car-₱{car.id}`}
+                    data-testid={`card-car-${car.id}`}
                   >
-                    <CardContent className="p-4">
-                      {car.imageUrl && (
-                        <img
-                          src={car.imageUrl}
-                          alt={car.name}
-                          className="w-full h-32 object-cover rounded-md mb-3"
-                          data-testid={`img-car-₱{car.id}`}
-                        />
-                      )}
-                      <div className="flex items-start gap-2 mb-2">
+                    <CardContent className="p-2">
+                      <div className="aspect-video bg-muted rounded-md mb-2 overflow-hidden">
+                        {car.imageUrl ? (
+                          <img
+                            src={car.imageUrl}
+                            alt={car.name}
+                            className="w-full h-full object-cover"
+                            data-testid={`img-car-${car.id}`}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-black rounded-md" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
                         <div
-                          className="w-4 h-4 rounded-full flex-shrink-0 mt-1"
+                          className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: car.colorCode }}
                         />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate" data-testid={`text-car-name-₱{car.id}`}>
-                            {car.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground truncate" data-testid={`text-car-model-₱{car.id}`}>
-                            {car.model}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1" data-testid={`text-car-plate-₱{car.id}`}>
-                            {car.plateNumber}
-                          </p>
-                        </div>
+                        <h3 className="font-medium text-sm truncate" data-testid={`text-car-name-${car.id}`}>
+                          {car.name}
+                        </h3>
                       </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5" data-testid={`text-car-plate-${car.id}`}>
+                        {car.plateNumber}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}

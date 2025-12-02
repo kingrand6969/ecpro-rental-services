@@ -29,12 +29,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, Wrench, Calendar } from "lucide-react";
+import { AlertTriangle, Wrench, Calendar, ImageIcon } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import type { Car } from "@shared/schema";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const updateCarSchema = z.object({
   brand: z.string().optional(),
@@ -54,6 +55,7 @@ interface CarDetailsDialogProps {
 export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
+  const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
 
   const form = useForm<UpdateCarFormData>({
     resolver: zodResolver(updateCarSchema),
@@ -75,6 +77,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
         status: car.status,
       });
+      setNewImageUrl(null);
     }
   }, [car, form]);
 
@@ -88,6 +91,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           ? parseInt(data.lastOilChangeMileage)
           : undefined,
         status: data.status,
+        ...(newImageUrl && { imageUrl: newImageUrl }),
       });
     },
     onSuccess: () => {
@@ -158,6 +162,48 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Car Image Section */}
+          <div className="space-y-2">
+            <div className="aspect-video bg-muted rounded-md overflow-hidden">
+              {newImageUrl || car.imageUrl ? (
+                <img
+                  src={newImageUrl || car.imageUrl || ""}
+                  alt={car.name}
+                  className="w-full h-full object-cover"
+                  data-testid="img-car-detail"
+                />
+              ) : (
+                <div className="w-full h-full bg-black flex items-center justify-center">
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <ObjectUploader
+                onGetUploadParameters={async () => {
+                  const response = await apiRequest("POST", "/api/objects/upload", {});
+                  const data = await response.json();
+                  return { method: "PUT" as const, url: data.url };
+                }}
+                onComplete={(result) => {
+                  if (result.successful[0]?.uploadURL) {
+                    setNewImageUrl(result.successful[0].uploadURL);
+                    toast({
+                      title: "Image Ready",
+                      description: "Click Update to save the new picture",
+                    });
+                  }
+                }}
+                data-testid="uploader-car-image"
+              >
+                Change Picture
+              </ObjectUploader>
+              {newImageUrl && (
+                <span className="text-xs text-green-600">New image selected</span>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="p-3 rounded-md bg-muted">
               <p className="text-sm text-muted-foreground">Monthly Payment</p>
