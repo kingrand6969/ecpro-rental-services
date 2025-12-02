@@ -279,6 +279,18 @@ export async function registerRoutes(
     }
   });
 
+  // Get non-finalized rentals that need finalization reminder (12+ hours since last reminder)
+  // This must come BEFORE /api/rentals/:id to avoid route matching issues
+  app.get("/api/rentals/pending-finalization", isAuthenticated, async (req, res) => {
+    try {
+      const rentals = await storage.getRentalsNeedingFinalizeReminder();
+      res.json(rentals);
+    } catch (error) {
+      console.error("Error fetching rentals needing finalization:", error);
+      res.status(500).json({ message: "Failed to fetch rentals" });
+    }
+  });
+
   app.get("/api/rentals/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -370,6 +382,21 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting rental:", error);
       res.status(500).json({ message: "Failed to delete rental" });
+    }
+  });
+
+  // Update last finalize reminder timestamp (dismiss reminder for 12 hours)
+  app.post("/api/rentals/:id/dismiss-reminder", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const rental = await storage.updateFinalizeReminder(id);
+      if (!rental) {
+        return res.status(404).json({ message: "Rental not found" });
+      }
+      res.json(rental);
+    } catch (error) {
+      console.error("Error dismissing reminder:", error);
+      res.status(500).json({ message: "Failed to dismiss reminder" });
     }
   });
 

@@ -62,6 +62,8 @@ export interface IStorage {
   createRental(rental: InsertRental): Promise<Rental>;
   updateRental(id: number, rental: Partial<InsertRental>): Promise<Rental | undefined>;
   deleteRental(id: number): Promise<void>;
+  getRentalsNeedingFinalizeReminder(): Promise<Rental[]>;
+  updateFinalizeReminder(id: number): Promise<Rental | undefined>;
 
   // Expense operations
   getAllExpenses(): Promise<Expense[]>;
@@ -282,6 +284,33 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRental(id: number): Promise<void> {
     await db.delete(rentals).where(eq(rentals.id, id));
+  }
+
+  async getRentalsNeedingFinalizeReminder(): Promise<Rental[]> {
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    
+    // Get non-finalized rentals where:
+    // - lastFinalizeReminder is null (never asked) OR
+    // - lastFinalizeReminder is older than 12 hours
+    return db
+      .select()
+      .from(rentals)
+      .where(
+        and(
+          eq(rentals.isFinalized, false),
+          sql`(${rentals.lastFinalizeReminder} IS NULL OR ${rentals.lastFinalizeReminder} < ${twelveHoursAgo})`
+        )
+      )
+      .orderBy(desc(rentals.createdAt));
+  }
+
+  async updateFinalizeReminder(id: number): Promise<Rental | undefined> {
+    const [updated] = await db
+      .update(rentals)
+      .set({ lastFinalizeReminder: new Date(), updatedAt: new Date() })
+      .where(eq(rentals.id, id))
+      .returning();
+    return updated;
   }
 
   // Expense operations
