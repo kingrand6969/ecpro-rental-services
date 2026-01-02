@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Car, LogIn, UserPlus } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -115,9 +115,13 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Car className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">CarRent Pro</span>
+          <div className="flex flex-col items-center justify-center gap-1 mb-4">
+            <img 
+              src="/logo.png" 
+              alt="ECPro Rental Services" 
+              className="h-16 object-contain"
+            />
+            <span className="text-xs font-medium text-muted-foreground">ECPro Schedule Manager</span>
           </div>
           <CardTitle data-testid="text-auth-title">
             {isRegistering ? "Create Account" : "Welcome Back"}
