@@ -95,7 +95,7 @@ export default function Customers() {
   const updateMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
       if (!selectedCustomer) return;
-      const response = await apiRequest("PATCH", `/api/customers/₱{selectedCustomer.id}`, data);
+      const response = await apiRequest("PATCH", `/api/customers/${selectedCustomer.id}`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -110,7 +110,7 @@ export default function Customers() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/customers/₱{id}`);
+      await apiRequest("DELETE", `/api/customers/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -300,7 +300,7 @@ export default function Customers() {
                       key={customer.id}
                       className="cursor-pointer"
                       onClick={() => setSelectedCustomer(customer)}
-                      data-testid={`customer-row-₱{customer.id}`}
+                      data-testid={`customer-row-${customer.id}`}
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -342,7 +342,7 @@ export default function Customers() {
                               e.stopPropagation();
                               openEditCustomer(customer);
                             }}
-                            data-testid={`button-edit-customer-₱{customer.id}`}
+                            data-testid={`button-edit-customer-${customer.id}`}
                           >
                             Edit
                           </Button>

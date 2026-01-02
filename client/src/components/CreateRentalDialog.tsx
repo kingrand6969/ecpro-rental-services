@@ -162,7 +162,7 @@ export function CreateRentalDialog({
           </DialogTitle>
           <DialogDescription>
             {step === "car" && "Choose the car you want to rent"}
-            {step === "dates" && `Rental dates for ₱{selectedCar?.name}`}
+            {step === "dates" && `Rental dates for ${selectedCar?.name}`}
             {step === "details" && "Enter customer details and payment information"}
           </DialogDescription>
         </DialogHeader>
@@ -457,7 +457,7 @@ export function CreateRentalDialog({
                   else if (step === "details") setStep("dates");
                   else handleClose();
                 }}
-                data-testid={`button-₱{step === "car" ? "close" : "back"}`}
+                data-testid={`button-${step === "car" ? "close" : "back"}`}
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 {step === "car" ? "Cancel" : "Back"}

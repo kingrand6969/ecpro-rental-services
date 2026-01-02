@@ -128,7 +128,7 @@ export default function Rentals() {
                   {filteredRentals.map((rental) => {
                     const car = getCarById(rental.carId);
                     return (
-                      <TableRow key={rental.id} data-testid={`rental-row-₱{rental.id}`}>
+                      <TableRow key={rental.id} data-testid={`rental-row-${rental.id}`}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div
@@ -183,7 +183,7 @@ export default function Rentals() {
                               variant="ghost"
                               size="icon"
                               onClick={() => setViewRental(rental)}
-                              data-testid={`button-view-₱{rental.id}`}
+                              data-testid={`button-view-${rental.id}`}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -192,7 +192,7 @@ export default function Rentals() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setEditRental(rental)}
-                                data-testid={`button-edit-₱{rental.id}`}
+                                data-testid={`button-edit-${rental.id}`}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>

@@ -137,7 +137,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async (expenseId: number) => {
-      await apiRequest("DELETE", `/api/expenses/₱{expenseId}`);
+      await apiRequest("DELETE", `/api/expenses/${expenseId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars", carId, "expenses"] });
@@ -207,7 +207,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                   </TableHeader>
                   <TableBody>
                     {expenses.map((expense) => (
-                      <TableRow key={expense.id} data-testid={`expense-row-₱{expense.id}`}>
+                      <TableRow key={expense.id} data-testid={`expense-row-${expense.id}`}>
                         <TableCell className="text-muted-foreground">
                           {format(parseISO(expense.expenseDate as string), "MMM d, yyyy")}
                         </TableCell>
@@ -228,7 +228,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                               size="icon"
                               onClick={() => deleteMutation.mutate(expense.id)}
                               disabled={deleteMutation.isPending}
-                              data-testid={`button-delete-expense-₱{expense.id}`}
+                              data-testid={`button-delete-expense-${expense.id}`}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>

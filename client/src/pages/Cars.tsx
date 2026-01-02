@@ -72,7 +72,7 @@ export default function Cars() {
               key={car.id}
               className="overflow-hidden hover-elevate cursor-pointer"
               onClick={() => setSelectedCar(car)}
-              data-testid={`car-card-₱{car.id}`}
+              data-testid={`car-card-${car.id}`}
             >
               <div
                 className="h-3"
