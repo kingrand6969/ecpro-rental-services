@@ -1,4 +1,4 @@
-# CarRent Pro - Car Rental Booking System
+# ECPro Rental Services - Car Rental Booking System
 
 ## Overview
 A comprehensive car rental booking system with user authentication, calendar-based reservations with color-coded cars, financial tracking, and admin controls.

@@ -108,11 +108,12 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-md bg-primary flex items-center justify-center">
-            <Car className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-lg">CarRent Pro</span>
+        <div className="flex items-center justify-center">
+          <img 
+            src="/logo.png" 
+            alt="ECPro Rental Services" 
+            className="h-12 object-contain"
+          />
         </div>
       </SidebarHeader>
 
