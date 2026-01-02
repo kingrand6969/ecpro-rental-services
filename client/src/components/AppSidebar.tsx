@@ -108,12 +108,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center gap-1">
           <img 
             src="/logo.png" 
             alt="ECPro Rental Services" 
             className="h-12 object-contain"
           />
+          <span className="text-xs font-medium text-muted-foreground">ECPro Schedule Manager</span>
         </div>
       </SidebarHeader>
 
