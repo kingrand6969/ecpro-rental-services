@@ -482,22 +482,22 @@ export default function Finances() {
                       <span className="text-muted-foreground">Payment Coverage</span>
                       <span className="font-medium">
                         {financialSummary.totalMonthlyPayments > 0
-                          ? `${Math.round((financialSummary.netProfit / financialSummary.totalMonthlyPayments) * 100)}%`
+                          ? `${Math.round((financialSummary.totalIncome / financialSummary.totalMonthlyPayments) * 100)}%`
                           : "N/A"}
                       </span>
                     </div>
                     <Progress
                       value={
                         financialSummary.totalMonthlyPayments > 0
-                          ? Math.min(100, Math.max(0, (financialSummary.netProfit / financialSummary.totalMonthlyPayments) * 100))
+                          ? Math.min(100, Math.max(0, (financialSummary.totalIncome / financialSummary.totalMonthlyPayments) * 100))
                           : 0
                       }
                       className="h-2"
                     />
                     <p className="text-xs text-muted-foreground mt-2">
-                      {financialSummary.netProfit >= financialSummary.totalMonthlyPayments
+                      {financialSummary.totalIncome >= financialSummary.totalMonthlyPayments
                         ? "All monthly payments covered!"
-                        : `₱${Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.netProfit).toLocaleString()} remaining to cover payments`}
+                        : `₱${Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.totalIncome).toLocaleString()} remaining to cover payments`}
                     </p>
                   </div>
                 </div>
