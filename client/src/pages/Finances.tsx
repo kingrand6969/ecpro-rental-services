@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays, max, min } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -77,27 +77,44 @@ export default function Finances() {
 
   const { start: periodStart, end: periodEnd } = getPeriodDates();
 
+  const calculateProratedIncome = (rental: Rental, periodStart: Date, periodEnd: Date): number => {
+    const rentalStart = parseISO(rental.startDate as string);
+    const rentalEnd = parseISO(rental.endDate as string);
+    const totalAmount = parseFloat(rental.totalAmount);
+    
+    const totalRentalDays = differenceInDays(rentalEnd, rentalStart) + 1;
+    if (totalRentalDays <= 0) return 0;
+    
+    const overlapStart = max([rentalStart, periodStart]);
+    const overlapEnd = min([rentalEnd, periodEnd]);
+    
+    if (overlapStart > overlapEnd) return 0;
+    
+    const daysInPeriod = differenceInDays(overlapEnd, overlapStart) + 1;
+    const dailyRate = totalAmount / totalRentalDays;
+    
+    return dailyRate * daysInPeriod;
+  };
+
   const financialSummary = useMemo(() => {
     if (!rentals || !expenses || !cars) {
       return { totalIncome: 0, totalExpenses: 0, netProfit: 0, totalMonthlyPayments: 0 };
     }
 
-    const periodRentals = rentals.filter((rental) => {
-      const startDate = parseISO(rental.startDate as string);
-      return isWithinInterval(startDate, { start: periodStart, end: periodEnd });
-    });
+    const totalIncome = rentals.reduce((sum, rental) => {
+      return sum + calculateProratedIncome(rental, periodStart, periodEnd);
+    }, 0);
 
     const periodExpenses = expenses.filter((expense) => {
       const expenseDate = parseISO(expense.expenseDate as string);
       return isWithinInterval(expenseDate, { start: periodStart, end: periodEnd });
     });
 
-    const totalIncome = periodRentals.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
-    const totalExpenses = periodExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const totalExpensesAmount = periodExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
     const totalMonthlyPayments = cars.reduce((sum, c) => sum + parseFloat(c.monthlyPayment), 0);
-    const netProfit = totalIncome - totalExpenses;
+    const netProfit = totalIncome - totalExpensesAmount;
 
-    return { totalIncome, totalExpenses, netProfit, totalMonthlyPayments };
+    return { totalIncome, totalExpenses: totalExpensesAmount, netProfit, totalMonthlyPayments };
   }, [rentals, expenses, cars, periodStart, periodEnd]);
 
   const carFinancials = useMemo(() => {
@@ -112,17 +129,16 @@ export default function Finances() {
     }
 
     return cars.map((car) => {
-      const carRentals = rentals.filter((r) => {
-        const startDate = parseISO(r.startDate as string);
-        return r.carId === car.id && isWithinInterval(startDate, { start: periodStart, end: periodEnd });
-      });
+      const carRentals = rentals.filter((r) => r.carId === car.id);
 
       const carExpenses = expenses.filter((e) => {
         const expenseDate = parseISO(e.expenseDate as string);
         return e.carId === car.id && isWithinInterval(expenseDate, { start: periodStart, end: periodEnd });
       });
 
-      const income = carRentals.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+      const income = carRentals.reduce((sum, r) => {
+        return sum + calculateProratedIncome(r, periodStart, periodEnd);
+      }, 0);
       const expenseTotal = carExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
       const monthlyPayment = parseFloat(car.monthlyPayment);
       const totalAmortization = monthlyPayment * periodCount;
