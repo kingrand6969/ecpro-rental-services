@@ -21,7 +21,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 
 ## Default Admin Account
 - **Username**: Admin
-- **Password**: Admin999
+- **Password**: Admin123!
 
 ## Project Structure
 ```
