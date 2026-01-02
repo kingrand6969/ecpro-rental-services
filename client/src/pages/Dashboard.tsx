@@ -1,28 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   format,
   addDays,
   subDays,
-  startOfDay,
-  endOfDay,
   isSameDay,
   parseISO,
   differenceInDays,
-  addWeeks,
-  subWeeks,
   eachDayOfInterval,
   isSameMonth,
 } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { AvailableCarsDialog } from "@/components/AvailableCarsDialog";
 import type { Car, Rental } from "@shared/schema";
-
-type ViewMode = "day" | "week" | "month";
 
 const TIMELINE_COLORS = [
   "#F59E0B",
@@ -38,12 +32,12 @@ const TIMELINE_COLORS = [
 ];
 
 export default function Dashboard() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
   const [availableCarsOpen, setAvailableCarsOpen] = useState(false);
   const [selectedRental, setSelectedRental] = useState<Rental | null>(null);
   const [expandedCars, setExpandedCars] = useState<Set<number>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const todayColumnRef = useRef<HTMLDivElement>(null);
 
   const { data: cars, isLoading: carsLoading } = useQuery<Car[]>({
     queryKey: ["/api/cars"],
@@ -64,40 +58,38 @@ export default function Dashboard() {
     return map;
   }, [cars]);
 
-  const dateRange = useMemo(() => {
-    let start: Date;
-    let end: Date;
-    
-    switch (viewMode) {
-      case "day":
-        start = startOfDay(currentDate);
-        end = endOfDay(currentDate);
-        break;
-      case "week":
-        start = subDays(currentDate, 3);
-        end = addDays(currentDate, 3);
-        break;
-      case "month":
-      default:
-        start = subDays(currentDate, 3);
-        end = addDays(currentDate, 10);
-        break;
-    }
-    
-    return { start, end };
-  }, [currentDate, viewMode]);
-
+  // Show 90 days before and 90 days after today for scrollable range
   const visibleDays = useMemo(() => {
-    return eachDayOfInterval({ start: dateRange.start, end: dateRange.end });
-  }, [dateRange]);
+    const today = new Date();
+    const start = subDays(today, 60);
+    const end = addDays(today, 90);
+    return eachDayOfInterval({ start, end });
+  }, []);
+
+  // Find today's index for initial scroll position
+  const todayIndex = useMemo(() => {
+    const today = new Date();
+    return visibleDays.findIndex(day => isSameDay(day, today));
+  }, [visibleDays]);
+
+  // Scroll to today on initial load
+  useEffect(() => {
+    if (scrollContainerRef.current && todayIndex >= 0) {
+      const DAY_WIDTH = 70;
+      const CAR_LABEL_WIDTH = 140;
+      // Scroll to show today near the left side
+      const scrollPosition = (todayIndex * DAY_WIDTH) - 100;
+      scrollContainerRef.current.scrollLeft = Math.max(0, scrollPosition);
+    }
+  }, [todayIndex, cars]);
 
   const monthGroups = useMemo(() => {
-    const groups: { month: Date; days: Date[] }[] = [];
-    let currentGroup: { month: Date; days: Date[] } | null = null;
+    const groups: { month: Date; days: Date[]; startIndex: number }[] = [];
+    let currentGroup: { month: Date; days: Date[]; startIndex: number } | null = null;
 
-    visibleDays.forEach((day) => {
+    visibleDays.forEach((day, index) => {
       if (!currentGroup || !isSameMonth(day, currentGroup.month)) {
-        currentGroup = { month: day, days: [day] };
+        currentGroup = { month: day, days: [day], startIndex: index };
         groups.push(currentGroup);
       } else {
         currentGroup.days.push(day);
@@ -107,23 +99,15 @@ export default function Dashboard() {
     return groups;
   }, [visibleDays]);
 
-  const navigate = (direction: "prev" | "next") => {
-    const offset = direction === "next" ? 1 : -1;
-    switch (viewMode) {
-      case "day":
-        setCurrentDate(addDays(currentDate, offset));
-        break;
-      case "week":
-        setCurrentDate(direction === "next" ? addWeeks(currentDate, 1) : subWeeks(currentDate, 1));
-        break;
-      case "month":
-        setCurrentDate(direction === "next" ? addWeeks(currentDate, 2) : subWeeks(currentDate, 2));
-        break;
-    }
-  };
-
   const goToToday = () => {
-    setCurrentDate(new Date());
+    if (scrollContainerRef.current && todayIndex >= 0) {
+      const DAY_WIDTH = 70;
+      const scrollPosition = (todayIndex * DAY_WIDTH) - 100;
+      scrollContainerRef.current.scrollTo({
+        left: Math.max(0, scrollPosition),
+        behavior: 'smooth'
+      });
+    }
   };
 
   const toggleCarExpanded = (carId: number) => {
@@ -226,7 +210,7 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -235,145 +219,106 @@ export default function Dashboard() {
           >
             Today
           </Button>
-          <div className="flex border rounded-md overflow-hidden">
-            <Button
-              variant={viewMode === "day" ? "secondary" : "ghost"}
-              size="sm"
-              className="rounded-none border-0"
-              onClick={() => setViewMode("day")}
-              data-testid="button-view-day"
-            >
-              Day
-            </Button>
-            <Button
-              variant={viewMode === "week" ? "secondary" : "ghost"}
-              size="sm"
-              className="rounded-none border-0"
-              onClick={() => setViewMode("week")}
-              data-testid="button-view-week"
-            >
-              Week
-            </Button>
-            <Button
-              variant={viewMode === "month" ? "secondary" : "ghost"}
-              size="sm"
-              className="rounded-none border-0"
-              onClick={() => setViewMode("month")}
-              data-testid="button-view-month"
-            >
-              Month
-            </Button>
-          </div>
+          <span className="text-sm text-muted-foreground">
+            Scroll left/right to navigate dates
+          </span>
         </div>
       </div>
 
-      {/* Navigation arrows */}
-      <div className="absolute left-2 top-1/2 z-30">
-        <button
-          onClick={() => navigate("prev")}
-          className="bg-background border rounded-full p-1.5 shadow-md hover-elevate"
-          data-testid="button-nav-prev"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="absolute right-2 top-1/2 z-30">
-        <button
-          onClick={() => navigate("next")}
-          className="bg-background border rounded-full p-1.5 shadow-md hover-elevate"
-          data-testid="button-nav-next"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Main Content - Single scroll container */}
+      {/* Main Content */}
       {isLoading ? (
         <div className="p-6 space-y-4">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
       ) : (
-        <div className="flex-1 overflow-auto">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Fixed left column - Car labels */}
           <div 
-            className="inline-block min-w-full"
-            style={{ minWidth: CAR_LABEL_WIDTH + visibleDays.length * DAY_WIDTH }}
+            className="flex-shrink-0 border-r bg-card z-10"
+            style={{ width: CAR_LABEL_WIDTH }}
           >
-            {/* Header row: Month headers */}
-            <div className="flex sticky top-0 z-20 bg-muted/80 backdrop-blur-sm border-b">
-              <div 
-                className="flex-shrink-0 border-r bg-muted/80"
-                style={{ width: CAR_LABEL_WIDTH }}
-              />
-              {monthGroups.map((group, idx) => (
-                <div
-                  key={idx}
-                  className="text-center text-sm font-semibold py-1.5 border-r"
-                  style={{ width: group.days.length * DAY_WIDTH }}
-                >
-                  {format(group.month, "MMMM yyyy")}
-                </div>
-              ))}
-            </div>
-
-            {/* Header row: Day headers */}
-            <div className="flex sticky top-[34px] z-20 bg-muted/60 backdrop-blur-sm border-b">
-              <div 
-                className="flex-shrink-0 border-r bg-muted/60"
-                style={{ width: CAR_LABEL_WIDTH }}
-              />
-              {visibleDays.map((day, idx) => {
-                const isToday = isSameDay(day, new Date());
-                return (
-                  <div
-                    key={idx}
-                    className={`text-center py-1.5 border-r ${
-                      isToday ? "bg-primary/20 font-bold" : ""
-                    }`}
-                    style={{ width: DAY_WIDTH }}
-                  >
-                    <div className={`text-xs ${isToday ? "text-primary" : "text-muted-foreground"}`}>
-                      {format(day, "EEE")} {format(day, "d")}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Car rows - unified grid */}
+            {/* Month header spacer */}
+            <div className="h-[34px] border-b bg-muted/80" />
+            {/* Day header spacer */}
+            <div className="h-[34px] border-b bg-muted/60" />
+            
+            {/* Car labels */}
             {cars?.map((car) => {
-              const bars = getRentalBars(car.id);
               const carColor = carColorMap.get(car.id) || "#6366f1";
-              
               return (
                 <div
                   key={car.id}
-                  className="flex border-b"
+                  className="flex items-center gap-2 px-2 border-b hover-elevate cursor-pointer"
                   style={{ height: CAR_ROW_HEIGHT }}
+                  onClick={() => toggleCarExpanded(car.id)}
+                  data-testid={`car-row-${car.id}`}
                 >
-                  {/* Car label cell */}
+                  <ChevronDown
+                    className={`h-3 w-3 text-muted-foreground transition-transform flex-shrink-0 ${
+                      expandedCars.has(car.id) ? "" : "-rotate-90"
+                    }`}
+                  />
                   <div
-                    className="flex-shrink-0 flex items-center gap-2 px-2 border-r bg-card hover-elevate cursor-pointer"
-                    style={{ width: CAR_LABEL_WIDTH }}
-                    onClick={() => toggleCarExpanded(car.id)}
-                    data-testid={`car-row-${car.id}`}
-                  >
-                    <ChevronDown
-                      className={`h-3 w-3 text-muted-foreground transition-transform flex-shrink-0 ${
-                        expandedCars.has(car.id) ? "" : "-rotate-90"
-                      }`}
-                    />
-                    <div
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: carColor }}
-                    />
-                    <span className="text-sm truncate">{car.name}</span>
-                  </div>
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: carColor }}
+                  />
+                  <span className="text-sm truncate">{car.name}</span>
+                </div>
+              );
+            })}
+          </div>
 
-                  {/* Timeline cells - relative container for bars */}
-                  <div 
-                    className="relative flex"
-                    style={{ width: visibleDays.length * DAY_WIDTH }}
+          {/* Scrollable timeline */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-x-auto overflow-y-auto"
+          >
+            <div style={{ width: visibleDays.length * DAY_WIDTH }}>
+              {/* Month headers - sticky */}
+              <div className="flex sticky top-0 z-20 bg-muted/80 backdrop-blur-sm border-b">
+                {monthGroups.map((group, idx) => (
+                  <div
+                    key={idx}
+                    className="text-center text-sm font-semibold py-2 border-r"
+                    style={{ width: group.days.length * DAY_WIDTH }}
+                  >
+                    {format(group.month, "MMMM yyyy")}
+                  </div>
+                ))}
+              </div>
+
+              {/* Day headers - sticky */}
+              <div className="flex sticky top-[34px] z-20 bg-muted/60 backdrop-blur-sm border-b">
+                {visibleDays.map((day, idx) => {
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <div
+                      key={idx}
+                      ref={isToday ? todayColumnRef : null}
+                      className={`text-center py-2 border-r ${
+                        isToday ? "bg-primary/30" : ""
+                      }`}
+                      style={{ width: DAY_WIDTH }}
+                    >
+                      <div className={`text-xs ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}>
+                        {format(day, "EEE")} {format(day, "d")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Car timeline rows */}
+              {cars?.map((car) => {
+                const bars = getRentalBars(car.id);
+                const carColor = carColorMap.get(car.id) || "#6366f1";
+                
+                return (
+                  <div
+                    key={car.id}
+                    className="relative flex border-b"
+                    style={{ height: CAR_ROW_HEIGHT }}
                   >
                     {/* Day grid cells */}
                     {visibleDays.map((day, idx) => {
@@ -381,13 +326,13 @@ export default function Dashboard() {
                       return (
                         <div
                           key={idx}
-                          className={`border-r ${isToday ? "bg-primary/5" : ""}`}
+                          className={`border-r ${isToday ? "bg-primary/10" : ""}`}
                           style={{ width: DAY_WIDTH, height: CAR_ROW_HEIGHT }}
                         />
                       );
                     })}
 
-                    {/* Rental bars - absolute positioned within this row */}
+                    {/* Rental bars */}
                     {bars.map((bar) => {
                       const left = bar.startIndex * DAY_WIDTH;
                       const width = (bar.endIndex - bar.startIndex + 1) * DAY_WIDTH;
@@ -414,9 +359,9 @@ export default function Dashboard() {
                       );
                     })}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
