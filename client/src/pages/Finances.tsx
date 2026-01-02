@@ -111,11 +111,19 @@ export default function Finances() {
     });
 
     const totalExpensesAmount = periodExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    const totalMonthlyPayments = cars.reduce((sum, c) => sum + parseFloat(c.monthlyPayment), 0);
-    const netProfit = totalIncome - totalExpensesAmount;
+    
+    // Calculate number of periods for monthly payments
+    let periodCount = 1;
+    if (periodType === "quarterly") {
+      periodCount = 3;
+    } else if (periodType === "yearly") {
+      periodCount = 12;
+    }
+    const totalMonthlyPayments = cars.reduce((sum, c) => sum + parseFloat(c.monthlyPayment), 0) * periodCount;
+    const netProfit = totalIncome - totalMonthlyPayments - totalExpensesAmount;
 
     return { totalIncome, totalExpenses: totalExpensesAmount, netProfit, totalMonthlyPayments };
-  }, [rentals, expenses, cars, periodStart, periodEnd]);
+  }, [rentals, expenses, cars, periodStart, periodEnd, periodType]);
 
   const carFinancials = useMemo(() => {
     if (!cars || !rentals || !expenses) return [];
