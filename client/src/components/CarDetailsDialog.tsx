@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, Wrench, Calendar, ImageIcon } from "lucide-react";
+import { Wrench, Calendar, ImageIcon } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -108,39 +108,14 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     },
   });
 
-  const recordOilChangeMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", `/api/cars/${car?.id}/oil-change`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/edit-logs"] });
-      toast({
-        title: "Success",
-        description: "Oil change recorded successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to record oil change",
-        variant: "destructive",
-      });
-    },
-  });
-
+  
   const onSubmit = (data: UpdateCarFormData) => {
     updateMutation.mutate(data);
   };
 
   if (!car) return null;
 
-  const needsOilChange = (car.currentMileage ?? 0) - (car.lastOilChangeMileage ?? 0) >=
-    (car.oilChangeIntervalKm ?? 5000);
-
-  const mileageSinceOilChange = (car.currentMileage ?? 0) - (car.lastOilChangeMileage ?? 0);
-  const mileageUntilOilChange = Math.max(0, (car.oilChangeIntervalKm ?? 5000) - mileageSinceOilChange);
-
+  
   return (
     <Dialog open={!!car} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-lg">
@@ -245,29 +220,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                 </p>
               </div>
             </div>
-
-            {needsOilChange ? (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-medium">Oil Change Due!</span>
-                {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="ml-auto"
-                    onClick={() => recordOilChangeMutation.mutate()}
-                    disabled={recordOilChangeMutation.isPending}
-                    data-testid="button-record-oil-change"
-                  >
-                    Record Oil Change
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Next oil change in {mileageUntilOilChange.toLocaleString()} km
-              </div>
-            )}
           </div>
 
           <Separator />

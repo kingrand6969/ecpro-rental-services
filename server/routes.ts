@@ -488,6 +488,18 @@ export async function registerRoutes(
       };
       const validated = insertExpenseSchema.parse(expenseData);
       const expense = await storage.createExpense(validated);
+      
+      // If category is "Oil Change", update the car's lastOilChangeMileage
+      if (expense.category === "Oil Change" && expense.mileageAtExpense && expense.carId) {
+        const car = await storage.getCarById(expense.carId);
+        if (car) {
+          await storage.updateCar(expense.carId, {
+            lastOilChangeMileage: expense.mileageAtExpense,
+            lastMaintenanceDate: new Date().toISOString().split('T')[0],
+          });
+        }
+      }
+      
       res.status(201).json(expense);
     } catch (error) {
       if (error instanceof z.ZodError) {
