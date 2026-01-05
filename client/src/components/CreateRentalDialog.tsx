@@ -250,9 +250,6 @@ export function CreateRentalDialog({
                               onSelect={(date) => {
                                 field.onChange(date);
                               }}
-                              disabled={(date) =>
-                                date < new Date(new Date().setHours(0, 0, 0, 0))
-                              }
                             />
                           </PopoverContent>
                         </Popover>
@@ -286,8 +283,7 @@ export function CreateRentalDialog({
                                 field.onChange(date);
                               }}
                               disabled={(date) =>
-                                date <
-                                (startDate || new Date(new Date().setHours(0, 0, 0, 0)))
+                                startDate ? date < startDate : false
                               }
                             />
                           </PopoverContent>
