@@ -38,6 +38,10 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
+const formatCurrency = (value: number) => {
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 export default function Finances() {
   const [periodType, setPeriodType] = useState<"monthly" | "quarterly" | "yearly">("monthly");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -262,7 +266,7 @@ export default function Finances() {
                   <div>
                     <p className="text-sm text-muted-foreground">Total Income</p>
                     <p className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                      ₱{financialSummary.totalIncome.toLocaleString()}
+                      ₱{formatCurrency(financialSummary.totalIncome)}
                     </p>
                   </div>
                 </div>
@@ -278,7 +282,7 @@ export default function Finances() {
                   <div>
                     <p className="text-sm text-muted-foreground">Total Expenses</p>
                     <p className="text-xl font-semibold tabular-nums text-red-600 dark:text-red-400">
-                      ₱{financialSummary.totalExpenses.toLocaleString()}
+                      ₱{formatCurrency(financialSummary.totalExpenses)}
                     </p>
                   </div>
                 </div>
@@ -298,7 +302,7 @@ export default function Finances() {
                         ? "text-green-600 dark:text-green-400"
                         : "text-red-600 dark:text-red-400"
                     }`}>
-                      ₱{financialSummary.netProfit.toLocaleString()}
+                      ₱{formatCurrency(financialSummary.netProfit)}
                     </p>
                   </div>
                 </div>
@@ -314,7 +318,7 @@ export default function Finances() {
                   <div>
                     <p className="text-sm text-muted-foreground">Monthly Payments</p>
                     <p className="text-xl font-semibold tabular-nums">
-                      ₱{financialSummary.totalMonthlyPayments.toLocaleString()}
+                      ₱{formatCurrency(financialSummary.totalMonthlyPayments)}
                     </p>
                   </div>
                 </div>
@@ -348,13 +352,13 @@ export default function Finances() {
                             <span className={`font-medium tabular-nums ${
                               netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                             }`}>
-                              ₱{netProfit.toLocaleString()}
+                              ₱{formatCurrency(netProfit)}
                             </span>
                           </div>
                           <div className="text-right w-28">
                             <span className="text-muted-foreground">Payment: </span>
                             <span className="font-medium tabular-nums">
-                              ₱{monthlyPayment.toLocaleString()}
+                              ₱{formatCurrency(monthlyPayment)}
                             </span>
                           </div>
                         </div>
@@ -420,18 +424,18 @@ export default function Finances() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">
-                          ₱{income.toLocaleString()}
+                          ₱{formatCurrency(income)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">
-                          ₱{expenses.toLocaleString()}
+                          ₱{formatCurrency(expenses)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-orange-600 dark:text-orange-400">
-                          ₱{totalAmortization.toLocaleString()}
+                          ₱{formatCurrency(totalAmortization)}
                         </TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${
                           netAfterAmortization >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                         }`}>
-                          ₱{netAfterAmortization.toLocaleString()}
+                          ₱{formatCurrency(netAfterAmortization)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -450,7 +454,7 @@ export default function Finances() {
                     <div className="flex items-center justify-between">
                       <span className="text-green-700 dark:text-green-300 font-medium">Total Revenue</span>
                       <span className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                        ₱{financialSummary.totalIncome.toLocaleString()}
+                        ₱{formatCurrency(financialSummary.totalIncome)}
                       </span>
                     </div>
                   </div>
@@ -459,7 +463,7 @@ export default function Finances() {
                     <div className="flex items-center justify-between">
                       <span className="text-red-700 dark:text-red-300 font-medium">Total Expenses</span>
                       <span className="text-xl font-semibold tabular-nums text-red-600 dark:text-red-400">
-                        -₱{financialSummary.totalExpenses.toLocaleString()}
+                        -₱{formatCurrency(financialSummary.totalExpenses)}
                       </span>
                     </div>
                   </div>
@@ -472,7 +476,7 @@ export default function Finances() {
                           ? "text-green-600 dark:text-green-400"
                           : "text-red-600 dark:text-red-400"
                       }`}>
-                        ₱{financialSummary.netProfit.toLocaleString()}
+                        ₱{formatCurrency(financialSummary.netProfit)}
                       </span>
                     </div>
                   </div>
@@ -497,7 +501,7 @@ export default function Finances() {
                     <p className="text-xs text-muted-foreground mt-2">
                       {financialSummary.totalIncome >= financialSummary.totalMonthlyPayments
                         ? "All monthly payments covered!"
-                        : `₱${Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.totalIncome).toLocaleString()} remaining to cover payments`}
+                        : `₱${formatCurrency(Math.max(0, financialSummary.totalMonthlyPayments - financialSummary.totalIncome))} remaining to cover payments`}
                     </p>
                   </div>
                 </div>
