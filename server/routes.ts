@@ -334,6 +334,21 @@ export async function registerRoutes(
       }
       
       const rental = await storage.createRental(validated);
+      
+      // Log the rental creation
+      const car = await storage.getCarById(rental.carId);
+      await storage.createRentalLog({
+        rentalId: rental.id,
+        carId: rental.carId,
+        userId,
+        action: "created",
+        customerName: rental.customerName,
+        startDate: rental.startDate,
+        endDate: rental.endDate,
+        totalAmount: rental.totalAmount,
+        carName: car?.name || "Unknown",
+      });
+      
       res.status(201).json(rental);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -361,6 +376,30 @@ export async function registerRoutes(
       }
 
       const rental = await storage.updateRental(id, req.body);
+      
+      // Log each changed field
+      const car = await storage.getCarById(existing.carId);
+      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'notes', 'customerPhone', 'customerEmail'];
+      
+      for (const field of fieldsToCheck) {
+        if (req.body[field] !== undefined && String(req.body[field]) !== String((existing as any)[field])) {
+          await storage.createRentalLog({
+            rentalId: id,
+            carId: existing.carId,
+            userId,
+            action: "updated",
+            fieldName: field,
+            oldValue: String((existing as any)[field] ?? ''),
+            newValue: String(req.body[field]),
+            customerName: rental?.customerName || existing.customerName,
+            startDate: rental?.startDate || existing.startDate,
+            endDate: rental?.endDate || existing.endDate,
+            totalAmount: rental?.totalAmount || existing.totalAmount,
+            carName: car?.name || "Unknown",
+          });
+        }
+      }
+      
       res.json(rental);
     } catch (error) {
       console.error("Error updating rental:", error);
@@ -377,6 +416,24 @@ export async function registerRoutes(
       }
 
       const id = parseInt(req.params.id);
+      const existing = await storage.getRentalById(id);
+      
+      if (existing) {
+        // Log the deletion before actually deleting
+        const car = await storage.getCarById(existing.carId);
+        await storage.createRentalLog({
+          rentalId: null, // Set to null since rental will be deleted
+          carId: existing.carId,
+          userId,
+          action: "deleted",
+          customerName: existing.customerName,
+          startDate: existing.startDate,
+          endDate: existing.endDate,
+          totalAmount: existing.totalAmount,
+          carName: car?.name || "Unknown",
+        });
+      }
+      
       await storage.deleteRental(id);
       res.status(204).send();
     } catch (error) {
@@ -490,6 +547,17 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching car edit logs:", error);
       res.status(500).json({ message: "Failed to fetch car edit logs" });
+    }
+  });
+
+  // Rental log routes
+  app.get("/api/rental-logs", isAuthenticated, async (req, res) => {
+    try {
+      const logs = await storage.getAllRentalLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching rental logs:", error);
+      res.status(500).json({ message: "Failed to fetch rental logs" });
     }
   });
 

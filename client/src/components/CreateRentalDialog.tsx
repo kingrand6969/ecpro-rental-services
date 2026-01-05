@@ -250,6 +250,9 @@ export function CreateRentalDialog({
                               onSelect={(date) => {
                                 field.onChange(date);
                               }}
+                              captionLayout="dropdown-buttons"
+                              fromYear={2020}
+                              toYear={2030}
                             />
                           </PopoverContent>
                         </Popover>
@@ -285,6 +288,9 @@ export function CreateRentalDialog({
                               disabled={(date) =>
                                 startDate ? date < startDate : false
                               }
+                              captionLayout="dropdown-buttons"
+                              fromYear={2020}
+                              toYear={2030}
                             />
                           </PopoverContent>
                         </Popover>

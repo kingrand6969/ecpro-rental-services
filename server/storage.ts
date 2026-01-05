@@ -6,6 +6,7 @@ import {
   monthlyPayments,
   customers,
   editLogs,
+  rentalLogs,
   type User,
   type UpsertUser,
   type Car,
@@ -21,6 +22,9 @@ import {
   type EditLog,
   type InsertEditLog,
   type EditLogWithDetails,
+  type RentalLog,
+  type InsertRentalLog,
+  type RentalLogWithUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -79,6 +83,10 @@ export interface IStorage {
   getAllEditLogs(): Promise<EditLogWithDetails[]>;
   getEditLogsByCarId(carId: number): Promise<EditLogWithDetails[]>;
   createEditLog(log: InsertEditLog): Promise<EditLog>;
+
+  // Rental log operations
+  getAllRentalLogs(): Promise<RentalLogWithUser[]>;
+  createRentalLog(log: InsertRentalLog): Promise<RentalLog>;
 
   // Stats
   getStats(): Promise<{
@@ -406,6 +414,28 @@ export class DatabaseStorage implements IStorage {
 
   async createEditLog(log: InsertEditLog): Promise<EditLog> {
     const [created] = await db.insert(editLogs).values(log).returning();
+    return created;
+  }
+
+  // Rental log operations
+  async getAllRentalLogs(): Promise<RentalLogWithUser[]> {
+    const logs = await db
+      .select()
+      .from(rentalLogs)
+      .orderBy(desc(rentalLogs.loggedAt));
+    
+    const logsWithUser: RentalLogWithUser[] = [];
+    for (const log of logs) {
+      const [user] = await db.select().from(users).where(eq(users.id, log.userId));
+      if (user) {
+        logsWithUser.push({ ...log, user });
+      }
+    }
+    return logsWithUser;
+  }
+
+  async createRentalLog(log: InsertRentalLog): Promise<RentalLog> {
+    const [created] = await db.insert(rentalLogs).values(log).returning();
     return created;
   }
 

@@ -7,25 +7,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { History, Car, User, Calendar, ArrowRight } from "lucide-react";
-import type { EditLogWithDetails, Car as CarType } from "@shared/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { History, Car, User, Calendar, ArrowRight, ClipboardList, Plus, Pencil, Trash2 } from "lucide-react";
+import type { EditLogWithDetails, Car as CarType, RentalLogWithUser } from "@shared/schema";
 
 export default function Logs() {
   const [selectedCarId, setSelectedCarId] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("all");
 
   const { data: cars, isLoading: carsLoading } = useQuery<CarType[]>({
     queryKey: ["/api/cars"],
   });
 
-  const { data: logs, isLoading: logsLoading } = useQuery<EditLogWithDetails[]>({
+  const { data: editLogs, isLoading: editLogsLoading } = useQuery<EditLogWithDetails[]>({
     queryKey: ["/api/edit-logs"],
   });
 
-  const filteredLogs = logs?.filter(log => 
+  const { data: rentalLogs, isLoading: rentalLogsLoading } = useQuery<RentalLogWithUser[]>({
+    queryKey: ["/api/rental-logs"],
+  });
+
+  const filteredEditLogs = editLogs?.filter(log => 
     selectedCarId === "all" || log.carId === parseInt(selectedCarId)
   ) || [];
 
-  const isLoading = carsLoading || logsLoading;
+  const filteredRentalLogs = rentalLogs?.filter(log =>
+    selectedCarId === "all" || log.carId === parseInt(selectedCarId)
+  ) || [];
+
+  const isLoading = carsLoading || editLogsLoading || rentalLogsLoading;
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case "created": return <Plus className="h-4 w-4 text-green-500" />;
+      case "updated": return <Pencil className="h-4 w-4 text-blue-500" />;
+      case "deleted": return <Trash2 className="h-4 w-4 text-red-500" />;
+      default: return <History className="h-4 w-4" />;
+    }
+  };
+
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case "created": return <Badge className="bg-green-500/20 text-green-600 dark:text-green-400">Created</Badge>;
+      case "updated": return <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400">Updated</Badge>;
+      case "deleted": return <Badge className="bg-red-500/20 text-red-600 dark:text-red-400">Deleted</Badge>;
+      default: return <Badge variant="outline">{action}</Badge>;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -36,6 +64,8 @@ export default function Logs() {
     );
   }
 
+  const totalLogs = (filteredEditLogs?.length || 0) + (filteredRentalLogs?.length || 0);
+
   return (
     <ScrollArea className="h-full">
       <div className="container mx-auto p-6 space-y-6">
@@ -43,10 +73,10 @@ export default function Logs() {
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2" data-testid="text-page-title">
               <History className="h-8 w-8" />
-              Edit Logs
+              Activity Logs
             </h1>
             <p className="text-muted-foreground mt-1">
-              Track all car information changes with timestamps
+              Track all changes to cars and rentals with timestamps
             </p>
           </div>
 
@@ -68,86 +98,318 @@ export default function Logs() {
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Change History
-            </CardTitle>
-            <CardDescription>
-              {filteredLogs.length} edit{filteredLogs.length !== 1 ? 's' : ''} recorded
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredLogs.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No edit logs found</p>
-                <p className="text-sm">Changes to car information will appear here</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date & Time</TableHead>
-                    <TableHead>Car</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Field</TableHead>
-                    <TableHead>Change</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLogs.map((log) => (
-                    <TableRow key={log.id} data-testid={`row-log-${log.id}`}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">
-                              {format(new Date(log.editedAt), "MMM d, yyyy")}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="all" data-testid="tab-all-logs">
+              All Logs ({totalLogs})
+            </TabsTrigger>
+            <TabsTrigger value="cars" data-testid="tab-car-logs">
+              <Car className="h-4 w-4 mr-1" />
+              Car Edits ({filteredEditLogs.length})
+            </TabsTrigger>
+            <TabsTrigger value="rentals" data-testid="tab-rental-logs">
+              <ClipboardList className="h-4 w-4 mr-1" />
+              Rentals ({filteredRentalLogs.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  All Activity
+                </CardTitle>
+                <CardDescription>
+                  {totalLogs} log{totalLogs !== 1 ? 's' : ''} recorded
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {totalLogs === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No logs found</p>
+                    <p className="text-sm">Activity will appear here</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Car</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {[...filteredEditLogs.map(log => ({ ...log, logType: 'car' as const, timestamp: new Date(log.editedAt) })),
+                        ...filteredRentalLogs.map(log => ({ ...log, logType: 'rental' as const, timestamp: new Date(log.loggedAt) }))
+                      ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+                       .map((log, idx) => (
+                        <TableRow key={`${log.logType}-${log.id}`} data-testid={`row-log-${log.logType}-${log.id}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="font-medium">
+                                  {format(log.timestamp, "MMM d, yyyy")}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {format(log.timestamp, "h:mm a")}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {format(new Date(log.editedAt), "h:mm a")}
+                          </TableCell>
+                          <TableCell>
+                            {log.logType === 'car' ? (
+                              <Badge variant="outline"><Car className="h-3 w-3 mr-1" />Car</Badge>
+                            ) : (
+                              <Badge variant="outline"><ClipboardList className="h-3 w-3 mr-1" />Rental</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.logType === 'car' ? log.car.name : log.carName}</span>
                             </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Car className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">{log.car.name}</div>
-                            <div className="text-sm text-muted-foreground">{log.car.plateNumber}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span>{log.user.firstName} {log.user.lastName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{log.fieldName}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 max-w-xs">
-                          <span className="text-muted-foreground truncate" title={log.oldValue || "(empty)"}>
-                            {log.oldValue || "(empty)"}
-                          </span>
-                          <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                          <span className="font-medium truncate" title={log.newValue || "(empty)"}>
-                            {log.newValue || "(empty)"}
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.user.firstName} {log.user.lastName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {log.logType === 'car' ? (
+                              <Badge variant="outline">{log.fieldName}</Badge>
+                            ) : (
+                              getActionBadge(log.action)
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {log.logType === 'car' ? (
+                              <div className="flex items-center gap-2 max-w-xs">
+                                <span className="text-muted-foreground truncate" title={log.oldValue || "(empty)"}>
+                                  {log.oldValue || "(empty)"}
+                                </span>
+                                <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                <span className="font-medium truncate" title={log.newValue || "(empty)"}>
+                                  {log.newValue || "(empty)"}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-sm">
+                                {log.action === 'updated' && log.fieldName ? (
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="text-xs">{log.fieldName}</Badge>
+                                    <span className="text-muted-foreground truncate">{log.oldValue || "(empty)"}</span>
+                                    <ArrowRight className="h-4 w-4 flex-shrink-0" />
+                                    <span className="font-medium truncate">{log.newValue || "(empty)"}</span>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <span className="font-medium">{log.customerName}</span>
+                                    <span className="text-muted-foreground ml-2">
+                                      {log.startDate} - {log.endDate}
+                                    </span>
+                                    <span className="ml-2">₱{parseFloat(log.totalAmount || '0').toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cars" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Car className="h-5 w-5" />
+                  Car Edit History
+                </CardTitle>
+                <CardDescription>
+                  {filteredEditLogs.length} edit{filteredEditLogs.length !== 1 ? 's' : ''} recorded
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredEditLogs.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No car edit logs found</p>
+                    <p className="text-sm">Changes to car information will appear here</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Car</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Field</TableHead>
+                        <TableHead>Change</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEditLogs.map((log) => (
+                        <TableRow key={log.id} data-testid={`row-car-log-${log.id}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="font-medium">
+                                  {format(new Date(log.editedAt), "MMM d, yyyy")}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {format(new Date(log.editedAt), "h:mm a")}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="font-medium">{log.car.name}</div>
+                                <div className="text-sm text-muted-foreground">{log.car.plateNumber}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.user.firstName} {log.user.lastName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{log.fieldName}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 max-w-xs">
+                              <span className="text-muted-foreground truncate" title={log.oldValue || "(empty)"}>
+                                {log.oldValue || "(empty)"}
+                              </span>
+                              <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                              <span className="font-medium truncate" title={log.newValue || "(empty)"}>
+                                {log.newValue || "(empty)"}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="rentals" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Rental Activity
+                </CardTitle>
+                <CardDescription>
+                  {filteredRentalLogs.length} rental action{filteredRentalLogs.length !== 1 ? 's' : ''} recorded
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredRentalLogs.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No rental logs found</p>
+                    <p className="text-sm">Rental create, update, and delete actions will appear here</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Car</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Rental Period</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRentalLogs.map((log) => (
+                        <TableRow key={log.id} data-testid={`row-rental-log-${log.id}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="font-medium">
+                                  {format(new Date(log.loggedAt), "MMM d, yyyy")}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {format(new Date(log.loggedAt), "h:mm a")}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {getActionIcon(log.action)}
+                              {getActionBadge(log.action)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.carName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.user.firstName} {log.user.lastName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{log.customerName}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {log.startDate} - {log.endDate}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">
+                              ₱{parseFloat(log.totalAmount || '0').toLocaleString()}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {log.action === 'updated' && log.fieldName && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Badge variant="secondary" className="text-xs">{log.fieldName}</Badge>
+                                <span className="text-muted-foreground truncate">{log.oldValue || "(empty)"}</span>
+                                <ArrowRight className="h-3 w-3 flex-shrink-0" />
+                                <span className="font-medium truncate">{log.newValue || "(empty)"}</span>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </ScrollArea>
   );

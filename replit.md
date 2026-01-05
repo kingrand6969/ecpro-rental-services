@@ -72,6 +72,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 - **expenses**: Car-related expenses (category, amount, mileage)
 - **monthly_payments**: Car payment tracking by month/year
 - **edit_logs**: Car edit history (carId, userId, fieldName, oldValue, newValue, editedAt)
+- **rental_logs**: Rental activity history (rentalId, carId, userId, action, fieldName, oldValue, newValue, customerName, dates, amount)
 - **sessions**: Express session storage
 
 ## API Endpoints
@@ -122,6 +123,9 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ### Edit Logs
 - `GET /api/edit-logs` - Get all car edit logs with car and user details
 - `GET /api/cars/:carId/edit-logs` - Get edit logs for a specific car
+
+### Rental Logs
+- `GET /api/rental-logs` - Get all rental activity logs (create, update, delete) with user details
 
 ## Business Rules
 1. **User Approval**: New users must be approved by admin before they can login
