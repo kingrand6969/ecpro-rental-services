@@ -86,15 +86,15 @@ export default function Finances() {
     const rentalEnd = parseISO(rental.endDate as string);
     const totalAmount = parseFloat(rental.totalAmount);
     
-    const totalRentalDays = differenceInDays(rentalEnd, rentalStart) + 1;
+    const totalRentalDays = differenceInDays(rentalEnd, rentalStart);
     if (totalRentalDays <= 0) return 0;
     
     const overlapStart = max([rentalStart, periodStart]);
     const overlapEnd = min([rentalEnd, periodEnd]);
     
-    if (overlapStart > overlapEnd) return 0;
+    if (overlapStart >= overlapEnd) return 0;
     
-    const daysInPeriod = differenceInDays(overlapEnd, overlapStart) + 1;
+    const daysInPeriod = differenceInDays(overlapEnd, overlapStart);
     const dailyRate = totalAmount / totalRentalDays;
     
     return dailyRate * daysInPeriod;
