@@ -175,7 +175,7 @@ export default function Dashboard() {
       }
 
       if (startIndex !== -1 && endIndex !== -1 && startIndex <= endIndex) {
-        const daysCount = differenceInDays(rentalEnd, rentalStart) + 1;
+        const daysCount = differenceInDays(rentalEnd, rentalStart);
         bars.push({
           rental,
           startIndex,
