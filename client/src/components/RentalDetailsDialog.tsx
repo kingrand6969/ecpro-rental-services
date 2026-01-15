@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -106,7 +106,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Duration</span>
-                <span className="font-medium">{rental.daysRented} days</span>
+                <span className="font-medium">{differenceInDays(parseISO(rental.endDate as string), parseISO(rental.startDate as string))} days</span>
               </div>
             </div>
           </div>

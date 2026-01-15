@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -155,7 +155,7 @@ export default function Rentals() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {rental.daysRented}
+                          {differenceInDays(parseISO(rental.endDate as string), parseISO(rental.startDate as string))}
                         </TableCell>
                         <TableCell className="text-right tabular-nums font-medium">
                           ₱{parseFloat(rental.totalAmount).toLocaleString()}
