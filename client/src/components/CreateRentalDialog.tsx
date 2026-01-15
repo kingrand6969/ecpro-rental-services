@@ -90,7 +90,7 @@ export function CreateRentalDialog({
   const selectedCarId = form.watch("carId");
 
   const daysRented = startDate && endDate
-    ? Math.max(1, differenceInDays(endDate, startDate) + 1)
+    ? Math.max(1, differenceInDays(endDate, startDate))
     : 0;
 
   const selectedCar = cars?.find((car) => car.id === parseInt(selectedCarId));

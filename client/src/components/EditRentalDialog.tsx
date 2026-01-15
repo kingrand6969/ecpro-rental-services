@@ -102,7 +102,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
   const endDate = form.watch("endDate");
 
   const daysRented = startDate && endDate
-    ? Math.max(1, differenceInDays(endDate, startDate) + 1)
+    ? Math.max(1, differenceInDays(endDate, startDate))
     : 0;
 
   const updateMutation = useMutation({
