@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays, max, min } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays, max, min, addDays, startOfDay } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -87,15 +87,17 @@ export default function Finances() {
     const totalAmount = parseFloat(rental.totalAmount);
     
     const totalRentalDays = differenceInDays(rentalEnd, rentalStart);
-    if (totalRentalDays <= 0) return 0;
+    if (totalRentalDays <= 0) return totalAmount;
     
+    const dailyRate = totalAmount / totalRentalDays;
+    
+    const periodEndExclusive = addDays(startOfDay(periodEnd), 1);
     const overlapStart = max([rentalStart, periodStart]);
-    const overlapEnd = min([rentalEnd, periodEnd]);
+    const overlapEnd = min([rentalEnd, periodEndExclusive]);
     
     if (overlapStart >= overlapEnd) return 0;
     
     const daysInPeriod = differenceInDays(overlapEnd, overlapStart);
-    const dailyRate = totalAmount / totalRentalDays;
     
     return dailyRate * daysInPeriod;
   };
