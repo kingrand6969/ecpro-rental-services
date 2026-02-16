@@ -32,15 +32,6 @@ export default function Cars() {
     queryKey: ["/api/cars"],
   });
 
-  const needsOilChange = (car: Car) => {
-    const mileageSinceChange = (car.currentMileage ?? 0) - (car.lastOilChangeMileage ?? 0);
-    return mileageSinceChange >= (car.oilChangeIntervalKm ?? 5000);
-  };
-
-  const getMileageUntilOilChange = (car: Car) => {
-    const mileageSinceChange = (car.currentMileage ?? 0) - (car.lastOilChangeMileage ?? 0);
-    return Math.max(0, (car.oilChangeIntervalKm ?? 5000) - mileageSinceChange);
-  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -100,9 +91,9 @@ export default function Cars() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Current Mileage</span>
+                    <span className="text-muted-foreground">Last Oil Change</span>
                     <span className="font-medium">
-                      {(car.currentMileage ?? 0).toLocaleString()} km
+                      {(car.lastOilChangeMileage ?? 0).toLocaleString()} km
                     </span>
                   </div>
 
@@ -142,16 +133,6 @@ export default function Cars() {
                     </div>
                   )}
 
-                  {needsOilChange(car) ? (
-                    <div className="flex items-center gap-2 p-2 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm font-medium">Oil Change Due</span>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      Next oil change in {getMileageUntilOilChange(car).toLocaleString()} km
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t">

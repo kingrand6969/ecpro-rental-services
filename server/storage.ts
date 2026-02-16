@@ -250,14 +250,16 @@ export class DatabaseStorage implements IStorage {
     await db.delete(cars).where(eq(cars.id, id));
   }
 
-  async recordOilChange(id: number): Promise<Car | undefined> {
+  async recordOilChange(id: number, mileage?: number): Promise<Car | undefined> {
     const car = await this.getCarById(id);
     if (!car) return undefined;
 
+    const newMileage = mileage ?? car.lastOilChangeMileage ?? 0;
     const [updated] = await db
       .update(cars)
       .set({
-        lastOilChangeMileage: car.currentMileage,
+        lastOilChangeMileage: newMileage,
+        currentMileage: newMileage,
         lastMaintenanceDate: new Date().toISOString().split('T')[0],
         updatedAt: new Date(),
       })

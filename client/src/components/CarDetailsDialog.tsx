@@ -70,7 +70,6 @@ export function needsRegistrationUpdate(car: Car): boolean {
 
 const updateCarSchema = z.object({
   plateNumber: z.string().optional(),
-  currentMileage: z.string().min(1, "Mileage is required"),
   lastOilChangeMileage: z.string().optional(),
   dateAcquired: z.string().optional(),
 });
@@ -92,7 +91,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     resolver: zodResolver(updateCarSchema),
     defaultValues: {
       plateNumber: "",
-      currentMileage: "",
       lastOilChangeMileage: "",
       dateAcquired: "",
     },
@@ -102,7 +100,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     if (car) {
       form.reset({
         plateNumber: car.plateNumber ?? "",
-        currentMileage: car.currentMileage?.toString() ?? "0",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
         dateAcquired: car.dateAcquired ?? "",
       });
@@ -115,7 +112,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     mutationFn: async (data: UpdateCarFormData) => {
       await apiRequest("PATCH", `/api/cars/${car?.id}`, {
         plateNumber: data.plateNumber,
-        currentMileage: parseInt(data.currentMileage),
         lastOilChangeMileage: data.lastOilChangeMileage
           ? parseInt(data.lastOilChangeMileage)
           : undefined,
@@ -351,11 +347,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground">Current Mileage</p>
-                <p className="font-medium">{(car.currentMileage ?? 0).toLocaleString()} km</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Last Oil Change</p>
+                <p className="text-muted-foreground">Last Oil Change Mileage</p>
                 <p className="font-medium">{(car.lastOilChangeMileage ?? 0).toLocaleString()} km</p>
               </div>
               <div>
@@ -407,25 +399,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                         type="date"
                         {...field}
                         data-testid="input-date-acquired"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="currentMileage"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Current Mileage (km)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        {...field}
-                        data-testid="input-update-mileage"
                       />
                     </FormControl>
                     <FormMessage />

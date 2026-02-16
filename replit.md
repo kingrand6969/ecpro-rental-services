@@ -141,6 +141,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ## Recent Changes (Feb 16, 2026)
 - **OR CR Registration Warning Enhanced**: Three-state system (ok/warning/overdue). 36-month initial countdown from dateAcquired, 12-month cycle after each confirmation. Orange "Due Soon" warning 7 days before due date, bold red "Needs Update" when overdue. Admin must enter last registration date when confirming.
 - **Last Car Registration display**: CarDetailsDialog shows "Last Car Registration" date. Cars page cards show "Last Registration" date.
+- **Removed Current Mileage field**: Removed separate currentMileage tracking; lastOilChangeMileage now serves as the known mileage. Oil change recording accepts mileage input.
 - **Removed Status dropdown**: Removed admin-only status selector from CarDetailsDialog
 - **Date Acquired field**: Added to car creation and car details edit forms
 - **Expense admin restriction**: Only admin can delete expenses

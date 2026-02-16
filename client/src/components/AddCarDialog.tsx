@@ -42,7 +42,6 @@ const carSchema = z.object({
   color: z.string().min(1, "Color is required"),
   colorCode: z.string().min(1, "Calendar color is required"),
   monthlyPayment: z.string().min(1, "Monthly payment is required"),
-  currentMileage: z.string().optional(),
   oilChangeIntervalKm: z.string().optional(),
   dateAcquired: z.string().optional(),
 });
@@ -66,7 +65,6 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
       color: "",
       colorCode: CAR_COLORS[0].code,
       monthlyPayment: "",
-      currentMileage: "0",
       oilChangeIntervalKm: "5000",
       dateAcquired: "",
     },
@@ -81,7 +79,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
         color: data.color,
         colorCode: data.colorCode,
         monthlyPayment: data.monthlyPayment,
-        currentMileage: parseInt(data.currentMileage || "0"),
+        currentMileage: 0,
         lastOilChangeMileage: 0,
         oilChangeIntervalKm: parseInt(data.oilChangeIntervalKm || "5000"),
         status: "available",
@@ -270,26 +268,6 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="currentMileage"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Current Mileage (km)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        {...field}
-                        data-testid="input-current-mileage"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="oilChangeIntervalKm"

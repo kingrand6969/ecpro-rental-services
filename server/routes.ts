@@ -99,7 +99,6 @@ export async function registerRoutes(
         color: 'Color',
         colorCode: 'Color Code',
         monthlyPayment: 'Monthly Payment',
-        currentMileage: 'Current Mileage',
         lastOilChangeMileage: 'Last Oil Change Mileage',
         oilChangeIntervalKm: 'Oil Change Interval (km)',
         lastMaintenanceDate: 'Last Maintenance Date',
@@ -195,7 +194,8 @@ export async function registerRoutes(
       }
 
       const id = parseInt(req.params.id);
-      const car = await storage.recordOilChange(id);
+      const mileage = req.body.mileage ? parseInt(req.body.mileage) : undefined;
+      const car = await storage.recordOilChange(id, mileage);
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
       }
