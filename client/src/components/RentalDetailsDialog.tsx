@@ -23,7 +23,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
 
   return (
     <Dialog open={!!rental} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             {car && (

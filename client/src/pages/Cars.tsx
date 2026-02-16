@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, AlertTriangle, Wrench, Fuel } from "lucide-react";
+import { Plus, AlertTriangle, Wrench, Fuel, Calendar } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { AddCarDialog } from "@/components/AddCarDialog";
 import { CarExpensesDialog } from "@/components/CarExpensesDialog";
@@ -104,6 +105,28 @@ export default function Cars() {
                       {(car.currentMileage ?? 0).toLocaleString()} km
                     </span>
                   </div>
+
+                  {car.lastMaintenanceDate && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Last Maintenance</span>
+                      <span className="font-medium">
+                        {format(parseISO(car.lastMaintenanceDate as string), "MMM d, yyyy")}
+                      </span>
+                    </div>
+                  )}
+
+                  {(car.registrationConfirmedAt || car.dateAcquired) && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Last Registration</span>
+                      <span className="font-medium">
+                        {car.registrationConfirmedAt
+                          ? format(parseISO(car.registrationConfirmedAt as string), "MMM d, yyyy")
+                          : car.dateAcquired
+                            ? format(parseISO(car.dateAcquired as string), "MMM d, yyyy")
+                            : "N/A"}
+                      </span>
+                    </div>
+                  )}
 
                   {needsRegistrationUpdate(car) && (
                     <div className="flex items-center gap-2 p-2 rounded-md bg-red-500/10 text-red-600 dark:text-red-400">

@@ -154,7 +154,7 @@ export function CreateRentalDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle data-testid="text-booking-title">
             {step === "car" && "Select a Vehicle"}

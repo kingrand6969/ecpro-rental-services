@@ -169,7 +169,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   
   return (
     <Dialog open={!!car} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div
@@ -183,7 +183,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto flex-1 pr-1">
           {showOrCrWarning && (
             <div className="flex items-center justify-between gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20" data-testid="warning-or-cr">
               <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
