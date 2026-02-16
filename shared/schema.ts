@@ -69,6 +69,8 @@ export const cars = pgTable("cars", {
   oilChangeIntervalKm: integer("oil_change_interval_km").default(5000),
   lastMaintenanceDate: date("last_maintenance_date"),
   status: varchar("status", { length: 20 }).default("available").notNull(), // available, rented, maintenance
+  dateAcquired: date("date_acquired"),
+  registrationConfirmedAt: date("registration_confirmed_at"),
   imageUrl: varchar("image_url", { length: 500 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

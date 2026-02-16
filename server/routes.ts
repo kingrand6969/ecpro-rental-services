@@ -104,6 +104,8 @@ export async function registerRoutes(
         oilChangeIntervalKm: 'Oil Change Interval (km)',
         lastMaintenanceDate: 'Last Maintenance Date',
         status: 'Status',
+        dateAcquired: 'Date Acquired',
+        registrationConfirmedAt: 'Registration Confirmed',
         imageUrl: 'Image URL',
       };
 
@@ -150,6 +152,36 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting car:", error);
       res.status(500).json({ message: "Failed to delete car" });
+    }
+  });
+
+  app.post("/api/cars/:id/confirm-registration", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const today = new Date().toISOString().split('T')[0];
+      const car = await storage.updateCar(id, { registrationConfirmedAt: today });
+      if (!car) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+
+      await storage.createEditLog({
+        carId: id,
+        userId,
+        fieldName: 'Registration Confirmed',
+        oldValue: '',
+        newValue: today,
+      });
+
+      res.json(car);
+    } catch (error) {
+      console.error("Error confirming registration:", error);
+      res.status(500).json({ message: "Failed to confirm registration" });
     }
   });
 

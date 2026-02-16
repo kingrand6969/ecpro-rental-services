@@ -9,7 +9,7 @@ import { Plus, AlertTriangle, Wrench, Fuel } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { AddCarDialog } from "@/components/AddCarDialog";
 import { CarExpensesDialog } from "@/components/CarExpensesDialog";
-import { CarDetailsDialog } from "@/components/CarDetailsDialog";
+import { CarDetailsDialog, needsRegistrationUpdate } from "@/components/CarDetailsDialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Car, Expense } from "@shared/schema";
@@ -104,6 +104,13 @@ export default function Cars() {
                       {(car.currentMileage ?? 0).toLocaleString()} km
                     </span>
                   </div>
+
+                  {needsRegistrationUpdate(car) && (
+                    <div className="flex items-center gap-2 p-2 rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-sm font-medium">OR CR Needs Update</span>
+                    </div>
+                  )}
 
                   {needsOilChange(car) ? (
                     <div className="flex items-center gap-2 p-2 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400">

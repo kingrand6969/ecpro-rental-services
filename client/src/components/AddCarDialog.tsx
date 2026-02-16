@@ -44,6 +44,7 @@ const carSchema = z.object({
   monthlyPayment: z.string().min(1, "Monthly payment is required"),
   currentMileage: z.string().optional(),
   oilChangeIntervalKm: z.string().optional(),
+  dateAcquired: z.string().optional(),
 });
 
 type CarFormData = z.infer<typeof carSchema>;
@@ -67,6 +68,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
       monthlyPayment: "",
       currentMileage: "0",
       oilChangeIntervalKm: "5000",
+      dateAcquired: "",
     },
   });
 
@@ -83,6 +85,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
         lastOilChangeMileage: 0,
         oilChangeIntervalKm: parseInt(data.oilChangeIntervalKm || "5000"),
         status: "available",
+        dateAcquired: data.dateAcquired || null,
       };
       await apiRequest("POST", "/api/cars", payload);
     },
@@ -241,6 +244,24 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                       placeholder="0.00"
                       {...field}
                       data-testid="input-monthly-payment"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="dateAcquired"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date Acquired</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      {...field}
+                      data-testid="input-date-acquired"
                     />
                   </FormControl>
                   <FormMessage />

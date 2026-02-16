@@ -67,7 +67,7 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ## Database Schema
 - **users**: User profiles (id, username, password, email, firstName, lastName, isAdmin, isApproved, mustChangePassword)
 - **customers**: Customer profiles (name, phone, email, notes, rental history)
-- **cars**: Fleet vehicles (name, model, plateNumber, colorCode, monthlyPayment, mileage tracking)
+- **cars**: Fleet vehicles (name, model, plateNumber, colorCode, monthlyPayment, mileage tracking, dateAcquired, registrationConfirmedAt)
 - **rentals**: Booking records (customer info, dates, amount, payment screenshot)
 - **expenses**: Car-related expenses (category, amount, mileage)
 - **monthly_payments**: Car payment tracking by month/year
@@ -134,8 +134,17 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 4. **Oil change alerts**: Automatically calculated based on mileage intervals
 5. **Color-coded calendar**: 8 distinct colors for different cars
 6. **Amortization tracking**: Monthly car payments deducted from net profit in financial reports
+7. **OR CR Registration Warning**: Shows "OR CR Needs Update" warning 35 months after dateAcquired, then 11 months after each registration confirmation. Warning displayed on Cars page, Rentals page, and Calendar new rental dialog. Admin can click "Confirm Registration" to reset the countdown.
+8. **Expense permissions**: Only admin can delete expenses; all users can add and view
+9. **Day counting**: Uses differenceInDays (after 24 hours = 1 day) - uniform across calendar, rentals, and finances
 
-## Recent Changes (Dec 2, 2025)
+## Recent Changes (Feb 16, 2026)
+- **OR CR Registration Warning**: Added dateAcquired and registrationConfirmedAt to cars. Shows warning on Cars, Rentals, and Calendar pages. Admin can confirm registration to reset countdown.
+- **Date Acquired field**: Added to car creation and car details edit forms
+- **Expense admin restriction**: Only admin can delete expenses
+- **Day counting fix**: Uniform differenceInDays calculation across all views (no +1)
+
+## Previous Changes (Dec 2, 2025)
 - **Template literal bugs fixed**: Fixed broken `₱{` patterns throughout app
 - **Quarterly/Yearly reporting**: Added period type selector (Monthly/Quarterly/Yearly) in Finances page
 - **Amortization deduction**: Income by Car table now shows amortization deduction with net after amortization

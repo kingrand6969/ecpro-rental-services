@@ -25,10 +25,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarIcon, ChevronRight, ChevronLeft } from "lucide-react";
+import { CalendarIcon, ChevronRight, ChevronLeft, AlertTriangle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { needsRegistrationUpdate } from "@/components/CarDetailsDialog";
 import type { Car } from "@shared/schema";
 
 const rentalSchema = z.object({
@@ -210,6 +211,12 @@ export function CreateRentalDialog({
                       <p className="text-xs text-muted-foreground truncate mt-0.5" data-testid={`text-car-plate-${car.id}`}>
                         {car.plateNumber}
                       </p>
+                      {needsRegistrationUpdate(car) && (
+                        <div className="flex items-center gap-1 mt-1 text-red-600 dark:text-red-400">
+                          <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                          <span className="text-xs font-medium">OR CR Needs Update</span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -223,6 +230,12 @@ export function CreateRentalDialog({
                   <p className="text-sm font-medium" data-testid="text-selected-car-info">
                     {selectedCar?.name} • {selectedCar?.model}
                   </p>
+                  {selectedCar && needsRegistrationUpdate(selectedCar) && (
+                    <div className="flex items-center gap-1 mt-2 text-red-600 dark:text-red-400">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span className="text-xs font-medium">OR CR Needs Update</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

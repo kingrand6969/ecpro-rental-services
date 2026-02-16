@@ -21,11 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Eye, Edit, Image } from "lucide-react";
+import { Plus, Search, Eye, Edit, Image, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { EditRentalDialog } from "@/components/EditRentalDialog";
+import { needsRegistrationUpdate } from "@/components/CarDetailsDialog";
 import type { Car, Rental } from "@shared/schema";
 
 export default function Rentals() {
@@ -130,12 +131,20 @@ export default function Rentals() {
                     return (
                       <TableRow key={rental.id} data-testid={`rental-row-${rental.id}`}>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: car?.colorCode ?? "#6366f1" }}
-                            />
-                            <span className="font-medium">{car?.name ?? "Unknown"}</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: car?.colorCode ?? "#6366f1" }}
+                              />
+                              <span className="font-medium">{car?.name ?? "Unknown"}</span>
+                            </div>
+                            {car && needsRegistrationUpdate(car) && (
+                              <div className="flex items-center gap-1 mt-1 ml-5 text-red-600 dark:text-red-400">
+                                <AlertTriangle className="h-3 w-3" />
+                                <span className="text-xs font-medium">OR CR Needs Update</span>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

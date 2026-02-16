@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInMonths } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Wrench, Calendar, ImageIcon } from "lucide-react";
+import { Wrench, Calendar, ImageIcon, AlertTriangle, CheckCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,11 +37,35 @@ import { ObjectUploader } from "@/components/ObjectUploader";
 import type { Car } from "@shared/schema";
 import { useEffect, useState } from "react";
 
+export function needsRegistrationUpdate(car: Car): boolean {
+  if (!car.dateAcquired) return false;
+
+  const now = new Date();
+  const toDate = (val: unknown): Date => {
+    if (val instanceof Date) return val;
+    return parseISO(String(val));
+  };
+
+  const registrationConfirmed = car.registrationConfirmedAt
+    ? toDate(car.registrationConfirmedAt)
+    : null;
+  const dateAcquired = toDate(car.dateAcquired);
+
+  if (registrationConfirmed) {
+    const monthsSinceConfirm = differenceInMonths(now, registrationConfirmed);
+    return monthsSinceConfirm >= 11;
+  } else {
+    const monthsSinceAcquired = differenceInMonths(now, dateAcquired);
+    return monthsSinceAcquired >= 35;
+  }
+}
+
 const updateCarSchema = z.object({
   plateNumber: z.string().optional(),
   currentMileage: z.string().min(1, "Mileage is required"),
   lastOilChangeMileage: z.string().optional(),
   status: z.string().min(1, "Status is required"),
+  dateAcquired: z.string().optional(),
 });
 
 type UpdateCarFormData = z.infer<typeof updateCarSchema>;
@@ -63,6 +87,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       currentMileage: "",
       lastOilChangeMileage: "",
       status: "available",
+      dateAcquired: "",
     },
   });
 
@@ -73,6 +98,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         currentMileage: car.currentMileage?.toString() ?? "0",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
         status: car.status,
+        dateAcquired: car.dateAcquired ?? "",
       });
       setNewImageUrl(null);
     }
@@ -87,6 +113,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           ? parseInt(data.lastOilChangeMileage)
           : undefined,
         status: data.status,
+        dateAcquired: data.dateAcquired || null,
         ...(newImageUrl && { imageUrl: newImageUrl }),
       });
     },
@@ -108,12 +135,36 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     },
   });
 
+  const confirmRegistrationMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/cars/${car?.id}/confirm-registration`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/edit-logs"] });
+      toast({
+        title: "Success",
+        description: "Registration confirmed successfully",
+      });
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to confirm registration",
+        variant: "destructive",
+      });
+    },
+  });
+
   
   const onSubmit = (data: UpdateCarFormData) => {
     updateMutation.mutate(data);
   };
 
   if (!car) return null;
+
+  const showOrCrWarning = needsRegistrationUpdate(car);
 
   
   return (
@@ -133,7 +184,27 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Car Image Section */}
+          {showOrCrWarning && (
+            <div className="flex items-center justify-between gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20" data-testid="warning-or-cr">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span className="text-sm font-medium">OR CR Needs Update</span>
+              </div>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => confirmRegistrationMutation.mutate()}
+                  disabled={confirmRegistrationMutation.isPending}
+                  data-testid="button-confirm-registration"
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  {confirmRegistrationMutation.isPending ? "Confirming..." : "Confirm Registration"}
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <div className="aspect-video bg-muted rounded-md overflow-hidden">
               {newImageUrl || car.imageUrl ? (
@@ -190,6 +261,20 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
             </div>
           </div>
 
+          {car.dateAcquired && (
+            <div className="p-3 rounded-md bg-muted">
+              <p className="text-sm text-muted-foreground">Date Acquired</p>
+              <p className="font-medium">
+                {format(parseISO(car.dateAcquired as string), "MMMM d, yyyy")}
+              </p>
+              {car.registrationConfirmedAt && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last registration confirmed: {format(parseISO(car.registrationConfirmedAt as string), "MMM d, yyyy")}
+                </p>
+              )}
+            </div>
+          )}
+
           <Separator />
 
           <div className="space-y-3">
@@ -238,6 +323,24 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                       <Input
                         {...field}
                         data-testid="input-plate-number"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dateAcquired"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date Acquired</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        {...field}
+                        data-testid="input-date-acquired"
                       />
                     </FormControl>
                     <FormMessage />
