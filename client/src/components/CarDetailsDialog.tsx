@@ -2,7 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, parseISO, differenceInMonths } from "date-fns";
+import { format, parseISO, differenceInMonths, addMonths, differenceInDays } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -30,8 +30,10 @@ import { ObjectUploader } from "@/components/ObjectUploader";
 import type { Car } from "@shared/schema";
 import { useEffect, useState } from "react";
 
-export function needsRegistrationUpdate(car: Car): boolean {
-  if (!car.dateAcquired) return false;
+export type RegistrationStatus = "ok" | "warning" | "overdue";
+
+export function getRegistrationStatus(car: Car): { status: RegistrationStatus; daysUntilDue?: number } {
+  if (!car.dateAcquired) return { status: "ok" };
 
   const now = new Date();
   const toDate = (val: unknown): Date => {
@@ -44,13 +46,26 @@ export function needsRegistrationUpdate(car: Car): boolean {
     : null;
   const dateAcquired = toDate(car.dateAcquired);
 
+  let dueDate: Date;
   if (registrationConfirmed) {
-    const monthsSinceConfirm = differenceInMonths(now, registrationConfirmed);
-    return monthsSinceConfirm >= 11;
+    dueDate = addMonths(registrationConfirmed, 12);
   } else {
-    const monthsSinceAcquired = differenceInMonths(now, dateAcquired);
-    return monthsSinceAcquired >= 35;
+    dueDate = addMonths(dateAcquired, 36);
   }
+
+  const daysUntilDue = differenceInDays(dueDate, now);
+
+  if (daysUntilDue <= 0) {
+    return { status: "overdue", daysUntilDue };
+  } else if (daysUntilDue <= 7) {
+    return { status: "warning", daysUntilDue };
+  }
+  return { status: "ok", daysUntilDue };
+}
+
+export function needsRegistrationUpdate(car: Car): boolean {
+  const { status } = getRegistrationStatus(car);
+  return status === "overdue" || status === "warning";
 }
 
 const updateCarSchema = z.object({
@@ -71,6 +86,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
+  const [registrationDate, setRegistrationDate] = useState("");
 
   const form = useForm<UpdateCarFormData>({
     resolver: zodResolver(updateCarSchema),
@@ -91,6 +107,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         dateAcquired: car.dateAcquired ?? "",
       });
       setNewImageUrl(null);
+      setRegistrationDate("");
     }
   }, [car, form]);
 
@@ -125,8 +142,8 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   });
 
   const confirmRegistrationMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", `/api/cars/${car?.id}/confirm-registration`, {});
+    mutationFn: async (date: string) => {
+      await apiRequest("POST", `/api/cars/${car?.id}/confirm-registration`, { registrationDate: date });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
@@ -153,9 +170,21 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
   if (!car) return null;
 
-  const showOrCrWarning = needsRegistrationUpdate(car);
+  const regStatus = getRegistrationStatus(car);
+  const showOrCrWarning = regStatus.status === "overdue" || regStatus.status === "warning";
 
-  
+  const handleConfirmRegistration = () => {
+    if (!registrationDate) {
+      toast({
+        title: "Date Required",
+        description: "Please enter the last car registration date",
+        variant: "destructive",
+      });
+      return;
+    }
+    confirmRegistrationMutation.mutate(registrationDate);
+  };
+
   return (
     <Dialog open={!!car} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
@@ -173,23 +202,66 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4 overflow-y-auto flex-1 pr-1">
-          {showOrCrWarning && (
-            <div className="flex items-center justify-between gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/20" data-testid="warning-or-cr">
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm font-medium">OR CR Needs Update</span>
+          {regStatus.status === "overdue" && (
+            <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20" data-testid="warning-or-cr">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                <span className="text-base font-bold text-red-600 dark:text-red-400">OR CR Needs Update</span>
               </div>
+              <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                Registration is overdue by {Math.abs(regStatus.daysUntilDue ?? 0)} day(s).
+              </p>
               {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => confirmRegistrationMutation.mutate()}
-                  disabled={confirmRegistrationMutation.isPending}
-                  data-testid="button-confirm-registration"
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  {confirmRegistrationMutation.isPending ? "Confirming..." : "Confirm Registration"}
-                </Button>
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    type="date"
+                    value={registrationDate}
+                    onChange={(e) => setRegistrationDate(e.target.value)}
+                    className="flex-1"
+                    data-testid="input-registration-date"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleConfirmRegistration}
+                    disabled={confirmRegistrationMutation.isPending}
+                    data-testid="button-confirm-registration"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    {confirmRegistrationMutation.isPending ? "Saving..." : "Confirm"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {regStatus.status === "warning" && (
+            <div className="p-3 rounded-md bg-orange-500/10 border border-orange-500/20" data-testid="warning-or-cr-upcoming">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                <span className="text-base font-bold text-orange-600 dark:text-orange-400">OR CR Due Soon</span>
+              </div>
+              <p className="text-sm text-orange-600 dark:text-orange-400 mb-2">
+                Registration is due in {regStatus.daysUntilDue} day(s). Please prepare your documents.
+              </p>
+              {isAdmin && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    type="date"
+                    value={registrationDate}
+                    onChange={(e) => setRegistrationDate(e.target.value)}
+                    className="flex-1"
+                    data-testid="input-registration-date"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleConfirmRegistration}
+                    disabled={confirmRegistrationMutation.isPending}
+                    data-testid="button-confirm-registration"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    {confirmRegistrationMutation.isPending ? "Saving..." : "Confirm"}
+                  </Button>
+                </div>
               )}
             </div>
           )}
@@ -250,19 +322,24 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
             </div>
           </div>
 
-          {car.dateAcquired && (
-            <div className="p-3 rounded-md bg-muted">
-              <p className="text-sm text-muted-foreground">Date Acquired</p>
-              <p className="font-medium">
-                {format(parseISO(car.dateAcquired as string), "MMMM d, yyyy")}
-              </p>
-              {car.registrationConfirmedAt && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Last registration confirmed: {format(parseISO(car.registrationConfirmedAt as string), "MMM d, yyyy")}
+          <div className="grid grid-cols-2 gap-4">
+            {car.dateAcquired && (
+              <div className="p-3 rounded-md bg-muted">
+                <p className="text-sm text-muted-foreground">Date Acquired</p>
+                <p className="font-medium">
+                  {format(parseISO(car.dateAcquired as string), "MMMM d, yyyy")}
                 </p>
-              )}
+              </div>
+            )}
+            <div className="p-3 rounded-md bg-muted">
+              <p className="text-sm text-muted-foreground">Last Car Registration</p>
+              <p className="font-medium">
+                {car.registrationConfirmedAt
+                  ? format(parseISO(car.registrationConfirmedAt as string), "MMMM d, yyyy")
+                  : "Not recorded"}
+              </p>
             </div>
-          )}
+          </div>
 
           <Separator />
 

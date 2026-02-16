@@ -139,7 +139,9 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 9. **Day counting**: Uses differenceInDays (after 24 hours = 1 day) - uniform across calendar, rentals, and finances
 
 ## Recent Changes (Feb 16, 2026)
-- **OR CR Registration Warning**: Added dateAcquired and registrationConfirmedAt to cars. Shows warning on Cars, Rentals, and Calendar pages. Admin can confirm registration to reset countdown.
+- **OR CR Registration Warning Enhanced**: Three-state system (ok/warning/overdue). 36-month initial countdown from dateAcquired, 12-month cycle after each confirmation. Orange "Due Soon" warning 7 days before due date, bold red "Needs Update" when overdue. Admin must enter last registration date when confirming.
+- **Last Car Registration display**: CarDetailsDialog shows "Last Car Registration" date. Cars page cards show "Last Registration" date.
+- **Removed Status dropdown**: Removed admin-only status selector from CarDetailsDialog
 - **Date Acquired field**: Added to car creation and car details edit forms
 - **Expense admin restriction**: Only admin can delete expenses
 - **Day counting fix**: Uniform differenceInDays calculation across all views (no +1)

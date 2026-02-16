@@ -164,8 +164,9 @@ export async function registerRoutes(
       }
 
       const id = parseInt(req.params.id);
-      const today = new Date().toISOString().split('T')[0];
-      const car = await storage.updateCar(id, { registrationConfirmedAt: today });
+      const { registrationDate } = req.body;
+      const dateValue = registrationDate || new Date().toISOString().split('T')[0];
+      const car = await storage.updateCar(id, { registrationConfirmedAt: dateValue });
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
       }
@@ -175,7 +176,7 @@ export async function registerRoutes(
         userId,
         fieldName: 'Registration Confirmed',
         oldValue: '',
-        newValue: today,
+        newValue: dateValue,
       });
 
       res.json(car);

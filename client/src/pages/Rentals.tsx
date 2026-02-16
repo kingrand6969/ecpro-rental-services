@@ -26,7 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { EditRentalDialog } from "@/components/EditRentalDialog";
-import { needsRegistrationUpdate } from "@/components/CarDetailsDialog";
+import { needsRegistrationUpdate, getRegistrationStatus } from "@/components/CarDetailsDialog";
 import type { Car, Rental } from "@shared/schema";
 
 export default function Rentals() {
@@ -139,10 +139,16 @@ export default function Rentals() {
                               />
                               <span className="font-medium">{car?.name ?? "Unknown"}</span>
                             </div>
-                            {car && needsRegistrationUpdate(car) && (
+                            {car && getRegistrationStatus(car).status === "overdue" && (
                               <div className="flex items-center gap-1 mt-1 ml-5 text-red-600 dark:text-red-400">
                                 <AlertTriangle className="h-3 w-3" />
-                                <span className="text-xs font-medium">OR CR Needs Update</span>
+                                <span className="text-xs font-bold">OR CR Needs Update</span>
+                              </div>
+                            )}
+                            {car && getRegistrationStatus(car).status === "warning" && (
+                              <div className="flex items-center gap-1 mt-1 ml-5 text-orange-600 dark:text-orange-400">
+                                <AlertTriangle className="h-3 w-3" />
+                                <span className="text-xs font-bold">OR CR Due in {getRegistrationStatus(car).daysUntilDue} day(s)</span>
                               </div>
                             )}
                           </div>

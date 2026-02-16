@@ -10,7 +10,7 @@ import { format, parseISO } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { AddCarDialog } from "@/components/AddCarDialog";
 import { CarExpensesDialog } from "@/components/CarExpensesDialog";
-import { CarDetailsDialog, needsRegistrationUpdate } from "@/components/CarDetailsDialog";
+import { CarDetailsDialog, needsRegistrationUpdate, getRegistrationStatus } from "@/components/CarDetailsDialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Car, Expense } from "@shared/schema";
@@ -128,10 +128,17 @@ export default function Cars() {
                     </div>
                   )}
 
-                  {needsRegistrationUpdate(car) && (
+                  {getRegistrationStatus(car).status === "overdue" && (
                     <div className="flex items-center gap-2 p-2 rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm font-medium">OR CR Needs Update</span>
+                      <span className="text-sm font-bold">OR CR Needs Update</span>
+                    </div>
+                  )}
+
+                  {getRegistrationStatus(car).status === "warning" && (
+                    <div className="flex items-center gap-2 p-2 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-sm font-bold">OR CR Due in {getRegistrationStatus(car).daysUntilDue} day(s)</span>
                     </div>
                   )}
 
