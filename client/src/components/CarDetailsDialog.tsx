@@ -18,13 +18,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +57,6 @@ const updateCarSchema = z.object({
   plateNumber: z.string().optional(),
   currentMileage: z.string().min(1, "Mileage is required"),
   lastOilChangeMileage: z.string().optional(),
-  status: z.string().min(1, "Status is required"),
   dateAcquired: z.string().optional(),
 });
 
@@ -86,7 +78,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       plateNumber: "",
       currentMileage: "",
       lastOilChangeMileage: "",
-      status: "available",
       dateAcquired: "",
     },
   });
@@ -97,7 +88,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         plateNumber: car.plateNumber ?? "",
         currentMileage: car.currentMileage?.toString() ?? "0",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
-        status: car.status,
         dateAcquired: car.dateAcquired ?? "",
       });
       setNewImageUrl(null);
@@ -112,7 +102,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         lastOilChangeMileage: data.lastOilChangeMileage
           ? parseInt(data.lastOilChangeMileage)
           : undefined,
-        status: data.status,
         dateAcquired: data.dateAcquired || null,
         ...(newImageUrl && { imageUrl: newImageUrl }),
       });
@@ -366,31 +355,6 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                   </FormItem>
                 )}
               />
-
-              {isAdmin && (
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status (Admin Only)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-car-status">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="available">Available</SelectItem>
-                          <SelectItem value="rented">Rented</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
 
               <div className="flex items-center gap-3">
                 <Button
