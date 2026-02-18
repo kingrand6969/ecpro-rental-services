@@ -48,6 +48,7 @@ const rentalSchema = z.object({
   totalAmount: z.string().min(1, "Total amount is required"),
   notes: z.string().optional(),
   isFinalized: z.boolean(),
+  paymentStatus: z.string(),
 }).refine((data) => data.endDate >= data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
@@ -78,6 +79,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
       totalAmount: "",
       notes: "",
       isFinalized: false,
+      paymentStatus: "confirmed",
     },
   });
 
@@ -93,6 +95,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
         totalAmount: rental.totalAmount,
         notes: rental.notes ?? "",
         isFinalized: rental.isFinalized,
+        paymentStatus: rental.paymentStatus ?? "confirmed",
       });
       setPaymentScreenshotUrl(rental.paymentScreenshotUrl ?? null);
     }
@@ -119,6 +122,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
         paymentScreenshotUrl,
         notes: data.notes || null,
         isFinalized: data.isFinalized,
+        paymentStatus: data.paymentStatus,
       };
       await apiRequest("PATCH", `/api/rentals/${rental?.id}`, payload);
     },
@@ -420,6 +424,28 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                     <Textarea {...field} data-testid="input-edit-notes" />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="paymentStatus"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <FormLabel>Payment Status</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      {field.value === "confirmed" ? "Payment confirmed - included in finances" : "Reservation - not counted in finances"}
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value === "confirmed"}
+                      onCheckedChange={(checked) => field.onChange(checked ? "confirmed" : "pending")}
+                      data-testid="switch-payment-status"
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

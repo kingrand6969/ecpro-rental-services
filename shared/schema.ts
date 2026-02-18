@@ -90,6 +90,7 @@ export const rentals = pgTable("rentals", {
   daysRented: integer("days_rented").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentScreenshotUrl: varchar("payment_screenshot_url", { length: 500 }),
+  paymentStatus: varchar("payment_status", { length: 20 }).default("confirmed").notNull(), // pending, confirmed
   isFinalized: boolean("is_finalized").default(false).notNull(),
   lastFinalizeReminder: timestamp("last_finalize_reminder"), // tracks when we last asked about finalization
   notes: text("notes"),

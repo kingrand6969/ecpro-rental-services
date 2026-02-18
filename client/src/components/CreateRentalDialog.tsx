@@ -98,6 +98,7 @@ export function CreateRentalDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: RentalFormData) => {
+      const isReservation = !paymentScreenshotUrl;
       const payload = {
         carId: parseInt(data.carId),
         customerName: data.customerName,
@@ -108,6 +109,7 @@ export function CreateRentalDialog({
         daysRented,
         totalAmount: data.totalAmount,
         paymentScreenshotUrl,
+        paymentStatus: isReservation ? "pending" : "confirmed",
         notes: data.notes || null,
         isFinalized: false,
       };
@@ -419,7 +421,7 @@ export function CreateRentalDialog({
                   name="totalAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Total Rental Amount ($)</FormLabel>
+                      <FormLabel>Total Rental Amount (₱)</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -454,7 +456,10 @@ export function CreateRentalDialog({
                 />
 
                 <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-2">Payment Screenshot (Optional)</p>
+                  <p className="text-sm font-medium mb-2">Payment Screenshot</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Upload a screenshot to confirm payment. Without it, this booking will be saved as a reservation with pending payment.
+                  </p>
                   <ObjectUploader
                     onGetUploadParameters={async () => {
                       const response = await apiRequest("POST", "/api/objects/upload", {});
@@ -517,7 +522,11 @@ export function CreateRentalDialog({
                   disabled={createMutation.isPending}
                   data-testid="button-complete-booking"
                 >
-                  {createMutation.isPending ? "Booking..." : "Complete Booking"}
+                  {createMutation.isPending
+                    ? "Booking..."
+                    : paymentScreenshotUrl
+                      ? "Complete Booking"
+                      : "Save as Reservation"}
                 </Button>
               )}
             </div>

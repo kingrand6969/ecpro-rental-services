@@ -412,7 +412,7 @@ export async function registerRoutes(
       
       // Log each changed field
       const car = await storage.getCarById(existing.carId);
-      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'notes', 'customerPhone', 'customerEmail'];
+      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'paymentStatus', 'notes', 'customerPhone', 'customerEmail'];
       
       for (const field of fieldsToCheck) {
         if (req.body[field] !== undefined && String(req.body[field]) !== String((existing as any)[field])) {

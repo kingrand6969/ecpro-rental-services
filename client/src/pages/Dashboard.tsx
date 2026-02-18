@@ -346,13 +346,17 @@ export default function Dashboard() {
                             top: 4,
                             width: width - 4,
                             height: CAR_ROW_HEIGHT - 8,
-                            backgroundColor: carColor,
+                            backgroundColor: bar.rental.paymentStatus === "pending" ? "transparent" : carColor,
                             borderRadius: 4,
+                            ...(bar.rental.paymentStatus === "pending" ? {
+                              border: `2px dashed ${carColor}`,
+                              color: carColor,
+                            } : {}),
                           }}
                           onClick={() => setSelectedRental(bar.rental)}
                           data-testid={`rental-bar-${bar.rental.id}`}
                         >
-                          <span className="text-white text-xs font-bold">
+                          <span className={`text-xs font-bold ${bar.rental.paymentStatus === "pending" ? "" : "text-white"}`}>
                             {bar.daysCount}
                           </span>
                         </div>

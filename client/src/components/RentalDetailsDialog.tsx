@@ -40,10 +40,21 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Badge variant={rental.isFinalized ? "secondary" : "outline"}>
-              {rental.isFinalized ? "Finalized" : "Active"}
-            </Badge>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Badge variant={rental.isFinalized ? "secondary" : "outline"}>
+                {rental.isFinalized ? "Finalized" : "Active"}
+              </Badge>
+              {rental.paymentStatus === "pending" ? (
+                <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600">
+                  Reservation - Pending Payment
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-600">
+                  Paid
+                </Badge>
+              )}
+            </div>
             <span className="text-sm text-muted-foreground">
               ID: #{rental.id}
             </span>
@@ -121,11 +132,16 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
 
             <div className="p-4 rounded-md bg-muted">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total Amount Paid</span>
+                <span className="text-muted-foreground">Total Amount</span>
                 <span className="text-xl font-semibold">
                   ₱{parseFloat(rental.totalAmount).toLocaleString()}
                 </span>
               </div>
+              {rental.paymentStatus === "pending" && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  Payment not yet confirmed
+                </p>
+              )}
             </div>
 
             {rental.paymentScreenshotUrl && (

@@ -21,7 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Eye, Edit, Image, AlertTriangle } from "lucide-react";
+import { Plus, Search, Eye, Edit, Image, AlertTriangle, CheckCircle } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
@@ -31,6 +34,7 @@ import type { Car, Rental } from "@shared/schema";
 
 export default function Rentals() {
   const { isAdmin } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -58,9 +62,33 @@ export default function Rentals() {
     const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "finalized" && rental.isFinalized) ||
-      (statusFilter === "active" && !rental.isFinalized);
+      (statusFilter === "active" && !rental.isFinalized) ||
+      (statusFilter === "reservation" && rental.paymentStatus === "pending") ||
+      (statusFilter === "confirmed" && rental.paymentStatus === "confirmed");
 
     return matchesSearch && matchesStatus;
+  });
+
+  const confirmPaymentMutation = useMutation({
+    mutationFn: async (rentalId: number) => {
+      await apiRequest("PATCH", `/api/rentals/${rentalId}`, {
+        paymentStatus: "confirmed",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
+      toast({
+        title: "Payment Confirmed",
+        description: "The rental payment has been confirmed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to confirm payment",
+        variant: "destructive",
+      });
+    },
   });
 
   const isLoading = rentalsLoading || carsLoading;
@@ -96,6 +124,8 @@ export default function Rentals() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="reservation">Reservations</SelectItem>
+                  <SelectItem value="confirmed">Paid</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="finalized">Finalized</SelectItem>
                 </SelectContent>
@@ -176,20 +206,45 @@ export default function Rentals() {
                           ₱{parseFloat(rental.totalAmount).toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={rental.isFinalized ? "secondary" : "outline"}
-                          >
-                            {rental.isFinalized ? "Finalized" : "Active"}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant={rental.isFinalized ? "secondary" : "outline"}
+                            >
+                              {rental.isFinalized ? "Finalized" : "Active"}
+                            </Badge>
+                            {rental.paymentStatus === "pending" && (
+                              <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600">
+                                Reservation
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          {rental.paymentScreenshotUrl ? (
-                            <Badge variant="outline" className="gap-1">
-                              <Image className="h-3 w-3" />
-                              Uploaded
+                          {rental.paymentStatus === "confirmed" ? (
+                            <Badge variant="outline" className="gap-1 text-green-600 dark:text-green-400 border-green-300 dark:border-green-600">
+                              <CheckCircle className="h-3 w-3" />
+                              Paid
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
+                            <div className="flex flex-col gap-1 items-start">
+                              <Badge variant="outline" className="gap-1 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600">
+                                Pending
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs h-auto py-1 px-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmPaymentMutation.mutate(rental.id);
+                                }}
+                                disabled={confirmPaymentMutation.isPending}
+                                data-testid={`button-confirm-payment-${rental.id}`}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Confirm
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="text-right">

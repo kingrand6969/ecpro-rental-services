@@ -107,7 +107,8 @@ export default function Finances() {
       return { totalIncome: 0, totalExpenses: 0, netProfit: 0, totalMonthlyPayments: 0 };
     }
 
-    const totalIncome = rentals.reduce((sum, rental) => {
+    const confirmedRentals = rentals.filter(r => r.paymentStatus === "confirmed");
+    const totalIncome = confirmedRentals.reduce((sum, rental) => {
       return sum + calculateProratedIncome(rental, periodStart, periodEnd);
     }, 0);
 
@@ -143,7 +144,7 @@ export default function Finances() {
     }
 
     return cars.map((car) => {
-      const carRentals = rentals.filter((r) => r.carId === car.id);
+      const carRentals = rentals.filter((r) => r.carId === car.id && r.paymentStatus === "confirmed");
 
       const carExpenses = expenses.filter((e) => {
         const expenseDate = parseISO(e.expenseDate as string);
