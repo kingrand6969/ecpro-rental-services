@@ -7,6 +7,7 @@ import {
   customers,
   editLogs,
   rentalLogs,
+  expenseLogs,
   type User,
   type UpsertUser,
   type Car,
@@ -25,6 +26,9 @@ import {
   type RentalLog,
   type InsertRentalLog,
   type RentalLogWithUser,
+  type ExpenseLog,
+  type InsertExpenseLog,
+  type ExpenseLogWithUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -87,6 +91,13 @@ export interface IStorage {
   // Rental log operations
   getAllRentalLogs(): Promise<RentalLogWithUser[]>;
   createRentalLog(log: InsertRentalLog): Promise<RentalLog>;
+
+  // Expense log operations
+  getAllExpenseLogs(): Promise<ExpenseLogWithUser[]>;
+  getExpenseLogsByCarId(carId: number): Promise<ExpenseLogWithUser[]>;
+  createExpenseLog(log: InsertExpenseLog): Promise<ExpenseLog>;
+  updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
+  getExpenseById(id: number): Promise<Expense | undefined>;
 
   // Stats
   getStats(): Promise<{
@@ -439,6 +450,59 @@ export class DatabaseStorage implements IStorage {
   async createRentalLog(log: InsertRentalLog): Promise<RentalLog> {
     const [created] = await db.insert(rentalLogs).values(log).returning();
     return created;
+  }
+
+  // Expense log operations
+  async getAllExpenseLogs(): Promise<ExpenseLogWithUser[]> {
+    const logs = await db
+      .select()
+      .from(expenseLogs)
+      .orderBy(desc(expenseLogs.loggedAt));
+
+    const logsWithUser: ExpenseLogWithUser[] = [];
+    for (const log of logs) {
+      const [user] = await db.select().from(users).where(eq(users.id, log.userId));
+      if (user) {
+        logsWithUser.push({ ...log, user });
+      }
+    }
+    return logsWithUser;
+  }
+
+  async getExpenseLogsByCarId(carId: number): Promise<ExpenseLogWithUser[]> {
+    const logs = await db
+      .select()
+      .from(expenseLogs)
+      .where(eq(expenseLogs.carId, carId))
+      .orderBy(desc(expenseLogs.loggedAt));
+
+    const logsWithUser: ExpenseLogWithUser[] = [];
+    for (const log of logs) {
+      const [user] = await db.select().from(users).where(eq(users.id, log.userId));
+      if (user) {
+        logsWithUser.push({ ...log, user });
+      }
+    }
+    return logsWithUser;
+  }
+
+  async createExpenseLog(log: InsertExpenseLog): Promise<ExpenseLog> {
+    const [created] = await db.insert(expenseLogs).values(log).returning();
+    return created;
+  }
+
+  async getExpenseById(id: number): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense;
+  }
+
+  async updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined> {
+    const [updated] = await db
+      .update(expenses)
+      .set(expense)
+      .where(eq(expenses.id, id))
+      .returning();
+    return updated;
   }
 
   // Stats

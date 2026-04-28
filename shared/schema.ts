@@ -135,6 +135,26 @@ export const editLogs = pgTable("edit_logs", {
   editedAt: timestamp("edited_at").defaultNow().notNull(),
 });
 
+// Expense logs table for tracking expense create, update, delete
+export const expenseLogs = pgTable("expense_logs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  expenseId: integer("expense_id"), // nullable because expense may be deleted
+  carId: integer("car_id").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  action: varchar("action", { length: 50 }).notNull(), // created, updated, deleted
+  fieldName: varchar("field_name", { length: 100 }), // for updates: which field changed
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  // Snapshot of expense details for context
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  amount: varchar("amount", { length: 50 }),
+  expenseDate: varchar("expense_date", { length: 20 }),
+  mileageAtExpense: varchar("mileage_at_expense", { length: 50 }),
+  carName: varchar("car_name", { length: 255 }),
+  loggedAt: timestamp("logged_at").defaultNow().notNull(),
+});
+
 // Rental logs table for tracking rental changes (create, update, delete)
 export const rentalLogs = pgTable("rental_logs", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -221,6 +241,13 @@ export const rentalLogsRelations = relations(rentalLogs, ({ one }) => ({
   }),
 }));
 
+export const expenseLogsRelations = relations(expenseLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [expenseLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -265,6 +292,11 @@ export const insertRentalLogSchema = createInsertSchema(rentalLogs).omit({
   loggedAt: true,
 });
 
+export const insertExpenseLogSchema = createInsertSchema(expenseLogs).omit({
+  id: true,
+  loggedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -291,9 +323,13 @@ export type InsertEditLog = z.infer<typeof insertEditLogSchema>;
 export type RentalLog = typeof rentalLogs.$inferSelect;
 export type InsertRentalLog = z.infer<typeof insertRentalLogSchema>;
 
+export type ExpenseLog = typeof expenseLogs.$inferSelect;
+export type InsertExpenseLog = z.infer<typeof insertExpenseLogSchema>;
+
 // Extended types with relations
 export type RentalWithCar = Rental & { car: Car };
 export type ExpenseWithCar = Expense & { car: Car };
 export type CustomerWithRentals = Customer & { rentals: RentalWithCar[] };
 export type EditLogWithDetails = EditLog & { car: Car; user: User };
 export type RentalLogWithUser = RentalLog & { user: User };
+export type ExpenseLogWithUser = ExpenseLog & { user: User };

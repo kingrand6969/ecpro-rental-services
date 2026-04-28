@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { History, Car, User, Calendar, ArrowRight, ClipboardList, Plus, Pencil, Trash2 } from "lucide-react";
-import type { EditLogWithDetails, Car as CarType, RentalLogWithUser } from "@shared/schema";
+import { History, Car, User, Calendar, ArrowRight, ClipboardList, Plus, Pencil, Trash2, Receipt } from "lucide-react";
+import type { EditLogWithDetails, Car as CarType, RentalLogWithUser, ExpenseLogWithUser } from "@shared/schema";
 import { LogDetailsDialog } from "@/components/LogDetailsDialog";
 
 type SelectedLog =
   | ({ logType: "car" } & EditLogWithDetails)
   | ({ logType: "rental" } & RentalLogWithUser)
+  | ({ logType: "expense" } & ExpenseLogWithUser)
   | null;
 
 export default function Logs() {
@@ -40,6 +41,10 @@ export default function Logs() {
     queryKey: ["/api/rental-logs"],
   });
 
+  const { data: expenseLogs, isLoading: expenseLogsLoading } = useQuery<ExpenseLogWithUser[]>({
+    queryKey: ["/api/expense-logs"],
+  });
+
   const filteredEditLogs = editLogs?.filter(log => 
     selectedCarId === "all" || log.carId === parseInt(selectedCarId)
   ) || [];
@@ -48,7 +53,11 @@ export default function Logs() {
     selectedCarId === "all" || log.carId === parseInt(selectedCarId)
   ) || [];
 
-  const isLoading = carsLoading || editLogsLoading || rentalLogsLoading;
+  const filteredExpenseLogs = expenseLogs?.filter(log =>
+    selectedCarId === "all" || log.carId === parseInt(selectedCarId)
+  ) || [];
+
+  const isLoading = carsLoading || editLogsLoading || rentalLogsLoading || expenseLogsLoading;
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -77,7 +86,13 @@ export default function Logs() {
     );
   }
 
-  const totalLogs = (filteredEditLogs?.length || 0) + (filteredRentalLogs?.length || 0);
+  const totalLogs = (filteredEditLogs?.length || 0) + (filteredRentalLogs?.length || 0) + (filteredExpenseLogs?.length || 0);
+
+  const formatCurrency = (val: string | number | null | undefined) => {
+    const num = typeof val === "string" ? parseFloat(val) : val;
+    if (num === null || num === undefined || isNaN(num as number)) return "₱0";
+    return `₱${(num as number).toLocaleString()}`;
+  };
 
   return (
     <ScrollArea className="h-full">
@@ -124,6 +139,10 @@ export default function Logs() {
               <ClipboardList className="h-4 w-4 mr-1" />
               Rentals ({filteredRentalLogs.length})
             </TabsTrigger>
+            <TabsTrigger value="expenses" data-testid="tab-expense-logs">
+              <Receipt className="h-4 w-4 mr-1" />
+              Expenses ({filteredExpenseLogs.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="mt-4">
@@ -158,7 +177,8 @@ export default function Logs() {
                     </TableHeader>
                     <TableBody>
                       {[...filteredEditLogs.map(log => ({ ...log, logType: 'car' as const, timestamp: new Date(log.editedAt) })),
-                        ...filteredRentalLogs.map(log => ({ ...log, logType: 'rental' as const, timestamp: new Date(log.loggedAt) }))
+                        ...filteredRentalLogs.map(log => ({ ...log, logType: 'rental' as const, timestamp: new Date(log.loggedAt) })),
+                        ...filteredExpenseLogs.map(log => ({ ...log, logType: 'expense' as const, timestamp: new Date(log.loggedAt) }))
                       ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
                        .map((log, idx) => (
                         <TableRow
@@ -183,8 +203,10 @@ export default function Logs() {
                           <TableCell>
                             {log.logType === 'car' ? (
                               <Badge variant="outline"><Car className="h-3 w-3 mr-1" />Car</Badge>
-                            ) : (
+                            ) : log.logType === 'rental' ? (
                               <Badge variant="outline"><ClipboardList className="h-3 w-3 mr-1" />Rental</Badge>
+                            ) : (
+                              <Badge variant="outline"><Receipt className="h-3 w-3 mr-1" />Expense</Badge>
                             )}
                           </TableCell>
                           <TableCell>
@@ -217,7 +239,7 @@ export default function Logs() {
                                   {log.newValue || "(empty)"}
                                 </span>
                               </div>
-                            ) : (
+                            ) : log.logType === 'rental' ? (
                               <div className="text-sm">
                                 {log.action === 'updated' && log.fieldName ? (
                                   <div className="flex items-center gap-2">
@@ -233,6 +255,25 @@ export default function Logs() {
                                       {log.startDate} - {log.endDate}
                                     </span>
                                     <span className="ml-2">₱{parseFloat(log.totalAmount || '0').toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-sm">
+                                {log.action === 'updated' && log.fieldName ? (
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="text-xs">{log.fieldName}</Badge>
+                                    <span className="text-muted-foreground truncate">{log.oldValue || "(empty)"}</span>
+                                    <ArrowRight className="h-4 w-4 flex-shrink-0" />
+                                    <span className="font-medium truncate">{log.newValue || "(empty)"}</span>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <Badge variant="secondary" className="text-xs mr-2">{log.category}</Badge>
+                                    {log.description && (
+                                      <span className="text-muted-foreground mr-2 truncate">{log.description}</span>
+                                    )}
+                                    <span className="font-medium">{formatCurrency(log.amount)}</span>
                                   </div>
                                 )}
                               </div>
@@ -427,6 +468,103 @@ export default function Logs() {
                                 <ArrowRight className="h-3 w-3 flex-shrink-0" />
                                 <span className="font-medium truncate">{log.newValue || "(empty)"}</span>
                               </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="expenses" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  Expense Activity
+                </CardTitle>
+                <CardDescription>
+                  {filteredExpenseLogs.length} expense action{filteredExpenseLogs.length !== 1 ? 's' : ''} recorded
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredExpenseLogs.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No expense logs found</p>
+                    <p className="text-sm">Added and edited expenses will appear here</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Car</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredExpenseLogs.map((log) => (
+                        <TableRow
+                          key={log.id}
+                          data-testid={`row-expense-log-${log.id}`}
+                          className="cursor-pointer hover-elevate"
+                          onClick={() => openLogDetails({ ...log, logType: "expense" })}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="font-medium">
+                                  {format(new Date(log.loggedAt), "MMM d, yyyy")}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {format(new Date(log.loggedAt), "h:mm a")}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {getActionIcon(log.action)}
+                              {getActionBadge(log.action)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.carName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>{log.user.firstName} {log.user.lastName}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{log.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{formatCurrency(log.amount)}</span>
+                          </TableCell>
+                          <TableCell>
+                            {log.action === 'updated' && log.fieldName ? (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Badge variant="secondary" className="text-xs">{log.fieldName}</Badge>
+                                <span className="text-muted-foreground truncate">{log.oldValue || "(empty)"}</span>
+                                <ArrowRight className="h-3 w-3 flex-shrink-0" />
+                                <span className="font-medium truncate">{log.newValue || "(empty)"}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground truncate">{log.description || "—"}</span>
                             )}
                           </TableCell>
                         </TableRow>

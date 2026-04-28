@@ -521,7 +521,7 @@ export async function registerRoutes(
       };
       const validated = insertExpenseSchema.parse(expenseData);
       const expense = await storage.createExpense(validated);
-      
+
       // If category is "Oil Change", update the car's lastOilChangeMileage
       if (expense.category === "Oil Change" && expense.mileageAtExpense && expense.carId) {
         const car = await storage.getCarById(expense.carId);
@@ -532,7 +532,29 @@ export async function registerRoutes(
           });
         }
       }
-      
+
+      // Log expense creation
+      try {
+        const car = await storage.getCarById(expense.carId);
+        await storage.createExpenseLog({
+          expenseId: expense.id,
+          carId: expense.carId,
+          userId,
+          action: "created",
+          fieldName: null,
+          oldValue: null,
+          newValue: null,
+          category: expense.category,
+          description: expense.description,
+          amount: expense.amount?.toString() || null,
+          expenseDate: expense.expenseDate,
+          mileageAtExpense: expense.mileageAtExpense?.toString() || null,
+          carName: car?.name || null,
+        });
+      } catch (logError) {
+        console.error("Error logging expense creation:", logError);
+      }
+
       res.status(201).json(expense);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -540,6 +562,78 @@ export async function registerRoutes(
       }
       console.error("Error creating expense:", error);
       res.status(500).json({ message: "Failed to create expense" });
+    }
+  });
+
+  app.patch("/api/expenses/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+
+      const existing = await storage.getExpenseById(id);
+      if (!existing) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+
+      // Whitelist editable fields and validate
+      const editableFields = ["category", "description", "amount", "expenseDate", "mileageAtExpense"] as const;
+      const updateData: Record<string, unknown> = {};
+      for (const field of editableFields) {
+        if (field in req.body) updateData[field] = req.body[field];
+      }
+      const validated = insertExpenseSchema.partial().parse(updateData);
+
+      const updated = await storage.updateExpense(id, validated);
+      if (!updated) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+
+      // Log each changed field
+      try {
+        const car = await storage.getCarById(updated.carId);
+        const fieldsToCheck: (keyof typeof existing)[] = [
+          "category",
+          "description",
+          "amount",
+          "expenseDate",
+          "mileageAtExpense",
+        ];
+        for (const field of fieldsToCheck) {
+          const oldVal = existing[field];
+          const newVal = (updated as any)[field];
+          const oldStr = oldVal === null || oldVal === undefined ? null : String(oldVal);
+          const newStr = newVal === null || newVal === undefined ? null : String(newVal);
+          if (oldStr !== newStr) {
+            await storage.createExpenseLog({
+              expenseId: updated.id,
+              carId: updated.carId,
+              userId,
+              action: "updated",
+              fieldName: field as string,
+              oldValue: oldStr,
+              newValue: newStr,
+              category: updated.category,
+              description: updated.description,
+              amount: updated.amount?.toString() || null,
+              expenseDate: updated.expenseDate,
+              mileageAtExpense: updated.mileageAtExpense?.toString() || null,
+              carName: car?.name || null,
+            });
+          }
+        }
+      } catch (logError) {
+        console.error("Error logging expense update:", logError);
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      res.status(500).json({ message: "Failed to update expense" });
     }
   });
 
@@ -552,7 +646,35 @@ export async function registerRoutes(
       }
 
       const id = parseInt(req.params.id);
+
+      // Capture snapshot before deletion for logging
+      const existing = await storage.getExpenseById(id);
+
       await storage.deleteExpense(id);
+
+      if (existing) {
+        try {
+          const car = await storage.getCarById(existing.carId);
+          await storage.createExpenseLog({
+            expenseId: null,
+            carId: existing.carId,
+            userId,
+            action: "deleted",
+            fieldName: null,
+            oldValue: null,
+            newValue: null,
+            category: existing.category,
+            description: existing.description,
+            amount: existing.amount?.toString() || null,
+            expenseDate: existing.expenseDate,
+            mileageAtExpense: existing.mileageAtExpense?.toString() || null,
+            carName: car?.name || null,
+          });
+        } catch (logError) {
+          console.error("Error logging expense deletion:", logError);
+        }
+      }
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting expense:", error);
@@ -603,6 +725,28 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching rental logs:", error);
       res.status(500).json({ message: "Failed to fetch rental logs" });
+    }
+  });
+
+  // Expense log routes
+  app.get("/api/expense-logs", isAuthenticated, async (req, res) => {
+    try {
+      const logs = await storage.getAllExpenseLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching expense logs:", error);
+      res.status(500).json({ message: "Failed to fetch expense logs" });
+    }
+  });
+
+  app.get("/api/cars/:carId/expense-logs", isAuthenticated, async (req, res) => {
+    try {
+      const carId = parseInt(req.params.carId);
+      const logs = await storage.getExpenseLogsByCarId(carId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching car expense logs:", error);
+      res.status(500).json({ message: "Failed to fetch car expense logs" });
     }
   });
 

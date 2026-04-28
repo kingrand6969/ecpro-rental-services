@@ -21,12 +21,18 @@ import {
   Trash2,
   Hash,
   Info,
+  Receipt,
 } from "lucide-react";
-import type { EditLogWithDetails, RentalLogWithUser } from "@shared/schema";
+import type {
+  EditLogWithDetails,
+  RentalLogWithUser,
+  ExpenseLogWithUser,
+} from "@shared/schema";
 
 type LogDetailItem =
   | ({ logType: "car" } & EditLogWithDetails)
-  | ({ logType: "rental" } & RentalLogWithUser);
+  | ({ logType: "rental" } & RentalLogWithUser)
+  | ({ logType: "expense" } & ExpenseLogWithUser);
 
 interface LogDetailsDialogProps {
   log: LogDetailItem | null;
@@ -56,6 +62,11 @@ const FIELD_LABELS: Record<string, string> = {
   notes: "Notes",
   carId: "Car",
   customerId: "Customer",
+  category: "Category",
+  description: "Description",
+  amount: "Amount",
+  expenseDate: "Expense Date",
+  mileageAtExpense: "Mileage at Expense",
 };
 
 function formatFieldName(field: string): string {
@@ -137,6 +148,8 @@ export function LogDetailsDialog({
   if (!log) return null;
 
   const isCarLog = log.logType === "car";
+  const isRentalLog = log.logType === "rental";
+  const isExpenseLog = log.logType === "expense";
   const timestamp = isCarLog
     ? new Date(log.editedAt)
     : new Date(log.loggedAt);
@@ -151,10 +164,15 @@ export function LogDetailsDialog({
                 <CarIcon className="h-5 w-5" />
                 Car Edit Details
               </>
-            ) : (
+            ) : isRentalLog ? (
               <>
                 <ClipboardList className="h-5 w-5" />
                 Rental Activity Details
+              </>
+            ) : (
+              <>
+                <Receipt className="h-5 w-5" />
+                Expense Activity Details
               </>
             )}
           </DialogTitle>
@@ -214,7 +232,7 @@ export function LogDetailsDialog({
 
             <div className="space-y-3">
               <h4 className="text-sm font-semibold text-muted-foreground">
-                {isCarLog ? "Car" : "Rental Information"}
+                {isCarLog ? "Car" : isRentalLog ? "Rental Information" : "Expense Information"}
               </h4>
               {isCarLog ? (
                 <div className="rounded-md border p-3 space-y-2">
@@ -233,7 +251,7 @@ export function LogDetailsDialog({
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : isRentalLog ? (
                 <div className="rounded-md border p-3 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -308,6 +326,96 @@ export function LogDetailsDialog({
                     )}
                   </div>
                 </div>
+              ) : (
+                <div className="rounded-md border p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <CarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span
+                        className="font-medium"
+                        data-testid="text-log-car-name"
+                      >
+                        {log.carName || "(unknown)"}
+                      </span>
+                    </div>
+                    {getActionBadge(log.action)}
+                  </div>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground">
+                        Category
+                      </div>
+                      <div
+                        className="font-medium"
+                        data-testid="text-log-category"
+                      >
+                        {log.category || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">
+                        Amount
+                      </div>
+                      <div
+                        className="font-medium"
+                        data-testid="text-log-amount"
+                      >
+                        {formatAmount(log.amount)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">
+                        Expense Date
+                      </div>
+                      <div
+                        className="font-medium"
+                        data-testid="text-log-expense-date"
+                      >
+                        {log.expenseDate || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">
+                        Mileage
+                      </div>
+                      <div
+                        className="font-medium"
+                        data-testid="text-log-mileage"
+                      >
+                        {log.mileageAtExpense
+                          ? `${parseFloat(log.mileageAtExpense).toLocaleString()} km`
+                          : "—"}
+                      </div>
+                    </div>
+                    {log.description && (
+                      <div className="col-span-2">
+                        <div className="text-xs text-muted-foreground">
+                          Description
+                        </div>
+                        <div
+                          className="text-sm"
+                          data-testid="text-log-description"
+                        >
+                          {log.description}
+                        </div>
+                      </div>
+                    )}
+                    {log.expenseId && (
+                      <div className="col-span-2">
+                        <div className="text-xs text-muted-foreground">
+                          Expense ID
+                        </div>
+                        <div
+                          className="font-mono text-xs"
+                          data-testid="text-log-expense-id"
+                        >
+                          #{log.expenseId}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -358,7 +466,7 @@ export function LogDetailsDialog({
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : isRentalLog ? (
                 <div className="rounded-md border p-3 space-y-3">
                   {log.action === "created" && (
                     <div className="space-y-2">
@@ -436,6 +544,90 @@ export function LogDetailsDialog({
                               log.fieldName || "",
                               log.newValue,
                             )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-md border p-3 space-y-3">
+                  {log.action === "created" && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Plus className="h-4 w-4 text-green-500" />
+                      <span>
+                        New <strong>{log.category || "expense"}</strong> expense
+                        of <strong>{formatAmount(log.amount)}</strong> was
+                        recorded for{" "}
+                        <strong>{log.carName || "(unknown)"}</strong>
+                        {log.expenseDate ? (
+                          <>
+                            {" "}on <strong>{log.expenseDate}</strong>
+                          </>
+                        ) : null}
+                        {log.description ? (
+                          <>
+                            {" "}— {log.description}
+                          </>
+                        ) : null}
+                        .
+                      </span>
+                    </div>
+                  )}
+                  {log.action === "deleted" && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <span>
+                        <strong>{log.category || "Expense"}</strong> expense of{" "}
+                        <strong>{formatAmount(log.amount)}</strong> for{" "}
+                        <strong>{log.carName || "(unknown)"}</strong>
+                        {log.expenseDate ? (
+                          <>
+                            {" "}({log.expenseDate})
+                          </>
+                        ) : null}
+                        {" "}was deleted.
+                      </span>
+                    </div>
+                  )}
+                  {log.action === "updated" && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          Field changed:
+                        </span>
+                        <Badge
+                          variant="outline"
+                          data-testid="text-log-field"
+                        >
+                          {formatFieldName(log.fieldName || "")}
+                        </Badge>
+                      </div>
+                      <Separator />
+                      <div className="space-y-2">
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">
+                            Previous Value
+                          </div>
+                          <div
+                            className="rounded-md bg-muted/50 px-3 py-2 text-sm break-all"
+                            data-testid="text-log-old-value"
+                          >
+                            {formatValue(log.fieldName || "", log.oldValue)}
+                          </div>
+                        </div>
+                        <div className="flex justify-center">
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">
+                            New Value
+                          </div>
+                          <div
+                            className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium break-all"
+                            data-testid="text-log-new-value"
+                          >
+                            {formatValue(log.fieldName || "", log.newValue)}
                           </div>
                         </div>
                       </div>
