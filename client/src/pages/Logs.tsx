@@ -10,10 +10,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { History, Car, User, Calendar, ArrowRight, ClipboardList, Plus, Pencil, Trash2 } from "lucide-react";
 import type { EditLogWithDetails, Car as CarType, RentalLogWithUser } from "@shared/schema";
+import { LogDetailsDialog } from "@/components/LogDetailsDialog";
+
+type SelectedLog =
+  | ({ logType: "car" } & EditLogWithDetails)
+  | ({ logType: "rental" } & RentalLogWithUser)
+  | null;
 
 export default function Logs() {
   const [selectedCarId, setSelectedCarId] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [selectedLog, setSelectedLog] = useState<SelectedLog>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const openLogDetails = (log: NonNullable<SelectedLog>) => {
+    setSelectedLog(log);
+    setDetailsOpen(true);
+  };
 
   const { data: cars, isLoading: carsLoading } = useQuery<CarType[]>({
     queryKey: ["/api/cars"],
@@ -148,7 +161,12 @@ export default function Logs() {
                         ...filteredRentalLogs.map(log => ({ ...log, logType: 'rental' as const, timestamp: new Date(log.loggedAt) }))
                       ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
                        .map((log, idx) => (
-                        <TableRow key={`${log.logType}-${log.id}`} data-testid={`row-log-${log.logType}-${log.id}`}>
+                        <TableRow
+                          key={`${log.logType}-${log.id}`}
+                          data-testid={`row-log-${log.logType}-${log.id}`}
+                          className="cursor-pointer hover-elevate"
+                          onClick={() => openLogDetails(log as NonNullable<SelectedLog>)}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -260,7 +278,12 @@ export default function Logs() {
                     </TableHeader>
                     <TableBody>
                       {filteredEditLogs.map((log) => (
-                        <TableRow key={log.id} data-testid={`row-car-log-${log.id}`}>
+                        <TableRow
+                          key={log.id}
+                          data-testid={`row-car-log-${log.id}`}
+                          className="cursor-pointer hover-elevate"
+                          onClick={() => openLogDetails({ ...log, logType: "car" })}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -346,7 +369,12 @@ export default function Logs() {
                     </TableHeader>
                     <TableBody>
                       {filteredRentalLogs.map((log) => (
-                        <TableRow key={log.id} data-testid={`row-rental-log-${log.id}`}>
+                        <TableRow
+                          key={log.id}
+                          data-testid={`row-rental-log-${log.id}`}
+                          className="cursor-pointer hover-elevate"
+                          onClick={() => openLogDetails({ ...log, logType: "rental" })}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -411,6 +439,11 @@ export default function Logs() {
           </TabsContent>
         </Tabs>
       </div>
+      <LogDetailsDialog
+        log={selectedLog}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </ScrollArea>
   );
 }
