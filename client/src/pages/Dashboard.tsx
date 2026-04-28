@@ -193,6 +193,8 @@ export default function Dashboard() {
   const DAY_WIDTH = 70;
   const CAR_ROW_HEIGHT = 40;
   const CAR_LABEL_WIDTH = 140;
+  const MONTH_HEADER_HEIGHT = 36;
+  const DAY_HEADER_HEIGHT = 36;
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -239,9 +241,15 @@ export default function Dashboard() {
             style={{ width: CAR_LABEL_WIDTH }}
           >
             {/* Month header spacer */}
-            <div className="h-[34px] border-b bg-muted/80" />
+            <div
+              className="border-b bg-muted/80"
+              style={{ height: MONTH_HEADER_HEIGHT }}
+            />
             {/* Day header spacer */}
-            <div className="h-[34px] border-b bg-muted/60" />
+            <div
+              className="border-b bg-muted/60"
+              style={{ height: DAY_HEADER_HEIGHT }}
+            />
             
             {/* Car labels */}
             {cars?.map((car) => {
@@ -276,12 +284,15 @@ export default function Dashboard() {
           >
             <div style={{ width: visibleDays.length * DAY_WIDTH }}>
               {/* Month headers - sticky */}
-              <div className="flex sticky top-0 z-20 bg-muted/80 backdrop-blur-sm border-b">
+              <div
+                className="flex sticky top-0 z-20 bg-muted/80 backdrop-blur-sm border-b"
+                style={{ height: MONTH_HEADER_HEIGHT }}
+              >
                 {monthGroups.map((group, idx) => (
                   <div
                     key={idx}
-                    className="text-center text-sm font-semibold py-2 border-r"
-                    style={{ width: group.days.length * DAY_WIDTH }}
+                    className="flex items-center justify-center text-sm font-semibold border-r"
+                    style={{ width: group.days.length * DAY_WIDTH, height: MONTH_HEADER_HEIGHT }}
                   >
                     {format(group.month, "MMMM yyyy")}
                   </div>
@@ -289,17 +300,20 @@ export default function Dashboard() {
               </div>
 
               {/* Day headers - sticky */}
-              <div className="flex sticky top-[34px] z-20 bg-muted/60 backdrop-blur-sm border-b">
+              <div
+                className="flex sticky z-20 bg-muted/60 backdrop-blur-sm border-b"
+                style={{ top: MONTH_HEADER_HEIGHT, height: DAY_HEADER_HEIGHT }}
+              >
                 {visibleDays.map((day, idx) => {
                   const isToday = isSameDay(day, new Date());
                   return (
                     <div
                       key={idx}
                       ref={isToday ? todayColumnRef : null}
-                      className={`text-center py-2 border-r ${
+                      className={`flex items-center justify-center border-r ${
                         isToday ? "bg-primary/30" : ""
                       }`}
-                      style={{ width: DAY_WIDTH }}
+                      style={{ width: DAY_WIDTH, height: DAY_HEADER_HEIGHT }}
                     >
                       <div className={`text-xs ${isToday ? "text-primary font-bold" : "text-muted-foreground"}`}>
                         {format(day, "EEE")} {format(day, "d")}
