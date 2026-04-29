@@ -158,12 +158,12 @@ export function CreateRentalDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle data-testid="text-booking-title">
+          <DialogTitle data-testid="text-booking-title" className="font-mono text-base uppercase tracking-widest">
             {step === "car" && "Select a Vehicle"}
             {step === "dates" && "Choose Rental Dates"}
             {step === "details" && "Complete Your Booking"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="font-mono text-xs">
             {step === "car" && "Choose the car you want to rent"}
             {step === "dates" && `Rental dates for ${selectedCar?.name}`}
             {step === "details" && "Enter customer details and payment information"}
@@ -180,7 +180,7 @@ export function CreateRentalDialog({
                     key={car.id}
                     className={`cursor-pointer transition-all hover-elevate ${
                       selectedCarId === car.id.toString()
-                        ? "ring-2 ring-primary"
+                        ? "ring-2 ring-neon-cyan shadow-cyan-glow"
                         : ""
                     }`}
                     onClick={() => {
@@ -203,14 +203,14 @@ export function CreateRentalDialog({
                       </div>
                       <div className="flex items-center gap-1.5">
                         <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: car.colorCode }}
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_6px_currentColor]"
+                          style={{ backgroundColor: car.colorCode, color: car.colorCode }}
                         />
-                        <h3 className="font-medium text-sm truncate" data-testid={`text-car-name-${car.id}`}>
+                        <h3 className="font-mono text-xs uppercase tracking-wider truncate" data-testid={`text-car-name-${car.id}`}>
                           {car.name}
                         </h3>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5" data-testid={`text-car-plate-${car.id}`}>
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground truncate mt-0.5" data-testid={`text-car-plate-${car.id}`}>
                         {car.plateNumber}
                       </p>
                       {getRegistrationStatus(car).status === "overdue" && (
@@ -234,8 +234,8 @@ export function CreateRentalDialog({
             {/* STEP 2: Date Selection */}
             {step === "dates" && (
               <div className="space-y-4">
-                <div className="bg-accent/50 rounded-lg p-3 mb-4">
-                  <p className="text-sm font-medium" data-testid="text-selected-car-info">
+                <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3 mb-4">
+                  <p className="font-mono text-xs uppercase tracking-widest text-neon-cyan" data-testid="text-selected-car-info">
                     {selectedCar?.name} • {selectedCar?.model}
                   </p>
                   {selectedCar && getRegistrationStatus(selectedCar).status === "overdue" && (
@@ -258,7 +258,7 @@ export function CreateRentalDialog({
                     name="startDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Start Date</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Start Date</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -293,7 +293,7 @@ export function CreateRentalDialog({
                     name="endDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>End Date</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">End Date</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -328,8 +328,8 @@ export function CreateRentalDialog({
                 </div>
 
                 {daysRented > 0 && (
-                  <div className="bg-primary/10 rounded-lg p-3">
-                    <p className="text-sm font-medium" data-testid="text-days-count">
+                  <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3">
+                    <p className="font-mono text-xs uppercase tracking-widest text-neon-magenta tabular-nums" data-testid="text-days-count">
                       Total: {daysRented} day{daysRented !== 1 ? "s" : ""}
                     </p>
                   </div>
@@ -340,28 +340,28 @@ export function CreateRentalDialog({
             {/* STEP 3: Details and Payment */}
             {step === "details" && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 bg-accent/50 rounded-lg p-3 mb-4">
+                <div className="grid grid-cols-2 gap-3 rounded-md border border-border bg-card p-3 mb-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Vehicle</p>
-                    <p className="text-sm font-medium" data-testid="text-detail-car-name">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Vehicle</p>
+                    <p className="text-sm font-medium mt-1" data-testid="text-detail-car-name">
                       {selectedCar?.name}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Duration</p>
-                    <p className="text-sm font-medium" data-testid="text-detail-days">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Duration</p>
+                    <p className="text-sm font-medium tabular-nums mt-1" data-testid="text-detail-days">
                       {daysRented} day{daysRented !== 1 ? "s" : ""}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">From</p>
-                    <p className="text-sm font-medium" data-testid="text-detail-start-date">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">From</p>
+                    <p className="text-sm font-medium tabular-nums mt-1" data-testid="text-detail-start-date">
                       {startDate ? format(startDate, "MMM d") : ""}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">To</p>
-                    <p className="text-sm font-medium" data-testid="text-detail-end-date">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">To</p>
+                    <p className="text-sm font-medium tabular-nums mt-1" data-testid="text-detail-end-date">
                       {endDate ? format(endDate, "MMM d") : ""}
                     </p>
                   </div>
@@ -372,7 +372,7 @@ export function CreateRentalDialog({
                   name="customerName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer Name</FormLabel>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Customer Name</FormLabel>
                       <FormControl>
                         <Input {...field} placeholder="Full name" data-testid="input-customer-name" />
                       </FormControl>
@@ -387,7 +387,7 @@ export function CreateRentalDialog({
                     name="customerEmail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Email</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
@@ -406,7 +406,7 @@ export function CreateRentalDialog({
                     name="customerPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Phone</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="Phone number" data-testid="input-customer-phone" />
                         </FormControl>
@@ -421,7 +421,7 @@ export function CreateRentalDialog({
                   name="totalAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Total Rental Amount (₱)</FormLabel>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Rental Amount (₱)</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -441,7 +441,7 @@ export function CreateRentalDialog({
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Additional Notes</FormLabel>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Additional Notes</FormLabel>
                       <FormControl>
                         <Textarea
                           {...field}
@@ -455,8 +455,8 @@ export function CreateRentalDialog({
                   )}
                 />
 
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-2">Payment Screenshot</p>
+                <div className="border-t border-border pt-4">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Payment Screenshot</p>
                   <p className="text-xs text-muted-foreground mb-2">
                     Upload a screenshot to confirm payment. Without it, this booking will be saved as a reservation with pending payment.
                   </p>
@@ -480,7 +480,7 @@ export function CreateRentalDialog({
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between gap-3 pt-4 border-t">
+            <div className="flex justify-between gap-3 pt-4 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
@@ -489,6 +489,7 @@ export function CreateRentalDialog({
                   else if (step === "details") setStep("dates");
                   else handleClose();
                 }}
+                className="font-mono text-xs uppercase tracking-wider"
                 data-testid={`button-${step === "car" ? "close" : "back"}`}
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
@@ -509,6 +510,7 @@ export function CreateRentalDialog({
                     (step === "car" && !canProceedToDateSelection) ||
                     (step === "dates" && !canProceedToDetails)
                   }
+                  className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                   data-testid="button-next-step"
                 >
                   Next
@@ -520,6 +522,7 @@ export function CreateRentalDialog({
                 <Button
                   type="submit"
                   disabled={createMutation.isPending}
+                  className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                   data-testid="button-complete-booking"
                 >
                   {createMutation.isPending

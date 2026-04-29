@@ -166,17 +166,17 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
     <Dialog open={!!carId} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {car?.name} - Expenses
+          <DialogTitle className="font-mono text-base uppercase tracking-widest">
+            {car?.name} • Expenses
           </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="list" data-testid="tab-expenses-list">
+            <TabsTrigger value="list" data-testid="tab-expenses-list" className="font-mono text-xs uppercase tracking-wider">
               Expense History
             </TabsTrigger>
-            <TabsTrigger value="add" data-testid="tab-add-expense">
+            <TabsTrigger value="add" data-testid="tab-add-expense" className="font-mono text-xs uppercase tracking-wider">
               Add Expense
             </TabsTrigger>
           </TabsList>
@@ -190,32 +190,32 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
               </div>
             ) : expenses && expenses.length > 0 ? (
               <>
-                <div className="p-3 rounded-md bg-muted mb-4">
-                  <span className="text-sm text-muted-foreground">Total Expenses: </span>
-                  <span className="font-semibold">₱{totalExpenses.toLocaleString()}</span>
+                <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3 mb-4 flex items-center justify-between">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Expenses</span>
+                  <span className="font-bold tabular-nums text-neon-magenta">₱{totalExpenses.toLocaleString()}</span>
                 </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Mileage</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Date</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Category</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Description</TableHead>
+                      <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Amount</TableHead>
+                      <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Mileage</TableHead>
                       {isAdmin && <TableHead className="w-10" />}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {expenses.map((expense) => (
                       <TableRow key={expense.id} data-testid={`expense-row-${expense.id}`}>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-muted-foreground tabular-nums">
                           {format(parseISO(expense.expenseDate as string), "MMM d, yyyy")}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{expense.category}</Badge>
+                          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-widest border-neon-magenta/40 bg-neon-magenta/10 text-neon-magenta">{expense.category}</Badge>
                         </TableCell>
                         <TableCell>{expense.description}</TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">
+                        <TableCell className="text-right tabular-nums font-bold text-neon-magenta">
                           ₱{parseFloat(expense.amount).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -240,7 +240,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                 </Table>
               </>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className="rounded-md border border-dashed border-border bg-card text-center py-8 font-mono text-xs uppercase tracking-widest text-muted-foreground">
                 No expenses recorded for this car
               </div>
             )}
@@ -254,7 +254,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                   name="category"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Category</FormLabel>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Category</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-expense-category">
@@ -279,7 +279,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Description</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="e.g., Regular oil change at 50,000km"
@@ -298,7 +298,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                     name="amount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Amount ($)</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Amount (₱)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
@@ -319,7 +319,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                     name="expenseDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Date</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Date</FormLabel>
                         <FormControl>
                           <Input
                             type="date"
@@ -338,7 +338,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                   name="mileageAtExpense"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mileage at Time of Expense (Optional)</FormLabel>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Mileage at Time of Expense (Optional)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -358,13 +358,13 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                     type="button"
                     variant="outline"
                     onClick={() => setActiveTab("list")}
-                    className="flex-1"
+                    className="flex-1 font-mono text-xs uppercase tracking-wider"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1"
+                    className="flex-1 font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                     disabled={createMutation.isPending}
                     data-testid="button-save-expense"
                   >

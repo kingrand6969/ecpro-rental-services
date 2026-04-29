@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,8 +24,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type Customer, type Rental, type Car } from "@shared/schema";
 import { z } from "zod";
 import { format } from "date-fns";
-
-type RentalWithCar = Rental & { car?: Car };
 
 const customerFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -151,24 +148,33 @@ export default function Customers() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
-        <h1 className="text-2xl font-semibold">Customers</h1>
-        <div className="flex items-center gap-4">
+    <div className="flex flex-col h-full bg-background text-foreground">
+      <div className="flex items-center justify-between gap-4 px-4 md:px-6 h-14 border-b border-border flex-wrap shrink-0 bg-background/60 backdrop-blur">
+        <h1
+          className="font-mono text-base md:text-lg font-bold uppercase tracking-widest text-foreground"
+          data-testid="text-customers-title"
+        >
+          Customers
+        </h1>
+        <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search customers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-64"
+              className="pl-9 w-64 font-mono text-sm"
               data-testid="input-customer-search"
             />
           </div>
           <Dialog open={addCustomerOpen} onOpenChange={setAddCustomerOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-add-customer">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button
+                size="sm"
+                data-testid="button-add-customer"
+                className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
+              >
+                <Plus className="h-4 w-4 mr-1" />
                 Add Customer
               </Button>
             </DialogTrigger>
@@ -271,212 +277,224 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          {isLoading ? (
-            <Card>
-              <CardContent className="p-4">
+      <div className="flex-1 overflow-auto p-4 md:p-6 neon-scrollbar">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {isLoading ? (
+              <div className="glass-panel rounded-md p-4">
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          ) : filteredCustomers && filteredCustomers.length > 0 ? (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>ID Number</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCustomers.map((customer) => (
-                    <TableRow
-                      key={customer.id}
-                      className="cursor-pointer"
-                      onClick={() => setSelectedCustomer(customer)}
-                      data-testid={`customer-row-${customer.id}`}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-4 w-4 text-primary" />
-                          </div>
-                          <span className="font-medium">{customer.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {customer.email && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Mail className="h-3 w-3" />
-                              {customer.email}
-                            </div>
-                          )}
-                          {customer.phone && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Phone className="h-3 w-3" />
-                              {customer.phone}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {customer.idNumber ? (
-                          <Badge variant="outline">{customer.idNumber}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditCustomer(customer);
-                            }}
-                            data-testid={`button-edit-customer-${customer.id}`}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                      </TableCell>
+              </div>
+            ) : filteredCustomers && filteredCustomers.length > 0 ? (
+              <div className="glass-panel rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border">
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Name</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Contact</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">ID Number</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">No customers yet</h3>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.map((customer) => (
+                      <TableRow
+                        key={customer.id}
+                        className="cursor-pointer border-border"
+                        onClick={() => setSelectedCustomer(customer)}
+                        data-testid={`customer-row-${customer.id}`}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 flex items-center justify-center">
+                              <User className="h-4 w-4 text-neon-cyan" />
+                            </div>
+                            <span className="font-medium">{customer.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {customer.email && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Mail className="h-3 w-3" />
+                                {customer.email}
+                              </div>
+                            )}
+                            {customer.phone && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Phone className="h-3 w-3" />
+                                {customer.phone}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {customer.idNumber ? (
+                            <Badge variant="outline" className="font-mono">{customer.idNumber}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="font-mono text-xs uppercase tracking-wider"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditCustomer(customer);
+                              }}
+                              data-testid={`button-edit-customer-${customer.id}`}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="glass-panel rounded-md p-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-4">
+                  <Users className="h-8 w-8 text-neon-cyan" />
+                </div>
+                <h3 className="font-mono text-sm uppercase tracking-widest text-foreground mb-2">No customers yet</h3>
                 <p className="text-muted-foreground mb-4">
                   Add your first customer to start tracking rental history.
                 </p>
-                <Button onClick={() => setAddCustomerOpen(true)}>
+                <Button
+                  onClick={() => setAddCustomerOpen(true)}
+                  className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Customer
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
 
-        <div>
-          {selectedCustomer ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-lg">{selectedCustomer.name}</CardTitle>
-                    <CardDescription>Customer Profile</CardDescription>
-                  </div>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteMutation.mutate(selectedCustomer.id)}
-                      data-testid="button-delete-customer"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {selectedCustomer.email && (
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{selectedCustomer.email}</span>
-                  </div>
-                )}
-                {selectedCustomer.phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{selectedCustomer.phone}</span>
-                  </div>
-                )}
-                {selectedCustomer.address && (
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <span className="text-sm">{selectedCustomer.address}</span>
-                  </div>
-                )}
-                {selectedCustomer.idNumber && (
-                  <div className="flex items-center gap-3">
-                    <CreditCard className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{selectedCustomer.idNumber}</span>
-                  </div>
-                )}
-                {selectedCustomer.notes && (
-                  <div className="pt-2 border-t">
-                    <p className="text-sm text-muted-foreground">{selectedCustomer.notes}</p>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <History className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-sm">Rental History</span>
-                  </div>
-
-                  {rentalsLoading ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
+          <div>
+            {selectedCustomer ? (
+              <div className="glass-panel rounded-md">
+                <div className="p-4 border-b border-border">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="font-mono text-sm uppercase tracking-widest text-foreground truncate">{selectedCustomer.name}</h2>
+                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest mt-1">Customer Profile</p>
                     </div>
-                  ) : customerRentals && customerRentals.length > 0 ? (
-                    <div className="space-y-2">
-                      {customerRentals.map((rental) => {
-                        const car = getCarForRental(rental);
-                        return (
-                          <div
-                            key={rental.id}
-                            className="p-3 rounded-md bg-muted/50 text-sm"
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium">{car?.name ?? "Unknown Car"}</span>
-                              <span className="text-primary font-medium">
-                                ₱{parseFloat(rental.totalAmount).toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="text-muted-foreground text-xs">
-                              {format(new Date(rental.startDate), "MMM d, yyyy")} - {format(new Date(rental.endDate), "MMM d, yyyy")}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div className="pt-2 mt-2 border-t flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Total Spent</span>
-                        <span className="font-semibold text-primary">
-                          ₱{getTotalSpent(selectedCustomer.id)?.toLocaleString() ?? "0"}
-                        </span>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(selectedCustomer.id)}
+                        data-testid="button-delete-customer"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4 space-y-4">
+                  {selectedCustomer.email && (
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{selectedCustomer.email}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{selectedCustomer.phone}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.address && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <span className="text-sm">{selectedCustomer.address}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.idNumber && (
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-mono">{selectedCustomer.idNumber}</span>
+                    </div>
+                  )}
+                  {selectedCustomer.notes && (
+                    <div className="pt-2 border-t border-border">
+                      <p className="text-sm text-muted-foreground">{selectedCustomer.notes}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <History className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Rental History</span>
+                    </div>
+
+                    {rentalsLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
                       </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No rental history</p>
-                  )}
+                    ) : customerRentals && customerRentals.length > 0 ? (
+                      <div className="space-y-2">
+                        {customerRentals.map((rental) => {
+                          const car = getCarForRental(rental);
+                          return (
+                            <div
+                              key={rental.id}
+                              className="p-3 rounded-md bg-card border border-border text-sm"
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {car && (
+                                    <div
+                                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                                      style={{ backgroundColor: car.colorCode }}
+                                    />
+                                  )}
+                                  <span className="font-medium truncate">{car?.name ?? "Unknown Car"}</span>
+                                </div>
+                                <span className="font-mono tabular-nums text-neon-cyan font-medium">
+                                  ₱{parseFloat(rental.totalAmount).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="text-muted-foreground text-xs font-mono">
+                                {format(new Date(rental.startDate), "MMM d, yyyy")} → {format(new Date(rental.endDate), "MMM d, yyyy")}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="pt-2 mt-2 border-t border-border flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Total Spent</span>
+                          <span className="font-mono font-bold text-neon-cyan tabular-nums">
+                            ₱{getTotalSpent(selectedCustomer.id)?.toLocaleString() ?? "0"}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No rental history</p>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="glass-panel rounded-md p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-muted border border-border flex items-center justify-center mx-auto mb-4">
+                  <User className="h-8 w-8 text-muted-foreground" />
+                </div>
                 <p className="text-muted-foreground">
                   Select a customer to view their profile and rental history
                 </p>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

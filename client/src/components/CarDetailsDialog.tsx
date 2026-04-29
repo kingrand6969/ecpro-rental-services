@@ -187,13 +187,13 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: car.colorCode }}
+              className="w-3 h-3 rounded-full shadow-[0_0_8px_currentColor]"
+              style={{ backgroundColor: car.colorCode, color: car.colorCode }}
             />
-            <DialogTitle>{car.name}</DialogTitle>
+            <DialogTitle className="font-mono text-base uppercase tracking-widest">{car.name}</DialogTitle>
           </div>
-          <DialogDescription>
-            {car.brand && `${car.brand} `}{car.model} - {car.plateNumber}
+          <DialogDescription className="font-mono text-xs">
+            {car.brand && `${car.brand} `}{car.model} • {car.plateNumber}
           </DialogDescription>
         </DialogHeader>
 
@@ -303,33 +303,42 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 rounded-md bg-muted">
-              <p className="text-sm text-muted-foreground">Monthly Payment</p>
-              <p className="text-lg font-semibold">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-md border border-border bg-card p-3">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Monthly Payment</p>
+              <p className="text-lg font-bold tabular-nums text-neon-cyan mt-1">
                 ₱{parseFloat(car.monthlyPayment).toLocaleString()}
               </p>
             </div>
-            <div className="p-3 rounded-md bg-muted">
-              <p className="text-sm text-muted-foreground">Status</p>
-              <Badge className="mt-1">
-                {car.status.charAt(0).toUpperCase() + car.status.slice(1)}
+            <div className="rounded-md border border-border bg-card p-3">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Status</p>
+              <Badge
+                variant="outline"
+                className={`mt-2 font-mono text-[10px] uppercase tracking-widest ${
+                  car.status === "available"
+                    ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
+                    : car.status === "rented"
+                    ? "border-neon-magenta/40 bg-neon-magenta/10 text-neon-magenta"
+                    : "border-chart-4/40 bg-chart-4/10 text-chart-4"
+                }`}
+              >
+                {car.status}
               </Badge>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {car.dateAcquired && (
-              <div className="p-3 rounded-md bg-muted">
-                <p className="text-sm text-muted-foreground">Date Acquired</p>
-                <p className="font-medium">
+              <div className="rounded-md border border-border bg-card p-3">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Date Acquired</p>
+                <p className="font-medium mt-1">
                   {format(parseISO(car.dateAcquired as string), "MMMM d, yyyy")}
                 </p>
               </div>
             )}
-            <div className="p-3 rounded-md bg-muted">
-              <p className="text-sm text-muted-foreground">Last Car Registration</p>
-              <p className="font-medium">
+            <div className="rounded-md border border-border bg-card p-3">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Last Car Registration</p>
+              <p className="font-medium mt-1">
                 {car.registrationConfirmedAt
                   ? format(parseISO(car.registrationConfirmedAt as string), "MMMM d, yyyy")
                   : "Not recorded"}
@@ -340,23 +349,23 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           <Separator />
 
           <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
+            <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <Wrench className="h-3.5 w-3.5 text-neon-cyan" />
               Maintenance Info
             </h4>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground">Last Oil Change Mileage</p>
-                <p className="font-medium">{(car.lastOilChangeMileage ?? 0).toLocaleString()} km</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Last Oil Change Mileage</p>
+                <p className="font-medium tabular-nums mt-1">{(car.lastOilChangeMileage ?? 0).toLocaleString()} km</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Oil Change Interval</p>
-                <p className="font-medium">{(car.oilChangeIntervalKm ?? 5000).toLocaleString()} km</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Oil Change Interval</p>
+                <p className="font-medium tabular-nums mt-1">{(car.oilChangeIntervalKm ?? 5000).toLocaleString()} km</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Last Maintenance</p>
-                <p className="font-medium">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Last Maintenance</p>
+                <p className="font-medium mt-1">
                   {car.lastMaintenanceDate
                     ? format(parseISO(car.lastMaintenanceDate as string), "MMM d, yyyy")
                     : "Not recorded"}
@@ -369,14 +378,14 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <h4 className="font-medium">Update Car Information</h4>
+              <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Update Car Information</h4>
 
               <FormField
                 control={form.control}
                 name="plateNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Plate Number</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Plate Number</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -393,7 +402,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                 name="dateAcquired"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date Acquired</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Date Acquired</FormLabel>
                     <FormControl>
                       <Input
                         type="date"
@@ -411,13 +420,13 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                   type="button"
                   variant="outline"
                   onClick={onClose}
-                  className="flex-1"
+                  className="flex-1 font-mono text-xs uppercase tracking-wider"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1"
+                  className="flex-1 font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                   disabled={updateMutation.isPending}
                   data-testid="button-update-car"
                 >

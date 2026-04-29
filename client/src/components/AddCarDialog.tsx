@@ -115,8 +115,8 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Car</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="font-mono text-base uppercase tracking-widest">Add New Car</DialogTitle>
+          <DialogDescription className="font-mono text-xs">
             Add a new car to your fleet. This will be available for rentals.
           </DialogDescription>
         </DialogHeader>
@@ -128,7 +128,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Car Name</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Car Name</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="e.g., Toyota Camry 2023"
@@ -146,7 +146,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               name="model"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Model</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Model</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="e.g., Camry XLE"
@@ -165,7 +165,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                 name="plateNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Plate Number</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Plate Number</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="ABC-1234"
@@ -183,7 +183,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                 name="color"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Car Color</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Car Color</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g., Silver"
@@ -202,7 +202,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               name="colorCode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Calendar Color</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Calendar Color</FormLabel>
                   <FormDescription>
                     This color will be used to identify this car on the calendar
                   </FormDescription>
@@ -214,7 +214,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                         onClick={() => field.onChange(color.code)}
                         className={`w-8 h-8 rounded-full border-2 transition-all ${
                           selectedColorCode === color.code
-                            ? "border-foreground scale-110"
+                            ? "border-foreground scale-110 shadow-[0_0_10px_currentColor]"
                             : "border-transparent"
                         }`}
                         style={{ backgroundColor: color.code }}
@@ -233,7 +233,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               name="monthlyPayment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monthly Payment ($)</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Monthly Payment (₱)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -254,7 +254,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               name="dateAcquired"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Date Acquired</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Date Acquired</FormLabel>
                   <FormControl>
                     <Input
                       type="date"
@@ -273,7 +273,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                 name="oilChangeIntervalKm"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Oil Change Interval (km)</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Oil Change Interval (km)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -294,13 +294,13 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1"
+                className="flex-1 font-mono text-xs uppercase tracking-wider"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="flex-1"
+                className="flex-1 font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                 disabled={createMutation.isPending}
                 data-testid="button-add-car"
               >

@@ -1,8 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays, max, min, addDays, startOfDay } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { parseISO, startOfMonth, endOfMonth, isWithinInterval, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays, max, min, addDays, startOfDay } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -25,8 +23,6 @@ import {
   TrendingDown,
   DollarSign,
   CreditCard,
-  BarChart3,
-  Car as CarIcon,
 } from "lucide-react";
 import type { Car, Rental, Expense, MonthlyPayment } from "@shared/schema";
 
@@ -41,6 +37,40 @@ const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 const formatCurrency = (value: number) => {
   return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+
+interface KpiTileProps {
+  label: string;
+  value: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  accent: "cyan" | "magenta" | "amber" | "neutral";
+  testid?: string;
+}
+
+function KpiTile({ label, value, Icon, accent, testid }: KpiTileProps) {
+  const accentMap = {
+    cyan: { text: "text-neon-cyan text-glow-cyan", iconBg: "bg-neon-cyan/10 text-neon-cyan", blur: "bg-neon-cyan" },
+    magenta: { text: "text-neon-magenta", iconBg: "bg-neon-magenta/10 text-neon-magenta", blur: "bg-neon-magenta" },
+    amber: { text: "text-chart-4", iconBg: "bg-chart-4/10 text-chart-4", blur: "bg-chart-4" },
+    neutral: { text: "text-foreground", iconBg: "bg-muted text-foreground", blur: "bg-muted-foreground" },
+  };
+  const a = accentMap[accent];
+  return (
+    <div className="glass-panel rounded-md p-5 relative overflow-hidden group" data-testid={testid}>
+      <div className={`absolute -right-4 -top-4 w-24 h-24 ${a.blur} opacity-5 blur-2xl group-hover:opacity-10 transition-opacity pointer-events-none`} />
+      <div className="flex items-center gap-3 relative">
+        <div className={`w-10 h-10 rounded-md ${a.iconBg} flex items-center justify-center shrink-0`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
+          <p className={`text-xl font-mono font-bold tabular-nums truncate ${a.text}`}>
+            {value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Finances() {
   const [periodType, setPeriodType] = useState<"monthly" | "quarterly" | "yearly">("monthly");
@@ -60,7 +90,7 @@ export default function Finances() {
     queryKey: ["/api/expenses"],
   });
 
-  const { data: monthlyPayments, isLoading: paymentsLoading } = useQuery<MonthlyPayment[]>({
+  const { isLoading: paymentsLoading } = useQuery<MonthlyPayment[]>({
     queryKey: ["/api/monthly-payments", selectedMonth, selectedYear],
   });
 
@@ -85,20 +115,20 @@ export default function Finances() {
     const rentalStart = parseISO(rental.startDate as string);
     const rentalEnd = parseISO(rental.endDate as string);
     const totalAmount = parseFloat(rental.totalAmount);
-    
+
     const totalRentalDays = differenceInDays(rentalEnd, rentalStart);
     if (totalRentalDays <= 0) return totalAmount;
-    
+
     const dailyRate = totalAmount / totalRentalDays;
-    
+
     const periodEndExclusive = addDays(startOfDay(periodEnd), 1);
     const overlapStart = max([rentalStart, periodStart]);
     const overlapEnd = min([rentalEnd, periodEndExclusive]);
-    
+
     if (overlapStart >= overlapEnd) return 0;
-    
+
     const daysInPeriod = differenceInDays(overlapEnd, overlapStart);
-    
+
     return dailyRate * daysInPeriod;
   };
 
@@ -118,8 +148,7 @@ export default function Finances() {
     });
 
     const totalExpensesAmount = periodExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    
-    // Calculate number of periods for monthly payments
+
     let periodCount = 1;
     if (periodType === "quarterly") {
       periodCount = 3;
@@ -135,7 +164,6 @@ export default function Finances() {
   const carFinancials = useMemo(() => {
     if (!cars || !rentals || !expenses) return [];
 
-    // Calculate number of periods for amortization
     let periodCount = 1;
     if (periodType === "quarterly") {
       periodCount = 3;
@@ -175,15 +203,20 @@ export default function Finances() {
   }, [cars, rentals, expenses, periodStart, periodEnd, periodType]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
-        <h1 className="text-2xl font-semibold">Finances</h1>
-        <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex flex-col h-full bg-background text-foreground">
+      <div className="flex items-center justify-between gap-4 px-4 md:px-6 h-14 border-b border-border flex-wrap shrink-0 bg-background/60 backdrop-blur">
+        <h1
+          className="font-mono text-base md:text-lg font-bold uppercase tracking-widest text-foreground"
+          data-testid="text-finances-title"
+        >
+          Finances
+        </h1>
+        <div className="flex items-center gap-2 flex-wrap">
           <Select
             value={periodType}
             onValueChange={(v) => setPeriodType(v as "monthly" | "quarterly" | "yearly")}
           >
-            <SelectTrigger className="w-36" data-testid="select-period-type">
+            <SelectTrigger className="w-32 font-mono text-xs uppercase tracking-wider" data-testid="select-period-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -198,7 +231,7 @@ export default function Finances() {
               value={selectedMonth.toString()}
               onValueChange={(v) => setSelectedMonth(parseInt(v))}
             >
-              <SelectTrigger className="w-36" data-testid="select-month">
+              <SelectTrigger className="w-32 font-mono text-xs uppercase tracking-wider" data-testid="select-month">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -216,7 +249,7 @@ export default function Finances() {
               value={selectedQuarter.toString()}
               onValueChange={(v) => setSelectedQuarter(parseInt(v))}
             >
-              <SelectTrigger className="w-36" data-testid="select-quarter">
+              <SelectTrigger className="w-28 font-mono text-xs uppercase tracking-wider" data-testid="select-quarter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -232,7 +265,7 @@ export default function Finances() {
             value={selectedYear.toString()}
             onValueChange={(v) => setSelectedYear(parseInt(v))}
           >
-            <SelectTrigger className="w-24" data-testid="select-year">
+            <SelectTrigger className="w-24 font-mono text-xs uppercase tracking-wider" data-testid="select-year">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -246,248 +279,207 @@ export default function Finances() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
+      <div className="flex-1 overflow-auto p-4 md:p-6 neon-scrollbar">
+        {isLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="glass-panel rounded-md p-5">
                 <Skeleton className="h-4 w-24 mb-2" />
                 <Skeleton className="h-8 w-32" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-green-500/10 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Income</p>
-                    <p className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                      ₱{formatCurrency(financialSummary.totalIncome)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-red-500/10 flex items-center justify-center">
-                    <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Expenses</p>
-                    <p className="text-xl font-semibold tabular-nums text-red-600 dark:text-red-400">
-                      ₱{formatCurrency(financialSummary.totalExpenses)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                    <DollarSign className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Net Profit</p>
-                    <p className={`text-xl font-semibold tabular-nums ${
-                      financialSummary.netProfit >= 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}>
-                      ₱{formatCurrency(financialSummary.netProfit)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-orange-500/10 flex items-center justify-center">
-                    <CreditCard className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Monthly Payments</p>
-                    <p className="text-xl font-semibold tabular-nums">
-                      ₱{formatCurrency(financialSummary.totalMonthlyPayments)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            ))}
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <KpiTile
+                label="Total Income"
+                value={`₱${formatCurrency(financialSummary.totalIncome)}`}
+                Icon={TrendingUp}
+                accent="cyan"
+                testid="kpi-total-income"
+              />
+              <KpiTile
+                label="Total Expenses"
+                value={`₱${formatCurrency(financialSummary.totalExpenses)}`}
+                Icon={TrendingDown}
+                accent="magenta"
+                testid="kpi-total-expenses"
+              />
+              <KpiTile
+                label="Net Profit"
+                value={`₱${formatCurrency(financialSummary.netProfit)}`}
+                Icon={DollarSign}
+                accent={financialSummary.netProfit >= 0 ? "cyan" : "magenta"}
+                testid="kpi-net-profit"
+              />
+              <KpiTile
+                label="Monthly Payments"
+                value={`₱${formatCurrency(financialSummary.totalMonthlyPayments)}`}
+                Icon={CreditCard}
+                accent="amber"
+                testid="kpi-monthly-payments"
+              />
+            </div>
 
-          <Card className="mb-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Monthly Amortization Progress</CardTitle>
-              <CardDescription>
-                Income milestone showing progress toward covering each car's monthly payment
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {carFinancials.length > 0 ? (
-                <div className="space-y-6">
-                  {carFinancials.map(({ car, income, expenses, netProfit, monthlyPayment, paymentProgress }) => (
-                    <div key={car.id} className="space-y-2" data-testid={`car-progress-${car.id}`}>
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: car.colorCode }}
-                          />
-                          <span className="font-medium">{car.name}</span>
-                        </div>
-                        <div className="flex items-center gap-6 text-sm">
-                          <div className="text-right">
-                            <span className="text-muted-foreground">Net: </span>
-                            <span className={`font-medium tabular-nums ${
-                              netProfit >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                            }`}>
-                              ₱{formatCurrency(netProfit)}
-                            </span>
-                          </div>
-                          <div className="text-right w-28">
-                            <span className="text-muted-foreground">Payment: </span>
-                            <span className="font-medium tabular-nums">
-                              ₱{formatCurrency(monthlyPayment)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Progress
-                          value={Math.max(0, Math.min(100, paymentProgress))}
-                          className="h-3 flex-1"
-                          data-testid={`progress-payment-${car.id}`}
-                        />
-                        <div className="text-right">
-                          <span className={`text-sm font-bold w-16 tabular-nums ${
-                            paymentProgress >= 100 
-                              ? "text-green-600 dark:text-green-400" 
-                              : paymentProgress >= 50
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-orange-600 dark:text-orange-400"
-                          }`}>
-                            {Math.round(paymentProgress)}%
-                          </span>
-                          {paymentProgress >= 100 && (
-                            <div className="text-xs text-green-600 dark:text-green-400 font-medium">Covered</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No cars to display
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Income by Car</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Car</TableHead>
-                      <TableHead className="text-right">Income</TableHead>
-                      <TableHead className="text-right">Expenses</TableHead>
-                      <TableHead className="text-right">Amortization</TableHead>
-                      <TableHead className="text-right">Net After Amortization</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {carFinancials.map(({ car, income, expenses, netAfterAmortization, totalAmortization }) => (
-                      <TableRow key={car.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+            <div className="glass-panel rounded-md mb-6">
+              <div className="p-4 border-b border-border">
+                <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Monthly Amortization Progress</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Income milestone showing progress toward covering each car's monthly payment
+                </p>
+              </div>
+              <div className="p-4">
+                {carFinancials.length > 0 ? (
+                  <div className="space-y-6">
+                    {carFinancials.map(({ car, netProfit, monthlyPayment, paymentProgress }) => (
+                      <div key={car.id} className="space-y-2" data-testid={`car-progress-${car.id}`}>
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div className="flex items-center gap-3">
                             <div
-                              className="w-3 h-3 rounded-full"
+                              className="w-3 h-3 rounded-full shrink-0"
                               style={{ backgroundColor: car.colorCode }}
                             />
                             <span className="font-medium">{car.name}</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-green-600 dark:text-green-400">
-                          ₱{formatCurrency(income)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-red-600 dark:text-red-400">
-                          ₱{formatCurrency(expenses)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-orange-600 dark:text-orange-400">
-                          ₱{formatCurrency(totalAmortization)}
-                        </TableCell>
-                        <TableCell className={`text-right tabular-nums font-medium ${
-                          netAfterAmortization >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                        }`}>
-                          ₱{formatCurrency(netAfterAmortization)}
-                        </TableCell>
-                      </TableRow>
+                          <div className="flex items-center gap-6 text-sm">
+                            <div className="text-right">
+                              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Net </span>
+                              <span className={`font-mono font-medium tabular-nums ${
+                                netProfit >= 0 ? "text-neon-cyan" : "text-neon-magenta"
+                              }`}>
+                                ₱{formatCurrency(netProfit)}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Payment </span>
+                              <span className="font-mono font-medium tabular-nums text-foreground">
+                                ₱{formatCurrency(monthlyPayment)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Progress
+                            value={Math.max(0, Math.min(100, paymentProgress))}
+                            className="h-2 flex-1"
+                            data-testid={`progress-payment-${car.id}`}
+                          />
+                          <div className="text-right">
+                            <span className={`text-sm font-mono font-bold w-16 tabular-nums ${
+                              paymentProgress >= 100
+                                ? "text-neon-cyan"
+                                : paymentProgress >= 50
+                                ? "text-foreground"
+                                : "text-chart-4"
+                            }`}>
+                              {Math.round(paymentProgress)}%
+                            </span>
+                            {paymentProgress >= 100 && (
+                              <div className="text-[10px] font-mono uppercase tracking-widest text-neon-cyan font-medium">Covered</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    No cars to display
+                  </div>
+                )}
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 rounded-md bg-green-500/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-green-700 dark:text-green-300 font-medium">Total Revenue</span>
-                      <span className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="glass-panel rounded-md">
+                <div className="p-4 border-b border-border">
+                  <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Income by Car</h2>
+                </div>
+                <div className="p-2">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border">
+                        <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Car</TableHead>
+                        <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Income</TableHead>
+                        <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Expenses</TableHead>
+                        <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Amortization</TableHead>
+                        <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Net</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {carFinancials.map(({ car, income, expenses: expensesVal, netAfterAmortization, totalAmortization }) => (
+                        <TableRow key={car.id} className="border-border">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: car.colorCode }}
+                              />
+                              <span className="font-medium">{car.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-neon-cyan">
+                            ₱{formatCurrency(income)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-neon-magenta">
+                            ₱{formatCurrency(expensesVal)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-chart-4">
+                            ₱{formatCurrency(totalAmortization)}
+                          </TableCell>
+                          <TableCell className={`text-right font-mono tabular-nums font-medium ${
+                            netAfterAmortization >= 0 ? "text-neon-cyan" : "text-neon-magenta"
+                          }`}>
+                            ₱{formatCurrency(netAfterAmortization)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-md">
+                <div className="p-4 border-b border-border">
+                  <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Summary</h2>
+                </div>
+                <div className="p-4 space-y-4">
+                  <div className="p-4 rounded-md bg-neon-cyan/10 border border-neon-cyan/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs uppercase tracking-widest text-neon-cyan">Total Revenue</span>
+                      <span className="text-xl font-mono font-bold tabular-nums text-neon-cyan">
                         ₱{formatCurrency(financialSummary.totalIncome)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-md bg-red-500/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-red-700 dark:text-red-300 font-medium">Total Expenses</span>
-                      <span className="text-xl font-semibold tabular-nums text-red-600 dark:text-red-400">
+                  <div className="p-4 rounded-md bg-neon-magenta/10 border border-neon-magenta/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs uppercase tracking-widest text-neon-magenta">Total Expenses</span>
+                      <span className="text-xl font-mono font-bold tabular-nums text-neon-magenta">
                         -₱{formatCurrency(financialSummary.totalExpenses)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="border-t pt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-lg">Net Profit</span>
-                      <span className={`text-2xl font-bold tabular-nums ${
+                  <div className="border-t border-border pt-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-sm uppercase tracking-widest text-foreground">Net Profit</span>
+                      <span className={`text-2xl font-mono font-bold tabular-nums ${
                         financialSummary.netProfit >= 0
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
+                          ? "text-neon-cyan text-glow-cyan"
+                          : "text-neon-magenta"
                       }`}>
                         ₱{formatCurrency(financialSummary.netProfit)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-md bg-muted mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-muted-foreground">Payment Coverage</span>
-                      <span className="font-medium">
+                  <div className="p-4 rounded-md bg-card border border-border">
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Payment Coverage</span>
+                      <span className="font-mono font-medium tabular-nums">
                         {financialSummary.totalMonthlyPayments > 0
                           ? `${Math.round((financialSummary.totalIncome / financialSummary.totalMonthlyPayments) * 100)}%`
                           : "N/A"}
@@ -508,11 +500,11 @@ export default function Finances() {
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

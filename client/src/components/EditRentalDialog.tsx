@@ -200,8 +200,8 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
     <Dialog open={!!rental} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Rental</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="font-mono text-base uppercase tracking-widest">Edit Rental</DialogTitle>
+          <DialogDescription className="font-mono text-xs">
             Admin can edit finalized rentals. Be careful when making changes.
           </DialogDescription>
         </DialogHeader>
@@ -213,7 +213,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               name="carId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Car</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Car</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-edit-car">
@@ -245,7 +245,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 name="customerName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer Name</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Customer Name</FormLabel>
                     <FormControl>
                       <Input {...field} data-testid="input-edit-customer-name" />
                     </FormControl>
@@ -259,7 +259,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 name="customerEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Email</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} data-testid="input-edit-customer-email" />
                     </FormControl>
@@ -274,7 +274,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               name="customerPhone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Phone</FormLabel>
                   <FormControl>
                     <Input {...field} data-testid="input-edit-customer-phone" />
                   </FormControl>
@@ -289,7 +289,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 name="startDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Start Date</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Start Date</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -321,7 +321,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 name="endDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>End Date</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">End Date</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -351,8 +351,8 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
             </div>
 
             {daysRented > 0 && (
-              <div className="p-3 rounded-md bg-muted text-sm">
-                <span className="font-medium">{daysRented}</span> day{daysRented > 1 ? "s" : ""} rental
+              <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3">
+                <span className="font-mono text-xs uppercase tracking-widest text-neon-magenta tabular-nums"><span className="font-bold">{daysRented}</span> day{daysRented > 1 ? "s" : ""} rental</span>
               </div>
             )}
 
@@ -361,7 +361,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               name="totalAmount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Total Amount Paid ($)</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Amount Paid (₱)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -377,7 +377,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
             />
 
             <div>
-              <FormLabel>Payment Screenshot</FormLabel>
+              <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Payment Screenshot</FormLabel>
               <div className="mt-2">
                 {paymentScreenshotUrl ? (
                   <div className="space-y-2">
@@ -419,7 +419,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Notes</FormLabel>
                   <FormControl>
                     <Textarea {...field} data-testid="input-edit-notes" />
                   </FormControl>
@@ -434,8 +434,8 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-md border p-3">
                   <div>
-                    <FormLabel>Payment Status</FormLabel>
-                    <p className="text-sm text-muted-foreground">
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Payment Status</FormLabel>
+                    <p className="text-sm text-muted-foreground mt-1">
                       {field.value === "confirmed" ? "Payment confirmed - included in finances" : "Reservation - not counted in finances"}
                     </p>
                   </div>
@@ -456,8 +456,8 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-md border p-3">
                   <div>
-                    <FormLabel>Finalized</FormLabel>
-                    <p className="text-sm text-muted-foreground">
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Finalized</FormLabel>
+                    <p className="text-sm text-muted-foreground mt-1">
                       Finalized rentals cannot be edited by regular users
                     </p>
                   </div>
@@ -478,6 +478,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 variant="destructive"
                 onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
+                className="font-mono text-xs uppercase tracking-wider"
                 data-testid="button-delete-rental"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -488,12 +489,14 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 type="button"
                 variant="outline"
                 onClick={onClose}
+                className="font-mono text-xs uppercase tracking-wider"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={updateMutation.isPending}
+                className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                 data-testid="button-save-rental"
               >
                 {updateMutation.isPending ? "Saving..." : "Save Changes"}

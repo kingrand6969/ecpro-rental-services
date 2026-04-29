@@ -28,54 +28,61 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
           <div className="flex items-center gap-3">
             {car && (
               <div
-                className="w-4 h-4 rounded-full"
-                style={{ backgroundColor: car.colorCode }}
+                className="w-3 h-3 rounded-full shadow-[0_0_8px_currentColor]"
+                style={{ backgroundColor: car.colorCode, color: car.colorCode }}
               />
             )}
-            <DialogTitle>Rental Details</DialogTitle>
+            <DialogTitle className="font-mono text-base uppercase tracking-widest">Rental Details</DialogTitle>
           </div>
-          <DialogDescription>
-            {car?.name ?? "Unknown Car"} - {car?.plateNumber}
+          <DialogDescription className="font-mono text-xs">
+            {car?.name ?? "Unknown Car"} • {car?.plateNumber}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <Badge variant={rental.isFinalized ? "secondary" : "outline"}>
+              <Badge
+                variant="outline"
+                className={`font-mono text-[10px] uppercase tracking-widest ${
+                  rental.isFinalized
+                    ? "border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
+                    : "border-neon-magenta/40 bg-neon-magenta/10 text-neon-magenta"
+                }`}
+              >
                 {rental.isFinalized ? "Finalized" : "Active"}
               </Badge>
               {rental.paymentStatus === "pending" ? (
-                <Badge variant="outline" className="text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600">
-                  Reservation - Pending Payment
+                <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-widest border-chart-4/40 bg-chart-4/10 text-chart-4">
+                  Reservation • Pending
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-300 dark:border-green-600">
+                <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-widest border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan">
                   Paid
                 </Badge>
               )}
             </div>
-            <span className="text-sm text-muted-foreground">
-              ID: #{rental.id}
+            <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground tabular-nums">
+              ID #{rental.id}
             </span>
           </div>
 
           <Separator />
 
           <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <User className="h-4 w-4" />
+            <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <User className="h-3.5 w-3.5 text-neon-cyan" />
               Customer Information
             </h4>
 
             <div className="grid gap-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Name</span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Name</span>
                 <span className="font-medium">{rental.customerName}</span>
               </div>
               {rental.customerEmail && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
                     <Mail className="h-3 w-3" />
                     Email
                   </span>
@@ -84,7 +91,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
               )}
               {rental.customerPhone && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground flex items-center gap-1">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
                     <Phone className="h-3 w-3" />
                     Phone
                   </span>
@@ -97,27 +104,27 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
           <Separator />
 
           <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
+            <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <Calendar className="h-3.5 w-3.5 text-neon-magenta" />
               Rental Period
             </h4>
 
             <div className="grid gap-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Start Date</span>
-                <span className="font-medium">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Start Date</span>
+                <span className="font-medium tabular-nums">
                   {format(parseISO(rental.startDate as string), "MMMM d, yyyy")}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">End Date</span>
-                <span className="font-medium">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">End Date</span>
+                <span className="font-medium tabular-nums">
                   {format(parseISO(rental.endDate as string), "MMMM d, yyyy")}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Duration</span>
-                <span className="font-medium">{differenceInDays(parseISO(rental.endDate as string), parseISO(rental.startDate as string))} days</span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Duration</span>
+                <span className="font-medium tabular-nums">{differenceInDays(parseISO(rental.endDate as string), parseISO(rental.startDate as string))} days</span>
               </div>
             </div>
           </div>
@@ -125,20 +132,20 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
           <Separator />
 
           <div className="space-y-3">
-            <h4 className="font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
+            <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <DollarSign className="h-3.5 w-3.5 text-neon-cyan" />
               Payment
             </h4>
 
-            <div className="p-4 rounded-md bg-muted">
+            <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total Amount</span>
-                <span className="text-xl font-semibold">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Amount</span>
+                <span className="text-xl font-bold tabular-nums text-neon-cyan">
                   ₱{parseFloat(rental.totalAmount).toLocaleString()}
                 </span>
               </div>
               {rental.paymentStatus === "pending" && (
-                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-mono uppercase tracking-wider">
                   Payment not yet confirmed
                 </p>
               )}
@@ -146,7 +153,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
 
             {rental.paymentScreenshotUrl && (
               <div className="space-y-2">
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
                   <Image className="h-3 w-3" />
                   Payment Screenshot
                 </span>
@@ -159,7 +166,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
                   <img
                     src={rental.paymentScreenshotUrl}
                     alt="Payment screenshot"
-                    className="max-h-48 rounded-md border object-cover hover:opacity-90 transition-opacity"
+                    className="max-h-48 rounded-md border border-border object-cover hover:opacity-90 transition-opacity"
                   />
                 </a>
               </div>
@@ -170,8 +177,8 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
             <>
               <Separator />
               <div className="space-y-2">
-                <h4 className="font-medium flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
+                <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-neon-cyan" />
                   Notes
                 </h4>
                 <p className="text-sm text-muted-foreground">{rental.notes}</p>
@@ -183,7 +190,7 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
             <Button
               variant="outline"
               onClick={onClose}
-              className="w-full"
+              className="w-full font-mono text-xs uppercase tracking-wider"
             >
               Close
             </Button>
