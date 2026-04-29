@@ -312,10 +312,10 @@ export default function GarageProDashboard() {
 
 // --- Subcomponents ---
 
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+function NavItem({ icon, label, active = false }: { icon: React.ReactElement<{ size?: number }>, label: string, active?: boolean }) {
   return (
     <button aria-label={label} title={label} className={`nav-item w-full h-12 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors border-l-2 border-transparent ${active ? 'active' : ''}`}>
-      {React.cloneElement(icon as React.ReactElement, { size: 20 })}
+      {React.cloneElement(icon, { size: 20 })}
     </button>
   );
 }
