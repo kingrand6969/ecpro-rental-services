@@ -11,6 +11,9 @@ export default {
         sm: ".1875rem", /* 3px */
       },
       colors: {
+        // Neon Fleet accent palette
+        "neon-cyan": "hsl(var(--neon-cyan) / <alpha-value>)",
+        "neon-magenta": "hsl(var(--neon-magenta) / <alpha-value>)",
         // Flat / base colors (regular buttons)
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",

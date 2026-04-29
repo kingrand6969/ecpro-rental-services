@@ -12,6 +12,14 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 - **Admin Controls**: User management, role-based access control, user approval system
 - **Customer Management**: Track customer history, rental patterns, and contact information
 
+## Visual Theme — Neon Fleet
+The app uses the "Neon Fleet" visual direction:
+- Deep navy background with cyan (`190 95% 60%`) primary and magenta (`320 90% 65%`) accent
+- JetBrains Mono for KPI numbers, headings, badges, and data labels; Inter for body text
+- Glass-panel surfaces (subtle gradient + border + backdrop blur) and cyan-glow shadows for emphasis
+- Dark mode is the default; a complementary light variant remains available via the theme toggle
+- Reusable utilities in `client/src/index.css`: `glass-panel`, `text-neon-cyan`, `text-neon-magenta`, `bg-neon-cyan/magenta`, `shadow-cyan-glow`, `shadow-magenta-glow`, `text-glow-cyan`, `neon-bar-confirmed`, `neon-bar-pending`, `neon-scrollbar`, `animate-toast`
+
 ## Tech Stack
 - **Frontend**: React 18, TypeScript, TailwindCSS, shadcn/ui components
 - **Backend**: Express.js, Drizzle ORM

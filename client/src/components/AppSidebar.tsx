@@ -108,13 +108,18 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex flex-col items-center justify-center gap-1">
-          <img 
-            src="/logo.png" 
-            alt="ECPro Rental Services" 
-            className="h-12 object-contain"
-          />
-          <span className="text-xs font-medium text-muted-foreground">ECPro Schedule Manager</span>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-md bg-sidebar-primary flex items-center justify-center shadow-cyan-glow shrink-0">
+            <Car className="h-4 w-4 text-sidebar-primary-foreground" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="font-mono text-sm font-bold uppercase tracking-wider truncate text-sidebar-foreground">
+              ECPro Fleet
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-sidebar-foreground/50 truncate">
+              Schedule Manager
+            </span>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -142,30 +147,42 @@ export function AppSidebar() {
         ) : (
           <>
             <SidebarGroup>
-              <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+              <SidebarGroupLabel className="font-mono text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
+                Navigation
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {mainNavItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={location === item.url}
-                        data-testid={`nav-${item.title.toLowerCase()}`}
-                      >
-                        <Link href={item.url}>
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {mainNavItems.map((item) => {
+                    const active = location === item.url;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          data-testid={`nav-${item.title.toLowerCase()}`}
+                          className={
+                            active
+                              ? "data-[active=true]:bg-sidebar-primary/15 data-[active=true]:text-sidebar-primary data-[active=true]:font-medium data-[active=true]:shadow-[inset_2px_0_0_hsl(var(--sidebar-primary))]"
+                              : ""
+                          }
+                        >
+                          <Link href={item.url}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
 
             <SidebarSeparator />
             <SidebarGroup>
-              <SidebarGroupLabel>Account</SidebarGroupLabel>
+              <SidebarGroupLabel className="font-mono text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
+                Account
+              </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {userNavItems.map((item) => (
@@ -190,7 +207,9 @@ export function AppSidebar() {
               <>
                 <SidebarSeparator />
                 <SidebarGroup>
-                  <SidebarGroupLabel>Admin</SidebarGroupLabel>
+                  <SidebarGroupLabel className="font-mono text-[10px] uppercase tracking-widest text-sidebar-foreground/50">
+                    Admin
+                  </SidebarGroupLabel>
                   <SidebarGroupContent>
                     <SidebarMenu>
                       {adminNavItems.map((item) => (
