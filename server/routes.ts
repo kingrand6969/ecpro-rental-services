@@ -301,6 +301,18 @@ export async function registerRoutes(
     }
   });
 
+  // Dashboard stats: a single, SQL-computed payload powering the four KPI
+  // cards. See `DashboardStats` in shared/schema.ts for income definitions.
+  app.get("/api/dashboard/stats", isAuthenticated, async (_req, res) => {
+    try {
+      const stats = await storage.getDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
   // Rental routes
   app.get("/api/rentals", isAuthenticated, async (req, res) => {
     try {

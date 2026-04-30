@@ -92,6 +92,9 @@ The app uses the "Neon Fleet" visual direction:
 - `POST /api/logout` - Logout
 - `GET /api/auth/user` - Get current user
 
+### Dashboard
+- `GET /api/dashboard/stats` - SQL-computed KPI payload (`activeRentals`, `todayIncome`, `monthIncome`, `availableCars`, `totalCars`). Month income is pro-rated by each rental's inclusive overlap days with the current month divided by its inclusive total duration (`endDate - startDate + 1`), so spans crossing month boundaries are not double-counted and per-rental contributions across all periods sum to the rental's `totalAmount`.
+
 ### Cars
 - `GET /api/cars` - List all cars
 - `GET /api/cars/:id` - Get car by ID

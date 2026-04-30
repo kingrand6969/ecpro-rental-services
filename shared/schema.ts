@@ -326,6 +326,29 @@ export type InsertRentalLog = z.infer<typeof insertRentalLogSchema>;
 export type ExpenseLog = typeof expenseLogs.$inferSelect;
 export type InsertExpenseLog = z.infer<typeof insertExpenseLogSchema>;
 
+// Dashboard stats payload returned by GET /api/dashboard/stats.
+//
+// Income definitions:
+// - `todayIncome`: sum of `totalAmount` for rentals whose `startDate` is today.
+//   Mirrors the historical UI semantics of "income booked today".
+// - `monthIncome`: sum of each rental's `totalAmount` pro-rated by overlap
+//   days. Overlap days and the rental's full duration are both counted
+//   inclusively (start through end), so a 5-day rental whose first 2 days
+//   fall in the month contributes 2/5 of its total, and a same-day rental
+//   inside the month contributes its full total. Per-rental contributions
+//   across all periods sum to exactly `totalAmount`. This avoids the
+//   double-counting that the previous client-side approximation produced
+//   for rentals spanning month boundaries.
+// - `activeRentals`: distinct cars currently rented (today within range).
+// - `availableCars`: `totalCars - activeRentals`, clamped at zero.
+export type DashboardStats = {
+  activeRentals: number;
+  todayIncome: number;
+  monthIncome: number;
+  availableCars: number;
+  totalCars: number;
+};
+
 // Extended types with relations
 export type RentalWithCar = Rental & { car: Car };
 export type ExpenseWithCar = Expense & { car: Car };

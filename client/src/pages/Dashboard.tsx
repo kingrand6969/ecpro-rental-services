@@ -10,8 +10,6 @@ import {
   differenceInDays,
   eachDayOfInterval,
   isSameMonth,
-  startOfMonth,
-  endOfMonth,
   formatDistanceToNow,
 } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -34,6 +32,7 @@ import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { AvailableCarsDialog } from "@/components/AvailableCarsDialog";
 import type {
   Car,
+  DashboardStats,
   Rental,
   RentalLogWithUser,
   ExpenseLogWithUser,
@@ -88,6 +87,14 @@ export default function Dashboard() {
     queryKey: ["/api/rentals"],
   });
 
+  // KPI numbers come from a server-computed payload so they stay fast and
+  // correct as the rental history grows. See `DashboardStats` for income
+  // semantics. We refetch periodically so long-lived sessions don't go stale.
+  const { data: dashboardStats } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
+    refetchInterval: 60_000,
+  });
+
   const { data: rentalLogs } = useQuery<RentalLogWithUser[]>({
     queryKey: ["/api/rental-logs"],
   });
@@ -122,43 +129,20 @@ export default function Dashboard() {
     const interval = window.setInterval(tick, 60 * 1000);
     return () => window.clearInterval(interval);
   }, []);
-  const monthStart = useMemo(() => startOfMonth(today), [today]);
-  const monthEnd = useMemo(() => endOfMonth(today), [today]);
-
+  // KPIs are computed in SQL on the server (see `getDashboardStats`). Until
+  // the first response arrives we render zeros so the animated counters have
+  // a baseline; `cars.length` is used as a fallback for the totals denominator
+  // so the "/ N" suffix doesn't flicker when the page first loads.
   const kpis = useMemo(() => {
-    const all = rentals ?? [];
-    const allCars = cars ?? [];
-
-    const activeIds = new Set<number>();
-    let todayIncome = 0;
-    let monthIncome = 0;
-
-    for (const r of all) {
-      const start = parseISO(r.startDate as string);
-      const end = parseISO(r.endDate as string);
-      const total = parseFloat(String(r.totalAmount)) || 0;
-      const inToday = today >= start && today <= end;
-      if (inToday) activeIds.add(r.carId);
-      if (isSameDay(start, today)) todayIncome += total;
-      // Count any rental whose date range overlaps the current month at all
-      // (including ones that span the entire month).
-      const overlapsMonth = start <= monthEnd && end >= monthStart;
-      if (overlapsMonth) {
-        monthIncome += total;
-      }
-    }
-
-    const totalCars = allCars.length;
-    const availableCars = Math.max(0, totalCars - activeIds.size);
-
+    if (dashboardStats) return dashboardStats;
     return {
-      activeRentals: activeIds.size,
-      todayIncome,
-      monthIncome,
-      availableCars,
-      totalCars,
+      activeRentals: 0,
+      todayIncome: 0,
+      monthIncome: 0,
+      availableCars: 0,
+      totalCars: cars?.length ?? 0,
     };
-  }, [rentals, cars, today, monthStart, monthEnd]);
+  }, [dashboardStats, cars]);
 
   const animActive = useAnimatedNumber(kpis.activeRentals);
   const animToday = useAnimatedNumber(kpis.todayIncome);

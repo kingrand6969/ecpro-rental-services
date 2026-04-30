@@ -29,6 +29,7 @@ import {
   type ExpenseLog,
   type InsertExpenseLog,
   type ExpenseLogWithUser,
+  type DashboardStats,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -107,6 +108,7 @@ export interface IStorage {
     activeRentals: number;
     totalCustomers: number;
   }>;
+  getDashboardStats(): Promise<DashboardStats>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -525,6 +527,60 @@ export class DatabaseStorage implements IStorage {
       totalRentals: allRentals.length,
       activeRentals: activeRentalsList.length,
       totalCustomers: allCustomers.length,
+    };
+  }
+
+  // Dashboard stats are computed entirely in SQL so the cost stays constant
+  // as the rental history grows. See `DashboardStats` in shared/schema.ts for
+  // the precise definition of each field (especially the pro-rated month
+  // income, which fixes the double-counting in the old client computation).
+  async getDashboardStats(): Promise<DashboardStats> {
+    const result = await db.execute(sql`
+      WITH bounds AS (
+        SELECT
+          CURRENT_DATE AS today,
+          date_trunc('month', CURRENT_DATE)::date AS month_start,
+          (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date AS month_end
+      )
+      SELECT
+        (
+          SELECT COUNT(DISTINCT r.car_id)::int
+          FROM rentals r, bounds b
+          WHERE r.start_date <= b.today AND r.end_date >= b.today
+        ) AS active_rentals,
+        (
+          SELECT COALESCE(SUM(r.total_amount), 0)::float8
+          FROM rentals r, bounds b
+          WHERE r.start_date = b.today
+        ) AS today_income,
+        (
+          SELECT COALESCE(SUM(
+            -- Pro-rate by overlap days using a self-consistent inclusive-day
+            -- count for both numerator and denominator. We deliberately do
+            -- NOT divide by the stored days_rented column because that uses
+            -- exclusive-end semantics (Jan 1 -> Jan 2 stores 1), which would
+            -- make a same-day rental contribute 0 and a one-night rental
+            -- contribute 2x its total. Using (end - start + 1) for both keeps
+            -- the per-rental sum across periods equal to total_amount exactly.
+            (LEAST(r.end_date, b.month_end) - GREATEST(r.start_date, b.month_start) + 1)::float8
+            / GREATEST(r.end_date - r.start_date + 1, 1)::float8
+            * r.total_amount::float8
+          ), 0)::float8
+          FROM rentals r, bounds b
+          WHERE r.start_date <= b.month_end AND r.end_date >= b.month_start
+        ) AS month_income,
+        (SELECT COUNT(*)::int FROM cars) AS total_cars
+    `);
+
+    const row = (result.rows?.[0] ?? {}) as Record<string, unknown>;
+    const totalCars = Number(row.total_cars) || 0;
+    const activeRentals = Number(row.active_rentals) || 0;
+    return {
+      activeRentals,
+      todayIncome: Number(row.today_income) || 0,
+      monthIncome: Number(row.month_income) || 0,
+      availableCars: Math.max(0, totalCars - activeRentals),
+      totalCars,
     };
   }
 }

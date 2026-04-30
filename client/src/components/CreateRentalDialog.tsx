@@ -118,6 +118,7 @@ export function CreateRentalDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "Rental booked successfully",
