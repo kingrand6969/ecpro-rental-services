@@ -27,9 +27,11 @@ import {
   Wrench,
   Trash2,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { AvailableCarsDialog } from "@/components/AvailableCarsDialog";
+import { CarDetailsDialog } from "@/components/CarDetailsDialog";
 import type {
   Car,
   DashboardStats,
@@ -72,9 +74,11 @@ function useAnimatedNumber(target: number, duration = 600) {
 }
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
   const [availableCarsOpen, setAvailableCarsOpen] = useState(false);
   const [selectedRental, setSelectedRental] = useState<Rental | null>(null);
+  const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [expandedCars, setExpandedCars] = useState<Set<number>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const todayColumnRef = useRef<HTMLDivElement>(null);
@@ -154,6 +158,10 @@ export default function Dashboard() {
   // sorted stream capped at 10 items.
   const activities = useMemo(() => {
     type Tone = "cyan" | "magenta" | "muted";
+    type ActivityTarget =
+      | { type: "car"; carId: number }
+      | { type: "rental"; rentalId: number }
+      | { type: "expense"; carId: number };
     type Activity = {
       id: string;
       icon: typeof FileText;
@@ -163,6 +171,7 @@ export default function Dashboard() {
       time: string;
       actor: string;
       sortTime: number;
+      target?: ActivityTarget;
     };
 
     const items: Activity[] = [];
@@ -206,6 +215,13 @@ export default function Dashboard() {
       }
 
       const ts = log.loggedAt ? new Date(log.loggedAt).getTime() : 0;
+      // Only link to the rental detail dialog when the rental still exists
+      // (rentalId is null for deletions, and deleted rows won't appear in the
+      // rentals list anyway).
+      const target: ActivityTarget | undefined =
+        log.action !== "deleted" && log.rentalId != null
+          ? { type: "rental", rentalId: log.rentalId }
+          : undefined;
       items.push({
         id: `rental-${log.id}`,
         icon,
@@ -215,6 +231,7 @@ export default function Dashboard() {
         time: ts ? formatDistanceToNow(new Date(ts), { addSuffix: true }) : "",
         actor: displayName(log.user),
         sortTime: ts,
+        target,
       });
     }
 
@@ -245,6 +262,7 @@ export default function Dashboard() {
         time: ts ? formatDistanceToNow(new Date(ts), { addSuffix: true }) : "",
         actor: displayName(log.user),
         sortTime: ts,
+        target: { type: "expense", carId: log.carId },
       });
     }
 
@@ -269,6 +287,7 @@ export default function Dashboard() {
         // Promote alerts to top of the feed; bias more-overdue cars upward
         // (clamped so a single huge value can't dominate).
         sortTime: now + Math.min(Math.max(overBy, 0), 100_000),
+        target: { type: "car", carId: car.id },
       });
     }
 
@@ -298,6 +317,7 @@ export default function Dashboard() {
         // Bias by urgency: overdue first, then closest-to-due. Each day of
         // urgency is worth one minute of recency boost over now.
         sortTime: now + (overdue ? Math.abs(days) : 30 - days) * 60_000,
+        target: { type: "car", carId: car.id },
       });
     }
 
@@ -376,6 +396,22 @@ export default function Dashboard() {
   const getRentalsForCar = (carId: number) => {
     if (!rentals) return [];
     return rentals.filter((rental) => rental.carId === carId);
+  };
+
+  // Navigate the user from a Live Feed alert to the right place to act on it.
+  // Cars and rentals open their existing detail dialogs in-place; expense
+  // logs jump to the Logs page pre-filtered to the affected car so the
+  // matching expense entry is easy to find.
+  const handleActivityClick = (target: NonNullable<typeof activities[number]["target"]>) => {
+    if (target.type === "car") {
+      const car = cars?.find((c) => c.id === target.carId);
+      if (car) setSelectedCar(car);
+    } else if (target.type === "rental") {
+      const rental = rentals?.find((r) => r.id === target.rentalId);
+      if (rental) setSelectedRental(rental);
+    } else if (target.type === "expense") {
+      setLocation(`/logs?tab=expenses&carId=${target.carId}`);
+    }
   };
 
   const getRentalBars = (carId: number) => {
@@ -786,12 +822,17 @@ export default function Dashboard() {
                         : tone === "magenta"
                           ? "bg-neon-magenta/10 border-neon-magenta text-neon-magenta group-hover:shadow-magenta-glow"
                           : "bg-muted border-border text-muted-foreground";
-                    return (
-                      <div
-                        key={act.id}
-                        className="flex gap-3 relative z-10 group"
-                        data-testid={`activity-item-${act.id}`}
-                      >
+                    // Rows that link somewhere (a car, rental, or filtered
+                    // logs view) use `hover-elevate` so it's obvious they're
+                    // clickable. Rows without a target (e.g. a deleted
+                    // rental's log) stay static so we don't promise an
+                    // action we can't deliver.
+                    const interactive = !!act.target;
+                    const interactiveClasses = interactive
+                      ? "cursor-pointer hover-elevate text-left w-full"
+                      : "";
+                    const content = (
+                      <>
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border transition-all ${toneClasses}`}
                         >
@@ -808,6 +849,30 @@ export default function Dashboard() {
                             {act.actor} · {act.time}
                           </span>
                         </div>
+                      </>
+                    );
+
+                    if (interactive && act.target) {
+                      return (
+                        <button
+                          type="button"
+                          key={act.id}
+                          onClick={() => handleActivityClick(act.target!)}
+                          className={`flex gap-3 relative z-10 group rounded-md p-1 -m-1 ${interactiveClasses}`}
+                          data-testid={`activity-item-${act.id}`}
+                        >
+                          {content}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={act.id}
+                        className="flex gap-3 relative z-10 group"
+                        data-testid={`activity-item-${act.id}`}
+                      >
+                        {content}
                       </div>
                     );
                   })}
@@ -839,6 +904,11 @@ export default function Dashboard() {
           onClose={() => setSelectedRental(null)}
         />
       )}
+
+      <CarDetailsDialog
+        car={selectedCar}
+        onClose={() => setSelectedCar(null)}
+      />
     </div>
   );
 }

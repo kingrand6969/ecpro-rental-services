@@ -16,9 +16,25 @@ type SelectedLog =
   | ({ logType: "expense" } & ExpenseLogWithUser)
   | null;
 
+// Read `tab` and `carId` from the URL on first render so links from other
+// pages (e.g. the Dashboard's Live Feed) can drop the user straight into a
+// pre-filtered view.
+function readInitialFiltersFromUrl(): { tab: string; carId: string } {
+  if (typeof window === "undefined") return { tab: "all", carId: "all" };
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get("tab");
+  const carIdParam = params.get("carId");
+  const allowedTabs = new Set(["all", "cars", "rentals", "expenses"]);
+  return {
+    tab: tabParam && allowedTabs.has(tabParam) ? tabParam : "all",
+    carId: carIdParam && /^\d+$/.test(carIdParam) ? carIdParam : "all",
+  };
+}
+
 export default function Logs() {
-  const [selectedCarId, setSelectedCarId] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const initialFilters = readInitialFiltersFromUrl();
+  const [selectedCarId, setSelectedCarId] = useState<string>(initialFilters.carId);
+  const [activeTab, setActiveTab] = useState<string>(initialFilters.tab);
   const [selectedLog, setSelectedLog] = useState<SelectedLog>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
