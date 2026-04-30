@@ -3,6 +3,22 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedAdminUser } from "./auth";
+import { pool } from "./db";
+
+async function ensureSchema() {
+  await pool.query(
+    `ALTER TABLE cars ADD COLUMN IF NOT EXISTS oil_change_interval_days integer DEFAULT 180`
+  );
+  await pool.query(
+    `UPDATE cars SET oil_change_interval_days = 180 WHERE oil_change_interval_days IS NULL`
+  );
+  await pool.query(
+    `ALTER TABLE cars ALTER COLUMN oil_change_interval_days SET DEFAULT 180`
+  );
+  await pool.query(
+    `ALTER TABLE cars ALTER COLUMN oil_change_interval_days SET NOT NULL`
+  );
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -61,6 +77,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await ensureSchema();
   await seedAdminUser();
   await registerRoutes(httpServer, app);
 

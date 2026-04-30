@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AddCarDialog } from "@/components/AddCarDialog";
 import { CarExpensesDialog } from "@/components/CarExpensesDialog";
 import { CarDetailsDialog, getRegistrationStatus } from "@/components/CarDetailsDialog";
+import { getOilChangeStatus, formatDaysAge } from "@/lib/oilChange";
 import type { Car } from "@shared/schema";
 
 const statusBadge: Record<string, string> = {
@@ -135,6 +136,30 @@ export default function Cars() {
                         <span className="font-mono text-xs uppercase tracking-wider">OR CR Due in {getRegistrationStatus(car).daysUntilDue}d</span>
                       </div>
                     )}
+
+                    {(() => {
+                      const oil = getOilChangeStatus(car);
+                      if (!oil.due) return null;
+                      let label = "Oil Change Due";
+                      if (oil.reasonKm && oil.reasonTime) {
+                        label = `Oil Change Due · ${oil.kmSince.toLocaleString()} km / ${
+                          oil.daysSince != null ? formatDaysAge(oil.daysSince) : ""
+                        }`;
+                      } else if (oil.reasonKm) {
+                        label = `Oil Change Due · ${oil.kmSince.toLocaleString()} km`;
+                      } else if (oil.reasonTime && oil.daysSince != null) {
+                        label = `Oil Change Due · ${formatDaysAge(oil.daysSince)} since change`;
+                      }
+                      return (
+                        <div
+                          className="flex items-center gap-2 p-2 rounded-md bg-neon-magenta/10 text-neon-magenta border border-neon-magenta/30"
+                          data-testid={`warning-oil-${car.id}`}
+                        >
+                          <Wrench className="h-4 w-4" />
+                          <span className="font-mono text-xs uppercase tracking-wider">{label}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">

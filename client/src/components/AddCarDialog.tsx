@@ -43,6 +43,7 @@ const carSchema = z.object({
   colorCode: z.string().min(1, "Calendar color is required"),
   monthlyPayment: z.string().min(1, "Monthly payment is required"),
   oilChangeIntervalKm: z.string().optional(),
+  oilChangeIntervalDays: z.string().optional(),
   dateAcquired: z.string().optional(),
 });
 
@@ -66,6 +67,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
       colorCode: CAR_COLORS[0].code,
       monthlyPayment: "",
       oilChangeIntervalKm: "5000",
+      oilChangeIntervalDays: "180",
       dateAcquired: "",
     },
   });
@@ -82,6 +84,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
         currentMileage: 0,
         lastOilChangeMileage: 0,
         oilChangeIntervalKm: parseInt(data.oilChangeIntervalKm || "5000"),
+        oilChangeIntervalDays: parseInt(data.oilChangeIntervalDays || "180"),
         status: "available",
         dateAcquired: data.dateAcquired || null,
       };
@@ -282,6 +285,25 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                         placeholder="5000"
                         {...field}
                         data-testid="input-oil-interval"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="oilChangeIntervalDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Oil Change Interval (days)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="180"
+                        {...field}
+                        data-testid="input-oil-interval-days"
                       />
                     </FormControl>
                     <FormMessage />

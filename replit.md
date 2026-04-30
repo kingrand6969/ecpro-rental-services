@@ -148,7 +148,7 @@ The app uses the "Neon Fleet" visual direction:
 1. **User Approval**: New users must be approved by admin before they can login
 2. **Non-editable rentals**: Once finalized, only admins can edit
 3. **Payment screenshots**: Required for each rental
-4. **Oil change alerts**: Automatically calculated based on mileage intervals
+4. **Oil change alerts**: Automatically calculated based on either mileage intervals (`oilChangeIntervalKm`) or a time threshold (`oilChangeIntervalDays`, default 180 days) measured against `lastMaintenanceDate`. Both Dashboard Live Feed and Cars page show the same magenta "Oil Change Due" warning, with subtitles that adapt to whichever reason (km, time, or both) triggered it. Configurable per-car from Add Car / Car Details dialogs. Helper lives in `client/src/lib/oilChange.ts`.
 5. **Color-coded calendar**: 8 distinct colors for different cars
 6. **Amortization tracking**: Monthly car payments deducted from net profit in financial reports
 7. **OR CR Registration Warning**: Shows "OR CR Needs Update" warning 35 months after dateAcquired, then 11 months after each registration confirmation. Warning displayed on Cars page, Rentals page, and Calendar new rental dialog. Admin can click "Confirm Registration" to reset the countdown.

@@ -101,6 +101,7 @@ export async function registerRoutes(
         monthlyPayment: 'Monthly Payment',
         lastOilChangeMileage: 'Last Oil Change Mileage',
         oilChangeIntervalKm: 'Oil Change Interval (km)',
+        oilChangeIntervalDays: 'Oil Change Interval (days)',
         lastMaintenanceDate: 'Last Maintenance Date',
         status: 'Status',
         dateAcquired: 'Date Acquired',

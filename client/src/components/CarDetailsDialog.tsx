@@ -27,6 +27,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { getOilChangeStatus, formatDaysAge, DEFAULT_OIL_INTERVAL_DAYS } from "@/lib/oilChange";
 import type { Car } from "@shared/schema";
 import { useEffect, useState } from "react";
 
@@ -71,6 +72,8 @@ export function needsRegistrationUpdate(car: Car): boolean {
 const updateCarSchema = z.object({
   plateNumber: z.string().optional(),
   lastOilChangeMileage: z.string().optional(),
+  oilChangeIntervalKm: z.string().optional(),
+  oilChangeIntervalDays: z.string().optional(),
   dateAcquired: z.string().optional(),
 });
 
@@ -92,6 +95,8 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     defaultValues: {
       plateNumber: "",
       lastOilChangeMileage: "",
+      oilChangeIntervalKm: "",
+      oilChangeIntervalDays: "",
       dateAcquired: "",
     },
   });
@@ -101,6 +106,8 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       form.reset({
         plateNumber: car.plateNumber ?? "",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
+        oilChangeIntervalKm: (car.oilChangeIntervalKm ?? 5000).toString(),
+        oilChangeIntervalDays: (car.oilChangeIntervalDays ?? DEFAULT_OIL_INTERVAL_DAYS).toString(),
         dateAcquired: car.dateAcquired ?? "",
       });
       setNewImageUrl(null);
@@ -114,6 +121,12 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
         plateNumber: data.plateNumber,
         lastOilChangeMileage: data.lastOilChangeMileage
           ? parseInt(data.lastOilChangeMileage)
+          : undefined,
+        oilChangeIntervalKm: data.oilChangeIntervalKm
+          ? parseInt(data.oilChangeIntervalKm)
+          : undefined,
+        oilChangeIntervalDays: data.oilChangeIntervalDays
+          ? parseInt(data.oilChangeIntervalDays)
           : undefined,
         dateAcquired: data.dateAcquired || null,
         ...(newImageUrl && { imageUrl: newImageUrl }),
@@ -170,6 +183,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
   const regStatus = getRegistrationStatus(car);
   const showOrCrWarning = regStatus.status === "overdue" || regStatus.status === "warning";
+  const oilStatus = getOilChangeStatus(car);
 
   const handleConfirmRegistration = () => {
     if (!registrationDate) {
@@ -229,6 +243,34 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                   </Button>
                 </div>
               )}
+            </div>
+          )}
+
+          {oilStatus.due && (
+            <div
+              className="p-3 rounded-md bg-neon-magenta/10 border border-neon-magenta/30"
+              data-testid="warning-oil-change"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench className="h-5 w-5 text-neon-magenta flex-shrink-0" />
+                <span className="text-base font-bold text-neon-magenta">Oil Change Due</span>
+              </div>
+              <p className="text-sm text-neon-magenta">
+                {oilStatus.reasonKm && (
+                  <>
+                    {oilStatus.kmSince.toLocaleString()} km since last change
+                    {oilStatus.kmOverBy > 0 && ` (${oilStatus.kmOverBy.toLocaleString()} km overdue)`}
+                  </>
+                )}
+                {oilStatus.reasonKm && oilStatus.reasonTime && oilStatus.daysSince != null && " · "}
+                {oilStatus.reasonTime && oilStatus.daysSince != null && (
+                  <>
+                    {formatDaysAge(oilStatus.daysSince)} since last change
+                    {oilStatus.daysOverBy != null && oilStatus.daysOverBy > 0 &&
+                      ` (${formatDaysAge(oilStatus.daysOverBy)} overdue)`}
+                  </>
+                )}
+              </p>
             </div>
           )}
 
@@ -362,8 +404,14 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                 <p className="font-medium tabular-nums mt-1">{(car.lastOilChangeMileage ?? 0).toLocaleString()} km</p>
               </div>
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Oil Change Interval</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Oil Change Interval (km)</p>
                 <p className="font-medium tabular-nums mt-1">{(car.oilChangeIntervalKm ?? 5000).toLocaleString()} km</p>
+              </div>
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Oil Change Interval (time)</p>
+                <p className="font-medium tabular-nums mt-1">
+                  {(car.oilChangeIntervalDays ?? DEFAULT_OIL_INTERVAL_DAYS).toLocaleString()} days
+                </p>
               </div>
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Last Maintenance</p>
@@ -416,6 +464,49 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="oilChangeIntervalKm"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                        Oil Interval (km)
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          {...field}
+                          data-testid="input-oil-interval-km"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="oilChangeIntervalDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                        Oil Interval (days)
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          {...field}
+                          data-testid="input-oil-interval-days"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="flex items-center gap-3">
                 <Button

@@ -67,6 +67,9 @@ export const cars = pgTable("cars", {
   lastOilChangeMileage: integer("last_oil_change_mileage").default(0),
   currentMileage: integer("current_mileage").default(0),
   oilChangeIntervalKm: integer("oil_change_interval_km").default(5000),
+  // Time-based oil change threshold so cars that sit idle still get flagged.
+  // Defaults to 180 days (~6 months) and is checked against `lastMaintenanceDate`.
+  oilChangeIntervalDays: integer("oil_change_interval_days").notNull().default(180),
   lastMaintenanceDate: date("last_maintenance_date"),
   status: varchar("status", { length: 20 }).default("available").notNull(), // available, rented, maintenance
   dateAcquired: date("date_acquired"),

@@ -39,6 +39,7 @@ import type {
   RentalLogWithUser,
   ExpenseLogWithUser,
 } from "@shared/schema";
+import { getOilChangeStatus, formatDaysAge } from "@/lib/oilChange";
 
 const TIMELINE_COLORS = [
   "#22D3EE",
@@ -267,26 +268,44 @@ export default function Dashboard() {
     }
 
     // Oil change due alerts: cars whose km since last oil change has met or
-    // exceeded the configured interval.
+    // exceeded the configured interval, OR whose last maintenance date is older
+    // than the configured time threshold (catches cars that sit idle).
     for (const car of cars ?? []) {
-      const cur = car.currentMileage ?? 0;
-      const last = car.lastOilChangeMileage ?? 0;
-      const interval = car.oilChangeIntervalKm ?? 0;
-      if (interval <= 0) continue;
-      const since = cur - last;
-      if (since < interval) continue;
-      const overBy = since - interval;
+      const oil = getOilChangeStatus(car, today);
+      if (!oil.due) continue;
+
+      const kmStr = `${oil.kmSince.toLocaleString()} km since last change`;
+      const timeStr =
+        oil.daysSince != null ? `${formatDaysAge(oil.daysSince)} since last change` : null;
+
+      let subtitle = `${car.name} · ${kmStr}`;
+      if (oil.reasonKm && oil.reasonTime && timeStr) {
+        subtitle = `${car.name} · ${kmStr} / ${timeStr}`;
+      } else if (oil.reasonTime && !oil.reasonKm && timeStr) {
+        subtitle = `${car.name} · ${timeStr}`;
+      }
+
+      let time = "Due now";
+      if (oil.reasonKm && oil.kmOverBy > 0) {
+        time = `${oil.kmOverBy.toLocaleString()} km overdue`;
+      } else if (oil.reasonTime && oil.daysOverBy != null && oil.daysOverBy > 0) {
+        time = `${formatDaysAge(oil.daysOverBy)} overdue`;
+      }
+
+      // Bias urgency by km-over (1 unit each) and days-over (50 units each, so
+      // a couple months idle ranks similar to a few thousand km overdue).
+      const urgency = Math.max(oil.kmOverBy, (oil.daysOverBy ?? 0) * 50);
       items.push({
         id: `oil-${car.id}`,
         icon: Wrench,
         tone: "magenta",
         title: "Oil change due",
-        subtitle: `${car.name} · ${since.toLocaleString()} km since last change`,
-        time: overBy > 0 ? `${overBy.toLocaleString()} km overdue` : "Due now",
+        subtitle,
+        time,
         actor: car.plateNumber ?? car.name,
         // Promote alerts to top of the feed; bias more-overdue cars upward
         // (clamped so a single huge value can't dominate).
-        sortTime: now + Math.min(Math.max(overBy, 0), 100_000),
+        sortTime: now + Math.min(Math.max(urgency, 0), 100_000),
         target: { type: "car", carId: car.id },
       });
     }

@@ -48,6 +48,8 @@ const FIELD_LABELS: Record<string, string> = {
   monthlyPayment: "Monthly Payment",
   lastOilChangeMileage: "Last Oil Change Mileage",
   oilChangeInterval: "Oil Change Interval",
+  oilChangeIntervalKm: "Oil Change Interval (km)",
+  oilChangeIntervalDays: "Oil Change Interval (days)",
   dateAcquired: "Date Acquired",
   registrationConfirmedAt: "Registration Confirmed At",
   status: "Status",
