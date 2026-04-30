@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   format,
   addDays,
+  addMonths,
   subDays,
   isSameDay,
   parseISO,
@@ -24,13 +25,19 @@ import {
   FileCheck,
   FileText,
   Plus,
+  ShieldAlert,
   Wrench,
   Trash2,
 } from "lucide-react";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { AvailableCarsDialog } from "@/components/AvailableCarsDialog";
-import type { Car, Rental, RentalLogWithUser } from "@shared/schema";
+import type {
+  Car,
+  Rental,
+  RentalLogWithUser,
+  ExpenseLogWithUser,
+} from "@shared/schema";
 
 const TIMELINE_COLORS = [
   "#22D3EE",
@@ -83,6 +90,10 @@ export default function Dashboard() {
 
   const { data: rentalLogs } = useQuery<RentalLogWithUser[]>({
     queryKey: ["/api/rental-logs"],
+  });
+
+  const { data: expenseLogs } = useQuery<ExpenseLogWithUser[]>({
+    queryKey: ["/api/expense-logs"],
   });
 
   const carColorMap = useMemo(() => {
@@ -154,23 +165,36 @@ export default function Dashboard() {
   const animMonth = useAnimatedNumber(kpis.monthIncome);
   const animAvailable = useAnimatedNumber(kpis.availableCars);
 
-  // Activity feed (derive from rental logs)
+  // Activity feed: mixes rental logs, expense logs, and derived ops alerts
+  // (oil-change due, OR/CR registration due) into a single recency/urgency-
+  // sorted stream capped at 10 items.
   const activities = useMemo(() => {
-    if (!rentalLogs) return [];
-    // Sort newest-first by loggedAt so the feed is deterministic regardless
-    // of server return order, then take the top 8.
-    const sorted = [...rentalLogs].sort((a, b) => {
-      const at = a.loggedAt ? new Date(a.loggedAt).getTime() : 0;
-      const bt = b.loggedAt ? new Date(b.loggedAt).getTime() : 0;
-      return bt - at;
-    });
-    return sorted.slice(0, 8).map((log) => {
-      const display =
-        log.user?.firstName && log.user?.lastName
-          ? `${log.user.firstName} ${log.user.lastName}`
-          : log.user?.username ?? log.user?.email ?? "Someone";
-      let icon = FileText;
-      let tone: "cyan" | "magenta" | "muted" = "muted";
+    type Tone = "cyan" | "magenta" | "muted";
+    type Activity = {
+      id: string;
+      icon: typeof FileText;
+      tone: Tone;
+      title: string;
+      subtitle: string;
+      time: string;
+      actor: string;
+      sortTime: number;
+    };
+
+    const items: Activity[] = [];
+    // Use a continuously-fresh "now" for sort baselines so urgency/recency
+    // ordering doesn't go stale within a long-lived session. `today` is
+    // intentionally day-stable for KPIs, which is too coarse here.
+    const now = Date.now();
+    const displayName = (u?: { firstName?: string | null; lastName?: string | null; username?: string | null; email?: string | null }) =>
+      u?.firstName && u?.lastName
+        ? `${u.firstName} ${u.lastName}`
+        : u?.username ?? u?.email ?? "Someone";
+
+    // Rental log items
+    for (const log of rentalLogs ?? []) {
+      let icon: typeof FileText = FileText;
+      let tone: Tone = "muted";
       let title = "Rental updated";
 
       if (log.action === "created") {
@@ -197,21 +221,105 @@ export default function Dashboard() {
         }
       }
 
-      const subtitle = `${log.customerName ?? "—"} / ${log.carName ?? "—"}`;
-      const time = log.loggedAt
-        ? formatDistanceToNow(new Date(log.loggedAt), { addSuffix: true })
-        : "";
-      return {
-        id: log.id,
+      const ts = log.loggedAt ? new Date(log.loggedAt).getTime() : 0;
+      items.push({
+        id: `rental-${log.id}`,
+        icon,
+        tone,
+        title,
+        subtitle: `${log.customerName ?? "—"} / ${log.carName ?? "—"}`,
+        time: ts ? formatDistanceToNow(new Date(ts), { addSuffix: true }) : "",
+        actor: displayName(log.user),
+        sortTime: ts,
+      });
+    }
+
+    // Expense log items
+    for (const log of expenseLogs ?? []) {
+      let icon: typeof FileText = CreditCard;
+      let tone: Tone = "muted";
+      let title = "Expense updated";
+
+      if (log.action === "created") {
+        tone = "cyan";
+        title = "Expense logged";
+      } else if (log.action === "deleted") {
+        icon = Trash2;
+        tone = "magenta";
+        title = "Expense deleted";
+      }
+
+      const amount = log.amount ? ` · ₱${log.amount}` : "";
+      const subtitle = `${log.category ?? "Expense"}${amount} / ${log.carName ?? "—"}`;
+      const ts = log.loggedAt ? new Date(log.loggedAt).getTime() : 0;
+      items.push({
+        id: `expense-${log.id}`,
         icon,
         tone,
         title,
         subtitle,
+        time: ts ? formatDistanceToNow(new Date(ts), { addSuffix: true }) : "",
+        actor: displayName(log.user),
+        sortTime: ts,
+      });
+    }
+
+    // Oil change due alerts: cars whose km since last oil change has met or
+    // exceeded the configured interval.
+    for (const car of cars ?? []) {
+      const cur = car.currentMileage ?? 0;
+      const last = car.lastOilChangeMileage ?? 0;
+      const interval = car.oilChangeIntervalKm ?? 0;
+      if (interval <= 0) continue;
+      const since = cur - last;
+      if (since < interval) continue;
+      const overBy = since - interval;
+      items.push({
+        id: `oil-${car.id}`,
+        icon: Wrench,
+        tone: "magenta",
+        title: "Oil change due",
+        subtitle: `${car.name} · ${since.toLocaleString()} km since last change`,
+        time: overBy > 0 ? `${overBy.toLocaleString()} km overdue` : "Due now",
+        actor: car.plateNumber ?? car.name,
+        // Promote alerts to top of the feed; bias more-overdue cars upward
+        // (clamped so a single huge value can't dominate).
+        sortTime: now + Math.min(Math.max(overBy, 0), 100_000),
+      });
+    }
+
+    // OR/CR registration alerts: registrations renew yearly, so the next due
+    // date is 12 months after `registrationConfirmedAt`. Surface anything
+    // due within 30 days or already past due.
+    for (const car of cars ?? []) {
+      if (!car.registrationConfirmedAt) continue;
+      const confirmed = parseISO(car.registrationConfirmedAt as string);
+      const due = addMonths(confirmed, 12);
+      const days = differenceInDays(due, today);
+      if (days > 30) continue;
+      const overdue = days < 0;
+      const time = overdue
+        ? `${Math.abs(days)}d overdue`
+        : days === 0
+          ? "Due today"
+          : `Due in ${days}d`;
+      items.push({
+        id: `reg-${car.id}`,
+        icon: ShieldAlert,
+        tone: "magenta",
+        title: "OR/CR registration due",
+        subtitle: `${car.name} · expires ${format(due, "MMM d, yyyy")}`,
         time,
-        actor: display,
-      };
-    });
-  }, [rentalLogs]);
+        actor: car.plateNumber ?? car.name,
+        // Bias by urgency: overdue first, then closest-to-due. Each day of
+        // urgency is worth one minute of recency boost over now.
+        sortTime: now + (overdue ? Math.abs(days) : 30 - days) * 60_000,
+      });
+    }
+
+    items.sort((a, b) => b.sortTime - a.sortTime);
+    return items.slice(0, 10);
+  }, [rentalLogs, expenseLogs, cars, today]);
 
   // Show 90 days before and 90 days after today for scrollable range
   const visibleDays = useMemo(() => {
