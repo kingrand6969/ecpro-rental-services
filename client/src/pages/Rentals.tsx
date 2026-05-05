@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { EditRentalDialog } from "@/components/EditRentalDialog";
+import { ConfirmPaymentDialog } from "@/components/ConfirmPaymentDialog";
 import { getRegistrationStatus } from "@/components/CarDetailsDialog";
 import type { Car, Rental } from "@shared/schema";
 
@@ -38,6 +39,7 @@ export default function Rentals() {
   const [createOpen, setCreateOpen] = useState(false);
   const [viewRental, setViewRental] = useState<Rental | null>(null);
   const [editRental, setEditRental] = useState<Rental | null>(null);
+  const [confirmPaymentRental, setConfirmPaymentRental] = useState<Rental | null>(null);
 
   const { data: rentals, isLoading: rentalsLoading } = useQuery<Rental[]>({
     queryKey: ["/api/rentals"],
@@ -65,28 +67,6 @@ export default function Rentals() {
       (statusFilter === "confirmed" && rental.paymentStatus === "confirmed");
 
     return matchesSearch && matchesStatus;
-  });
-
-  const confirmPaymentMutation = useMutation({
-    mutationFn: async (rentalId: number) => {
-      await apiRequest("PATCH", `/api/rentals/${rentalId}`, {
-        paymentStatus: "confirmed",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
-      toast({
-        title: "Payment Confirmed",
-        description: "The rental payment has been confirmed.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to confirm payment",
-        variant: "destructive",
-      });
-    },
   });
 
   const isLoading = rentalsLoading || carsLoading;
@@ -243,9 +223,8 @@ export default function Rentals() {
                                   className="text-xs h-auto py-1 px-2 font-mono uppercase tracking-wider"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    confirmPaymentMutation.mutate(rental.id);
+                                    setConfirmPaymentRental(rental);
                                   }}
-                                  disabled={confirmPaymentMutation.isPending}
                                   data-testid={`button-confirm-payment-${rental.id}`}
                                 >
                                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -309,6 +288,11 @@ export default function Rentals() {
           onClose={() => setEditRental(null)}
         />
       )}
+
+      <ConfirmPaymentDialog
+        rental={confirmPaymentRental}
+        onClose={() => setConfirmPaymentRental(null)}
+      />
     </div>
   );
 }

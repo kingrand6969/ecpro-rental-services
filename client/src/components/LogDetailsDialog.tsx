@@ -61,6 +61,8 @@ const FIELD_LABELS: Record<string, string> = {
   totalAmount: "Total Amount",
   paymentScreenshotUrl: "Payment Screenshot",
   paymentStatus: "Payment Status",
+  paymentDate: "Payment Date",
+  paymentBank: "Payment Bank",
   notes: "Notes",
   carId: "Car",
   customerId: "Customer",

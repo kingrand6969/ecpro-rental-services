@@ -28,5 +28,6 @@ export function useAuth() {
     isLoading,
     isAuthenticated,
     isAdmin: isAuthenticated && (user?.isAdmin ?? false),
+    isSuperAdmin: isAuthenticated && user?.username === "Admin",
   };
 }

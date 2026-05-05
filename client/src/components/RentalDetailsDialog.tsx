@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import {
   Dialog,
@@ -9,7 +10,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, Phone, Mail, DollarSign, FileText, Image } from "lucide-react";
+import { Calendar, User, Phone, Mail, DollarSign, FileText, Image, CheckCircle, Landmark } from "lucide-react";
+import { ConfirmPaymentDialog } from "@/components/ConfirmPaymentDialog";
 import type { Car, Rental } from "@shared/schema";
 
 interface RentalDetailsDialogProps {
@@ -19,6 +21,7 @@ interface RentalDetailsDialogProps {
 }
 
 export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialogProps) {
+  const [confirmPaymentOpen, setConfirmPaymentOpen] = useState(false);
   if (!rental) return null;
 
   return (
@@ -151,6 +154,45 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
               )}
             </div>
 
+            {rental.paymentStatus === "confirmed" && (rental.paymentDate || rental.paymentBank) && (
+              <div className="grid gap-2 text-sm">
+                {rental.paymentDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Payment Date
+                    </span>
+                    <span className="font-medium tabular-nums" data-testid="text-payment-date">
+                      {format(parseISO(rental.paymentDate as unknown as string), "MMMM d, yyyy")}
+                    </span>
+                  </div>
+                )}
+                {rental.paymentBank && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                      <Landmark className="h-3 w-3" />
+                      Sent To
+                    </span>
+                    <span className="font-medium" data-testid="text-payment-bank">
+                      {rental.paymentBank}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {rental.paymentStatus === "pending" && (
+              <Button
+                type="button"
+                onClick={() => setConfirmPaymentOpen(true)}
+                className="w-full font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
+                data-testid="button-open-confirm-payment"
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Confirm Payment
+              </Button>
+            )}
+
             {rental.paymentScreenshotUrl && (
               <div className="space-y-2">
                 <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-1">
@@ -196,6 +238,11 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
             </Button>
           </div>
         </div>
+
+        <ConfirmPaymentDialog
+          rental={confirmPaymentOpen ? rental : null}
+          onClose={() => setConfirmPaymentOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );

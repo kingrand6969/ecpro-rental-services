@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar, User, Clock, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { Rental, Car } from "@shared/schema";
 
 interface FinalizeReminderDialogProps {
@@ -24,6 +25,7 @@ interface FinalizeReminderDialogProps {
 
 export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeReminderDialogProps) {
   const { toast } = useToast();
+  const { isSuperAdmin } = useAuth();
 
   const { data: pendingRentals = [], isLoading } = useQuery<Rental[]>({
     queryKey: ["/api/rentals/pending-finalization"],
@@ -87,7 +89,10 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
             <DialogTitle>Finalization Reminder</DialogTitle>
           </div>
           <DialogDescription>
-            The following bookings are not yet finalized. Would you like to finalize them?
+            The following bookings are not yet finalized.
+            {isSuperAdmin
+              ? " Would you like to finalize them?"
+              : " Only the Admin user can finalize bookings — you can dismiss the reminder for now."}
           </DialogDescription>
         </DialogHeader>
 
@@ -147,15 +152,17 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
                         >
                           Remind Later
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => finalizeMutation.mutate(rental.id)}
-                          disabled={finalizeMutation.isPending}
-                          data-testid={`finalize-rental-${rental.id}`}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Finalize
-                        </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            size="sm"
+                            onClick={() => finalizeMutation.mutate(rental.id)}
+                            disabled={finalizeMutation.isPending}
+                            data-testid={`finalize-rental-${rental.id}`}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Finalize
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

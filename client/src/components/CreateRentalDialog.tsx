@@ -41,6 +41,8 @@ const rentalSchema = z.object({
   endDate: z.date({ required_error: "End date is required" }),
   totalAmount: z.string().min(1, "Total amount is required"),
   notes: z.string().optional(),
+  paymentDate: z.string().optional(),
+  paymentBank: z.string().optional(),
 }).refine((data) => data.endDate >= data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
@@ -76,6 +78,8 @@ export function CreateRentalDialog({
       customerPhone: "",
       totalAmount: "",
       notes: "",
+      paymentDate: format(new Date(), "yyyy-MM-dd"),
+      paymentBank: "",
     },
   });
 
@@ -110,6 +114,9 @@ export function CreateRentalDialog({
         totalAmount: data.totalAmount,
         paymentScreenshotUrl,
         paymentStatus: isReservation ? "pending" : "confirmed",
+        paymentDate: !isReservation && data.paymentDate ? data.paymentDate : null,
+        paymentBank:
+          !isReservation && data.paymentBank?.trim() ? data.paymentBank.trim() : null,
         notes: data.notes || null,
         isFinalized: false,
       };
@@ -138,6 +145,21 @@ export function CreateRentalDialog({
   });
 
   const handleSubmit = form.handleSubmit(async (data) => {
+    if (paymentScreenshotUrl) {
+      const errors: Record<string, { type: string; message: string }> = {};
+      if (!data.paymentDate) {
+        errors.paymentDate = { type: "required", message: "Payment date is required" };
+      }
+      if (!data.paymentBank?.trim()) {
+        errors.paymentBank = { type: "required", message: "Bank is required" };
+      }
+      if (Object.keys(errors).length > 0) {
+        Object.entries(errors).forEach(([field, err]) => {
+          form.setError(field as keyof RentalFormData, err);
+        });
+        return;
+      }
+    }
     createMutation.mutate(data);
   });
 
@@ -477,6 +499,53 @@ export function CreateRentalDialog({
                     Upload Payment Screenshot
                   </ObjectUploader>
                 </div>
+
+                {paymentScreenshotUrl && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="paymentDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                            Payment Date
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="date"
+                              value={field.value ?? ""}
+                              onChange={field.onChange}
+                              max={format(new Date(), "yyyy-MM-dd")}
+                              data-testid="input-create-payment-date"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="paymentBank"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                            Bank / E-Wallet
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="text"
+                              placeholder="e.g. BPI, BDO, GCash, Maya"
+                              value={field.value ?? ""}
+                              onChange={field.onChange}
+                              data-testid="input-create-payment-bank"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

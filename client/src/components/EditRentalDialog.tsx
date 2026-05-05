@@ -35,6 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Upload, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { Car, Rental } from "@shared/schema";
 
@@ -49,10 +50,20 @@ const rentalSchema = z.object({
   notes: z.string().optional(),
   isFinalized: z.boolean(),
   paymentStatus: z.string(),
+  paymentDate: z.string().optional(),
+  paymentBank: z.string().optional(),
 }).refine((data) => data.endDate >= data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
-});
+}).refine(
+  (data) =>
+    data.paymentStatus !== "confirmed" || !!data.paymentDate,
+  { message: "Payment date is required when payment is confirmed", path: ["paymentDate"] },
+).refine(
+  (data) =>
+    data.paymentStatus !== "confirmed" || !!data.paymentBank?.trim(),
+  { message: "Bank is required when payment is confirmed", path: ["paymentBank"] },
+);
 
 type RentalFormData = z.infer<typeof rentalSchema>;
 
@@ -63,6 +74,7 @@ interface EditRentalDialogProps {
 
 export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
   const { toast } = useToast();
+  const { isSuperAdmin } = useAuth();
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState<string | null>(null);
 
   const { data: cars } = useQuery<Car[]>({
@@ -80,6 +92,8 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
       notes: "",
       isFinalized: false,
       paymentStatus: "confirmed",
+      paymentDate: "",
+      paymentBank: "",
     },
   });
 
@@ -96,6 +110,10 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
         notes: rental.notes ?? "",
         isFinalized: rental.isFinalized,
         paymentStatus: rental.paymentStatus ?? "confirmed",
+        paymentDate: rental.paymentDate
+          ? (rental.paymentDate as unknown as string)
+          : "",
+        paymentBank: rental.paymentBank ?? "",
       });
       setPaymentScreenshotUrl(rental.paymentScreenshotUrl ?? null);
     }
@@ -123,6 +141,14 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
         notes: data.notes || null,
         isFinalized: data.isFinalized,
         paymentStatus: data.paymentStatus,
+        paymentDate:
+          data.paymentStatus === "confirmed" && data.paymentDate
+            ? data.paymentDate
+            : null,
+        paymentBank:
+          data.paymentStatus === "confirmed" && data.paymentBank?.trim()
+            ? data.paymentBank.trim()
+            : null,
       };
       await apiRequest("PATCH", `/api/rentals/${rental?.id}`, payload);
     },
@@ -452,27 +478,81 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="isFinalized"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-md border p-3">
-                  <div>
-                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Finalized</FormLabel>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Finalized rentals cannot be edited by regular users
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      data-testid="switch-finalized"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {form.watch("paymentStatus") === "confirmed" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="paymentDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Payment Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          max={format(new Date(), "yyyy-MM-dd")}
+                          data-testid="input-edit-payment-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="paymentBank"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Bank / E-Wallet</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="e.g. BPI, BDO, GCash, Maya"
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          data-testid="input-edit-payment-bank"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {isSuperAdmin ? (
+              <FormField
+                control={form.control}
+                name="isFinalized"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Finalized</FormLabel>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Finalized rentals cannot be edited by regular users
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-finalized"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="rounded-md border border-dashed p-3">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Finalized: {rental.isFinalized ? "Yes" : "No"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only the Admin user can change the finalized state.
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center gap-3 pt-4">
               <Button

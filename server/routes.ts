@@ -354,6 +354,26 @@ export async function registerRoutes(
   app.post("/api/rentals", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as User).id;
+      const requester = await storage.getUser(userId);
+
+      // Only the dedicated "Admin" superuser can create a rental that is already finalized
+      if (req.body?.isFinalized === true && requester?.username !== "Admin") {
+        return res.status(403).json({
+          message: "Only the Admin user can finalize rentals",
+        });
+      }
+
+      // If the rental is being created as confirmed, payment date + bank are required
+      if (req.body?.paymentStatus === "confirmed") {
+        const incomingDate = req.body?.paymentDate;
+        const incomingBank = req.body?.paymentBank;
+        if (!incomingDate || !String(incomingBank ?? "").trim()) {
+          return res.status(400).json({
+            message: "Payment date and bank are required to confirm a payment",
+          });
+        }
+      }
+
       const rentalData = {
         ...req.body,
         userId,
@@ -421,11 +441,45 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only admin can edit finalized rentals" });
       }
 
+      // Only the dedicated "Admin" superuser can change isFinalized
+      if (
+        req.body.isFinalized !== undefined &&
+        Boolean(req.body.isFinalized) !== Boolean(existing.isFinalized) &&
+        user?.username !== "Admin"
+      ) {
+        return res.status(403).json({
+          message: "Only the Admin user can finalize or un-finalize rentals",
+        });
+      }
+
+      // A confirmed payment must always have both paymentDate and paymentBank.
+      // This blocks both transitions to "confirmed" without metadata AND any
+      // subsequent attempt to clear paymentDate/paymentBank while still confirmed.
+      const resultingStatus =
+        req.body.paymentStatus !== undefined
+          ? req.body.paymentStatus
+          : existing.paymentStatus;
+      if (resultingStatus === "confirmed") {
+        const incomingDate =
+          req.body.paymentDate !== undefined
+            ? req.body.paymentDate
+            : existing.paymentDate;
+        const incomingBank =
+          req.body.paymentBank !== undefined
+            ? req.body.paymentBank
+            : existing.paymentBank;
+        if (!incomingDate || !String(incomingBank ?? "").trim()) {
+          return res.status(400).json({
+            message: "Payment date and bank are required for a confirmed payment",
+          });
+        }
+      }
+
       const rental = await storage.updateRental(id, req.body);
-      
+
       // Log each changed field
       const car = await storage.getCarById(existing.carId);
-      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'paymentStatus', 'notes', 'customerPhone', 'customerEmail'];
+      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'paymentStatus', 'paymentDate', 'paymentBank', 'notes', 'customerPhone', 'customerEmail'];
       
       for (const field of fieldsToCheck) {
         if (req.body[field] !== undefined && String(req.body[field]) !== String((existing as any)[field])) {
