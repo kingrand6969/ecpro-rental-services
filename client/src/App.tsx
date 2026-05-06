@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,9 +9,6 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FinalizeReminderDialog } from "@/components/FinalizeReminderDialog";
-import { useState, useEffect } from "react";
-import type { Rental, Car } from "@shared/schema";
 
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
@@ -25,28 +22,10 @@ import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const [showFinalizeReminder, setShowFinalizeReminder] = useState(false);
-  
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
-
-  const { data: pendingRentals = [] } = useQuery<Rental[]>({
-    queryKey: ["/api/rentals/pending-finalization"],
-    refetchInterval: 5 * 60 * 1000, // Check every 5 minutes
-  });
-
-  const { data: cars = [] } = useQuery<Car[]>({
-    queryKey: ["/api/cars"],
-  });
-
-  // Show reminder when there are pending rentals
-  useEffect(() => {
-    if (pendingRentals.length > 0) {
-      setShowFinalizeReminder(true);
-    }
-  }, [pendingRentals.length]);
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -62,11 +41,6 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
-      <FinalizeReminderDialog
-        isOpen={showFinalizeReminder}
-        onClose={() => setShowFinalizeReminder(false)}
-        cars={cars}
-      />
     </SidebarProvider>
   );
 }
