@@ -27,19 +27,22 @@ import { useAuth } from "@/hooks/useAuth";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { EditRentalDialog } from "@/components/EditRentalDialog";
-import { ConfirmPaymentDialog } from "@/components/ConfirmPaymentDialog";
+import { ConfirmPaymentDialog, type ConfirmPaymentKind } from "@/components/ConfirmPaymentDialog";
 import { getRegistrationStatus } from "@/components/CarDetailsDialog";
 import type { Car, Rental } from "@shared/schema";
 
 export default function Rentals() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewRental, setViewRental] = useState<Rental | null>(null);
   const [editRental, setEditRental] = useState<Rental | null>(null);
-  const [confirmPaymentRental, setConfirmPaymentRental] = useState<Rental | null>(null);
+  const [confirmPaymentRental, setConfirmPaymentRental] = useState<{
+    rental: Rental;
+    kind: ConfirmPaymentKind;
+  } | null>(null);
 
   const { data: rentals, isLoading: rentalsLoading } = useQuery<Rental[]>({
     queryKey: ["/api/rentals"],
@@ -63,7 +66,7 @@ export default function Rentals() {
       statusFilter === "all" ||
       (statusFilter === "finalized" && rental.isFinalized) ||
       (statusFilter === "active" && !rental.isFinalized) ||
-      (statusFilter === "reservation" && rental.paymentStatus === "pending") ||
+      (statusFilter === "reservation" && rental.reservationStatus === "pending") ||
       (statusFilter === "confirmed" && rental.paymentStatus === "confirmed");
 
     return matchesSearch && matchesStatus;
@@ -199,39 +202,83 @@ export default function Rentals() {
                               ) : (
                                 <Badge className="bg-neon-cyan/15 text-neon-cyan border border-neon-cyan/30">Active</Badge>
                               )}
-                              {rental.paymentStatus === "pending" && (
-                                <Badge className="bg-neon-magenta/15 text-neon-magenta border border-neon-magenta/30">
-                                  Reservation
-                                </Badge>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell>
-                            {rental.paymentStatus === "confirmed" ? (
-                              <Badge className="gap-1 bg-neon-cyan/15 text-neon-cyan border border-neon-cyan/30">
-                                <CheckCircle className="h-3 w-3" />
-                                Paid
-                              </Badge>
-                            ) : (
+                            <div className="flex flex-col gap-2 items-start">
+                              {/* Reservation row */}
                               <div className="flex flex-col gap-1 items-start">
-                                <Badge className="bg-neon-magenta/15 text-neon-magenta border border-neon-magenta/30">
-                                  Pending
-                                </Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs h-auto py-1 px-2 font-mono uppercase tracking-wider"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setConfirmPaymentRental(rental);
-                                  }}
-                                  data-testid={`button-confirm-payment-${rental.id}`}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Confirm
-                                </Button>
+                                {rental.reservationStatus === "confirmed" ? (
+                                  <Badge className="gap-1 bg-neon-magenta/15 text-neon-magenta border border-neon-magenta/30">
+                                    <CheckCircle className="h-3 w-3" />
+                                    Reservation Paid
+                                    {rental.reservationFee && (
+                                      <span className="ml-1 tabular-nums">
+                                        ₱{parseFloat(rental.reservationFee).toLocaleString()}
+                                      </span>
+                                    )}
+                                  </Badge>
+                                ) : rental.reservationStatus === "pending" ? (
+                                  <>
+                                    <Badge className="bg-chart-4/15 text-chart-4 border border-chart-4/30">
+                                      Reservation Pending
+                                      {rental.reservationFee && (
+                                        <span className="ml-1 tabular-nums">
+                                          ₱{parseFloat(rental.reservationFee).toLocaleString()}
+                                        </span>
+                                      )}
+                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-xs h-auto py-1 px-2 font-mono uppercase tracking-wider"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmPaymentRental({ rental, kind: "reservation" });
+                                      }}
+                                      data-testid={`button-confirm-reservation-${rental.id}`}
+                                    >
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Confirm Reservation
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Badge variant="outline" className="text-muted-foreground border-border">
+                                    No Reservation
+                                  </Badge>
+                                )}
                               </div>
-                            )}
+                              {/* Total payment row */}
+                              <div className="flex flex-col gap-1 items-start">
+                                {rental.paymentStatus === "confirmed" ? (
+                                  <Badge className="gap-1 bg-neon-cyan/15 text-neon-cyan border border-neon-cyan/30">
+                                    <CheckCircle className="h-3 w-3" />
+                                    Total Paid
+                                  </Badge>
+                                ) : (
+                                  <>
+                                    <Badge className="bg-neon-magenta/15 text-neon-magenta border border-neon-magenta/30">
+                                      Total Pending
+                                    </Badge>
+                                    {isSuperAdmin && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs h-auto py-1 px-2 font-mono uppercase tracking-wider"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setConfirmPaymentRental({ rental, kind: "full" });
+                                        }}
+                                        data-testid={`button-confirm-payment-${rental.id}`}
+                                      >
+                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                        Confirm Total
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -290,7 +337,8 @@ export default function Rentals() {
       )}
 
       <ConfirmPaymentDialog
-        rental={confirmPaymentRental}
+        rental={confirmPaymentRental?.rental ?? null}
+        kind={confirmPaymentRental?.kind ?? "full"}
         onClose={() => setConfirmPaymentRental(null)}
       />
     </div>

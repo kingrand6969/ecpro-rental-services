@@ -41,8 +41,9 @@ const rentalSchema = z.object({
   endDate: z.date({ required_error: "End date is required" }),
   totalAmount: z.string().min(1, "Total amount is required"),
   notes: z.string().optional(),
-  paymentDate: z.string().optional(),
-  paymentBank: z.string().optional(),
+  reservationFee: z.string().optional(),
+  reservationDate: z.string().optional(),
+  reservationBank: z.string().optional(),
 }).refine((data) => data.endDate >= data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
@@ -63,7 +64,7 @@ export function CreateRentalDialog({
 }: CreateRentalDialogProps) {
   const { toast } = useToast();
   const [step, setStep] = useState<"car" | "dates" | "details">("car");
-  const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState<string | null>(null);
+  const [reservationScreenshotUrl, setReservationScreenshotUrl] = useState<string | null>(null);
 
   const { data: cars } = useQuery<Car[]>({
     queryKey: ["/api/cars"],
@@ -78,8 +79,9 @@ export function CreateRentalDialog({
       customerPhone: "",
       totalAmount: "",
       notes: "",
-      paymentDate: format(new Date(), "yyyy-MM-dd"),
-      paymentBank: "",
+      reservationFee: "",
+      reservationDate: format(new Date(), "yyyy-MM-dd"),
+      reservationBank: "",
     },
   });
 
@@ -102,7 +104,13 @@ export function CreateRentalDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: RentalFormData) => {
-      const isReservation = !paymentScreenshotUrl;
+      const hasReservationFee = !!data.reservationFee && data.reservationFee.trim() !== "" && parseFloat(data.reservationFee) > 0;
+      const reservationConfirmed = hasReservationFee && !!reservationScreenshotUrl && !!data.reservationDate && !!data.reservationBank?.trim();
+      const reservationStatus = !hasReservationFee
+        ? "none"
+        : reservationConfirmed
+          ? "confirmed"
+          : "pending";
       const payload = {
         carId: parseInt(data.carId),
         customerName: data.customerName,
@@ -112,11 +120,19 @@ export function CreateRentalDialog({
         endDate: format(data.endDate, "yyyy-MM-dd"),
         daysRented,
         totalAmount: data.totalAmount,
-        paymentScreenshotUrl,
-        paymentStatus: isReservation ? "pending" : "confirmed",
-        paymentDate: !isReservation && data.paymentDate ? data.paymentDate : null,
-        paymentBank:
-          !isReservation && data.paymentBank?.trim() ? data.paymentBank.trim() : null,
+        paymentScreenshotUrl: null,
+        paymentStatus: "pending",
+        paymentDate: null,
+        paymentBank: null,
+        reservationFee: hasReservationFee ? data.reservationFee : null,
+        reservationStatus,
+        reservationDate:
+          reservationStatus === "confirmed" && data.reservationDate ? data.reservationDate : null,
+        reservationBank:
+          reservationStatus === "confirmed" && data.reservationBank?.trim()
+            ? data.reservationBank.trim()
+            : null,
+        reservationScreenshotUrl: hasReservationFee ? reservationScreenshotUrl : null,
         notes: data.notes || null,
         isFinalized: false,
       };
@@ -131,7 +147,7 @@ export function CreateRentalDialog({
         description: "Rental booked successfully",
       });
       form.reset();
-      setPaymentScreenshotUrl(null);
+      setReservationScreenshotUrl(null);
       setStep("car");
       onOpenChange(false);
     },
@@ -145,13 +161,14 @@ export function CreateRentalDialog({
   });
 
   const handleSubmit = form.handleSubmit(async (data) => {
-    if (paymentScreenshotUrl) {
+    const hasReservationFee = !!data.reservationFee && data.reservationFee.trim() !== "" && parseFloat(data.reservationFee) > 0;
+    if (hasReservationFee && reservationScreenshotUrl) {
       const errors: Record<string, { type: string; message: string }> = {};
-      if (!data.paymentDate) {
-        errors.paymentDate = { type: "required", message: "Payment date is required" };
+      if (!data.reservationDate) {
+        errors.reservationDate = { type: "required", message: "Reservation date is required" };
       }
-      if (!data.paymentBank?.trim()) {
-        errors.paymentBank = { type: "required", message: "Bank is required" };
+      if (!data.reservationBank?.trim()) {
+        errors.reservationBank = { type: "required", message: "Bank is required" };
       }
       if (Object.keys(errors).length > 0) {
         Object.entries(errors).forEach(([field, err]) => {
@@ -169,7 +186,7 @@ export function CreateRentalDialog({
   const handleReset = () => {
     setStep("car");
     form.reset();
-    setPaymentScreenshotUrl(null);
+    setReservationScreenshotUrl(null);
   };
 
   const handleClose = () => {
@@ -478,74 +495,98 @@ export function CreateRentalDialog({
                   )}
                 />
 
-                <div className="border-t border-border pt-4">
-                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Payment Screenshot</p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Upload a screenshot to confirm payment. Without it, this booking will be saved as a reservation with pending payment.
+                <div className="border-t border-border pt-4 space-y-3">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reservation Payment (optional)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter a reservation amount if the customer is paying a deposit now. The Total Payment is confirmed later by the Admin.
                   </p>
-                  <ObjectUploader
-                    onGetUploadParameters={async () => {
-                      const response = await apiRequest("POST", "/api/objects/upload", {});
-                      const data = await response.json();
-                      return { method: "PUT" as const, url: data.url };
-                    }}
-                    onComplete={(result) => {
-                      if (result.successful[0]?.uploadURL) {
-                        setPaymentScreenshotUrl(result.successful[0].uploadURL);
-                      }
-                    }}
-                    data-testid="uploader-payment-screenshot"
-                  >
-                    Upload Payment Screenshot
-                  </ObjectUploader>
-                </div>
+                  <FormField
+                    control={form.control}
+                    name="reservationFee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reservation Amount (₱)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00 (leave empty if no reservation)"
+                            data-testid="input-reservation-fee"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {paymentScreenshotUrl && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <FormField
-                      control={form.control}
-                      name="paymentDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                            Payment Date
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="date"
-                              value={field.value ?? ""}
-                              onChange={field.onChange}
-                              max={format(new Date(), "yyyy-MM-dd")}
-                              data-testid="input-create-payment-date"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                  {!!form.watch("reservationFee") && parseFloat(form.watch("reservationFee") || "0") > 0 && (
+                    <>
+                      <ObjectUploader
+                        onGetUploadParameters={async () => {
+                          const response = await apiRequest("POST", "/api/objects/upload", {});
+                          const data = await response.json();
+                          return { method: "PUT" as const, url: data.url };
+                        }}
+                        onComplete={(result) => {
+                          if (result.successful[0]?.uploadURL) {
+                            setReservationScreenshotUrl(result.successful[0].uploadURL);
+                          }
+                        }}
+                        data-testid="uploader-reservation-screenshot"
+                      >
+                        {reservationScreenshotUrl ? "Replace Reservation Screenshot" : "Upload Reservation Screenshot"}
+                      </ObjectUploader>
+
+                      {reservationScreenshotUrl && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <FormField
+                            control={form.control}
+                            name="reservationDate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                                  Reservation Date
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="date"
+                                    value={field.value ?? ""}
+                                    onChange={field.onChange}
+                                    max={format(new Date(), "yyyy-MM-dd")}
+                                    data-testid="input-create-reservation-date"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="reservationBank"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                                  Bank / E-Wallet
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="e.g. BPI, BDO, GCash, Maya"
+                                    value={field.value ?? ""}
+                                    onChange={field.onChange}
+                                    data-testid="input-create-reservation-bank"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                       )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="paymentBank"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                            Bank / E-Wallet
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="e.g. BPI, BDO, GCash, Maya"
-                              value={field.value ?? ""}
-                              onChange={field.onChange}
-                              data-testid="input-create-payment-bank"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
 

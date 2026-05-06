@@ -551,7 +551,7 @@ export class DatabaseStorage implements IStorage {
         (
           SELECT COALESCE(SUM(r.total_amount), 0)::float8
           FROM rentals r, bounds b
-          WHERE r.start_date = b.today
+          WHERE r.start_date = b.today AND r.payment_status = 'confirmed'
         ) AS today_income,
         (
           SELECT COALESCE(SUM(
@@ -568,6 +568,7 @@ export class DatabaseStorage implements IStorage {
           ), 0)::float8
           FROM rentals r, bounds b
           WHERE r.start_date <= b.month_end AND r.end_date >= b.month_start
+            AND r.payment_status = 'confirmed'
         ) AS month_income,
         (SELECT COUNT(*)::int FROM cars) AS total_cars
     `);

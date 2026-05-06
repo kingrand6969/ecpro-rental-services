@@ -93,9 +93,16 @@ export const rentals = pgTable("rentals", {
   daysRented: integer("days_rented").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentScreenshotUrl: varchar("payment_screenshot_url", { length: 500 }),
-  paymentStatus: varchar("payment_status", { length: 20 }).default("confirmed").notNull(), // pending, confirmed
-  paymentDate: date("payment_date"), // date the payment was received (required when paymentStatus=confirmed)
-  paymentBank: varchar("payment_bank", { length: 100 }), // bank/e-wallet the payment was sent to (required when paymentStatus=confirmed)
+  paymentStatus: varchar("payment_status", { length: 20 }).default("pending").notNull(), // pending, confirmed (TOTAL/full payment — only Admin user can confirm)
+  paymentDate: date("payment_date"), // date the full payment was received (required when paymentStatus=confirmed)
+  paymentBank: varchar("payment_bank", { length: 100 }), // bank/e-wallet the full payment was sent to (required when paymentStatus=confirmed)
+  // Reservation (down-payment) fields. Independent of the total payment.
+  // Any approved user can confirm a reservation; full payment is Admin-only.
+  reservationFee: decimal("reservation_fee", { precision: 10, scale: 2 }), // amount of the reservation/down-payment (nullable = no reservation requested)
+  reservationStatus: varchar("reservation_status", { length: 20 }).default("none").notNull(), // none | pending | confirmed
+  reservationDate: date("reservation_date"), // date the reservation payment was received (required when reservationStatus=confirmed)
+  reservationBank: varchar("reservation_bank", { length: 100 }), // bank/e-wallet the reservation was sent to (required when reservationStatus=confirmed)
+  reservationScreenshotUrl: varchar("reservation_screenshot_url", { length: 500 }),
   isFinalized: boolean("is_finalized").default(false).notNull(),
   lastFinalizeReminder: timestamp("last_finalize_reminder"), // tracks when we last asked about finalization
   notes: text("notes"),

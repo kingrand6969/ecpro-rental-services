@@ -52,6 +52,10 @@ const rentalSchema = z.object({
   paymentStatus: z.string(),
   paymentDate: z.string().optional(),
   paymentBank: z.string().optional(),
+  reservationFee: z.string().optional(),
+  reservationStatus: z.string(),
+  reservationDate: z.string().optional(),
+  reservationBank: z.string().optional(),
 }).refine((data) => data.endDate >= data.startDate, {
   message: "End date must be after start date",
   path: ["endDate"],
@@ -63,6 +67,14 @@ const rentalSchema = z.object({
   (data) =>
     data.paymentStatus !== "confirmed" || !!data.paymentBank?.trim(),
   { message: "Bank is required when payment is confirmed", path: ["paymentBank"] },
+).refine(
+  (data) =>
+    data.reservationStatus !== "confirmed" || !!data.reservationDate,
+  { message: "Reservation date is required when reservation is confirmed", path: ["reservationDate"] },
+).refine(
+  (data) =>
+    data.reservationStatus !== "confirmed" || !!data.reservationBank?.trim(),
+  { message: "Bank is required when reservation is confirmed", path: ["reservationBank"] },
 );
 
 type RentalFormData = z.infer<typeof rentalSchema>;
@@ -76,6 +88,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
   const { toast } = useToast();
   const { isSuperAdmin } = useAuth();
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState<string | null>(null);
+  const [reservationScreenshotUrl, setReservationScreenshotUrl] = useState<string | null>(null);
 
   const { data: cars } = useQuery<Car[]>({
     queryKey: ["/api/cars"],
@@ -91,9 +104,13 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
       totalAmount: "",
       notes: "",
       isFinalized: false,
-      paymentStatus: "confirmed",
+      paymentStatus: "pending",
       paymentDate: "",
       paymentBank: "",
+      reservationFee: "",
+      reservationStatus: "none",
+      reservationDate: "",
+      reservationBank: "",
     },
   });
 
@@ -109,13 +126,20 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
         totalAmount: rental.totalAmount,
         notes: rental.notes ?? "",
         isFinalized: rental.isFinalized,
-        paymentStatus: rental.paymentStatus ?? "confirmed",
+        paymentStatus: rental.paymentStatus ?? "pending",
         paymentDate: rental.paymentDate
           ? (rental.paymentDate as unknown as string)
           : "",
         paymentBank: rental.paymentBank ?? "",
+        reservationFee: rental.reservationFee ?? "",
+        reservationStatus: rental.reservationStatus ?? "none",
+        reservationDate: rental.reservationDate
+          ? (rental.reservationDate as unknown as string)
+          : "",
+        reservationBank: rental.reservationBank ?? "",
       });
       setPaymentScreenshotUrl(rental.paymentScreenshotUrl ?? null);
+      setReservationScreenshotUrl(rental.reservationScreenshotUrl ?? null);
     }
   }, [rental, form]);
 
@@ -149,6 +173,20 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
           data.paymentStatus === "confirmed" && data.paymentBank?.trim()
             ? data.paymentBank.trim()
             : null,
+        reservationFee:
+          data.reservationFee && data.reservationFee.trim() !== ""
+            ? data.reservationFee
+            : null,
+        reservationStatus: data.reservationStatus,
+        reservationDate:
+          data.reservationStatus === "confirmed" && data.reservationDate
+            ? data.reservationDate
+            : null,
+        reservationBank:
+          data.reservationStatus === "confirmed" && data.reservationBank?.trim()
+            ? data.reservationBank.trim()
+            : null,
+        reservationScreenshotUrl,
       };
       await apiRequest("PATCH", `/api/rentals/${rental?.id}`, payload);
     },
@@ -201,22 +239,30 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
     };
   };
 
-  const handleUploadComplete = async (result: { successful: Array<{ uploadURL?: string }> }) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadedUrl = result.successful[0].uploadURL;
-      if (uploadedUrl) {
-        const response = await apiRequest("PUT", "/api/payment-screenshots", {
-          screenshotURL: uploadedUrl,
-        });
-        const data = await response.json();
-        setPaymentScreenshotUrl(data.objectPath);
-        toast({
-          title: "Upload Complete",
-          description: "Payment screenshot uploaded successfully",
-        });
+  const handleUploadCompleteFor = (target: "payment" | "reservation") =>
+    async (result: { successful: Array<{ uploadURL?: string }> }) => {
+      if (result.successful && result.successful.length > 0) {
+        const uploadedUrl = result.successful[0].uploadURL;
+        if (uploadedUrl) {
+          const response = await apiRequest("PUT", "/api/payment-screenshots", {
+            screenshotURL: uploadedUrl,
+          });
+          const data = await response.json();
+          if (target === "reservation") {
+            setReservationScreenshotUrl(data.objectPath);
+          } else {
+            setPaymentScreenshotUrl(data.objectPath);
+          }
+          toast({
+            title: "Upload Complete",
+            description:
+              target === "reservation"
+                ? "Reservation screenshot uploaded successfully"
+                : "Payment screenshot uploaded successfully",
+          });
+        }
       }
-    }
-  };
+    };
 
   const onSubmit = (data: RentalFormData) => {
     updateMutation.mutate(data);
@@ -410,9 +456,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                 {paymentScreenshotUrl ? (
                   <div className="space-y-2">
                     <img
-                      src={paymentScreenshotUrl.startsWith("/objects/")
-                        ? paymentScreenshotUrl
-                        : paymentScreenshotUrl}
+                      src={paymentScreenshotUrl}
                       alt="Payment screenshot"
                       className="max-h-32 rounded-md border object-cover"
                     />
@@ -430,7 +474,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                     maxNumberOfFiles={1}
                     maxFileSize={10485760}
                     onGetUploadParameters={handleGetUploadParameters}
-                    onComplete={handleUploadComplete}
+                    onComplete={handleUploadCompleteFor("payment")}
                     buttonClassName="w-full"
                   >
                     <div className="flex items-center gap-2">
@@ -440,6 +484,144 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
                   </ObjectUploader>
                 )}
               </div>
+            </div>
+
+            <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3 space-y-3">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-neon-magenta">Reservation Payment</p>
+
+              <FormField
+                control={form.control}
+                name="reservationFee"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reservation Amount (₱)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00 (leave empty if no reservation)"
+                        value={field.value ?? ""}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (!e.target.value || parseFloat(e.target.value) <= 0) {
+                            form.setValue("reservationStatus", "none");
+                          } else if (form.getValues("reservationStatus") === "none") {
+                            form.setValue("reservationStatus", "pending");
+                          }
+                        }}
+                        data-testid="input-edit-reservation-fee"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {!!form.watch("reservationFee") && parseFloat(form.watch("reservationFee") || "0") > 0 && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="reservationStatus"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-md border p-3">
+                        <div>
+                          <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reservation Status</FormLabel>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {field.value === "confirmed" ? "Reservation confirmed" : "Reservation pending"}
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value === "confirmed"}
+                            onCheckedChange={(checked) => field.onChange(checked ? "confirmed" : "pending")}
+                            data-testid="switch-reservation-status"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("reservationStatus") === "confirmed" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="reservationDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reservation Date</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="date"
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                max={format(new Date(), "yyyy-MM-dd")}
+                                data-testid="input-edit-reservation-date"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="reservationBank"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Bank / E-Wallet</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                placeholder="e.g. BPI, BDO, GCash, Maya"
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                data-testid="input-edit-reservation-bank"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Reservation Screenshot</FormLabel>
+                    <div className="mt-2">
+                      {reservationScreenshotUrl ? (
+                        <div className="space-y-2">
+                          <img
+                            src={reservationScreenshotUrl}
+                            alt="Reservation screenshot"
+                            className="max-h-32 rounded-md border object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setReservationScreenshotUrl(null)}
+                          >
+                            Remove Screenshot
+                          </Button>
+                        </div>
+                      ) : (
+                        <ObjectUploader
+                          maxNumberOfFiles={1}
+                          maxFileSize={10485760}
+                          onGetUploadParameters={handleGetUploadParameters}
+                          onComplete={handleUploadCompleteFor("reservation")}
+                          buttonClassName="w-full"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Upload className="h-4 w-4" />
+                            <span>Upload Reservation Screenshot</span>
+                          </div>
+                        </ObjectUploader>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <FormField
@@ -456,27 +638,38 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="paymentStatus"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-md border p-3">
-                  <div>
-                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Payment Status</FormLabel>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {field.value === "confirmed" ? "Payment confirmed - included in finances" : "Reservation - not counted in finances"}
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value === "confirmed"}
-                      onCheckedChange={(checked) => field.onChange(checked ? "confirmed" : "pending")}
-                      data-testid="switch-payment-status"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {isSuperAdmin ? (
+              <FormField
+                control={form.control}
+                name="paymentStatus"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Payment Status</FormLabel>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {field.value === "confirmed" ? "Payment confirmed - included in finances" : "Pending - not counted in finances"}
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value === "confirmed"}
+                        onCheckedChange={(checked) => field.onChange(checked ? "confirmed" : "pending")}
+                        data-testid="switch-payment-status"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="rounded-md border border-dashed p-3">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Total Payment: {rental.paymentStatus === "confirmed" ? "Confirmed" : "Pending"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only the Admin user can change the total payment status.
+                </p>
+              </div>
+            )}
 
             {form.watch("paymentStatus") === "confirmed" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

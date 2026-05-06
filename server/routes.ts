@@ -363,13 +363,42 @@ export async function registerRoutes(
         });
       }
 
-      // If the rental is being created as confirmed, payment date + bank are required
+      // Harden against bypass via the DB default: any creation must explicitly
+      // start as "pending" unless the literal Admin user is creating a
+      // pre-confirmed rental. We force the field server-side so the schema
+      // default cannot silently produce a confirmed payment.
+      if (req.body?.paymentStatus !== "confirmed") {
+        req.body.paymentStatus = "pending";
+        req.body.paymentDate = null;
+        req.body.paymentBank = null;
+      }
+
+      // If the rental is being created with the FULL/total payment already
+      // confirmed, payment date + bank are required AND only the literal "Admin"
+      // user is allowed to do this.
       if (req.body?.paymentStatus === "confirmed") {
+        if (requester?.username !== "Admin") {
+          return res.status(403).json({
+            message: "Only the Admin user can confirm the total payment",
+          });
+        }
         const incomingDate = req.body?.paymentDate;
         const incomingBank = req.body?.paymentBank;
         if (!incomingDate || !String(incomingBank ?? "").trim()) {
           return res.status(400).json({
             message: "Payment date and bank are required to confirm a payment",
+          });
+        }
+      }
+
+      // If the rental is being created with the reservation already confirmed,
+      // reservation date + bank are required (any approved user may do this).
+      if (req.body?.reservationStatus === "confirmed") {
+        const rDate = req.body?.reservationDate;
+        const rBank = req.body?.reservationBank;
+        if (!rDate || !String(rBank ?? "").trim()) {
+          return res.status(400).json({
+            message: "Reservation date and bank are required to confirm a reservation",
           });
         }
       }
@@ -452,13 +481,22 @@ export async function registerRoutes(
         });
       }
 
-      // A confirmed payment must always have both paymentDate and paymentBank.
-      // This blocks both transitions to "confirmed" without metadata AND any
-      // subsequent attempt to clear paymentDate/paymentBank while still confirmed.
+      // A confirmed (full/total) payment must always have both paymentDate and
+      // paymentBank. Additionally, only the literal "Admin" user may TRANSITION
+      // the payment from pending → confirmed.
       const resultingStatus =
         req.body.paymentStatus !== undefined
           ? req.body.paymentStatus
           : existing.paymentStatus;
+      const isPaymentTransitionToConfirmed =
+        req.body.paymentStatus !== undefined &&
+        req.body.paymentStatus === "confirmed" &&
+        existing.paymentStatus !== "confirmed";
+      if (isPaymentTransitionToConfirmed && user?.username !== "Admin") {
+        return res.status(403).json({
+          message: "Only the Admin user can confirm the total payment",
+        });
+      }
       if (resultingStatus === "confirmed") {
         const incomingDate =
           req.body.paymentDate !== undefined
@@ -475,11 +513,33 @@ export async function registerRoutes(
         }
       }
 
+      // A confirmed reservation must always have both reservationDate and
+      // reservationBank. Any approved user may confirm a reservation.
+      const resultingReservationStatus =
+        req.body.reservationStatus !== undefined
+          ? req.body.reservationStatus
+          : existing.reservationStatus;
+      if (resultingReservationStatus === "confirmed") {
+        const rDate =
+          req.body.reservationDate !== undefined
+            ? req.body.reservationDate
+            : existing.reservationDate;
+        const rBank =
+          req.body.reservationBank !== undefined
+            ? req.body.reservationBank
+            : existing.reservationBank;
+        if (!rDate || !String(rBank ?? "").trim()) {
+          return res.status(400).json({
+            message: "Reservation date and bank are required for a confirmed reservation",
+          });
+        }
+      }
+
       const rental = await storage.updateRental(id, req.body);
 
       // Log each changed field
       const car = await storage.getCarById(existing.carId);
-      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'paymentStatus', 'paymentDate', 'paymentBank', 'notes', 'customerPhone', 'customerEmail'];
+      const fieldsToCheck = ['customerName', 'startDate', 'endDate', 'totalAmount', 'isFinalized', 'paymentStatus', 'paymentDate', 'paymentBank', 'reservationFee', 'reservationStatus', 'reservationDate', 'reservationBank', 'notes', 'customerPhone', 'customerEmail'];
       
       for (const field of fieldsToCheck) {
         if (req.body[field] !== undefined && String(req.body[field]) !== String((existing as any)[field])) {

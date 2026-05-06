@@ -60,9 +60,14 @@ const FIELD_LABELS: Record<string, string> = {
   endDate: "End Date",
   totalAmount: "Total Amount",
   paymentScreenshotUrl: "Payment Screenshot",
-  paymentStatus: "Payment Status",
+  paymentStatus: "Total Payment Status",
   paymentDate: "Payment Date",
   paymentBank: "Payment Bank",
+  reservationFee: "Reservation Amount",
+  reservationStatus: "Reservation Status",
+  reservationDate: "Reservation Date",
+  reservationBank: "Reservation Bank",
+  reservationScreenshotUrl: "Reservation Screenshot",
   notes: "Notes",
   carId: "Car",
   customerId: "Customer",
@@ -93,7 +98,13 @@ function formatValue(field: string, value: string | null | undefined): string {
     if (!isNaN(num)) return `₱${num.toLocaleString()}`;
   }
   if (field === "paymentStatus") {
-    return value === "confirmed" ? "Confirmed (Paid)" : "Pending (Reservation)";
+    return value === "confirmed" ? "Confirmed (Paid)" : "Pending";
+  }
+  if (field === "reservationStatus") {
+    if (value === "confirmed") return "Confirmed (Paid)";
+    if (value === "pending") return "Pending";
+    if (value === "none") return "None (no reservation)";
+    return value;
   }
   return value;
 }
