@@ -638,7 +638,7 @@ export function CreateRentalDialog({
                 >
                   {createMutation.isPending
                     ? "Booking..."
-                    : paymentScreenshotUrl
+                    : reservationScreenshotUrl
                       ? "Complete Booking"
                       : "Save as Reservation"}
                 </Button>
