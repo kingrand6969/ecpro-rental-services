@@ -420,8 +420,12 @@ export async function registerRoutes(
         const existStart = new Date(existing.startDate);
         const existEnd = new Date(existing.endDate);
         
-        // Check for overlapping dates
-        if ((newStart <= existEnd && newEnd >= existStart)) {
+        // Check for overlapping dates.
+        // Same-day handover is allowed: a rental ending on day X does not
+        // conflict with another rental starting on day X (car returned in
+        // the morning, re-rented in the afternoon — or returned past
+        // midnight and re-rented that same morning).
+        if (newStart < existEnd && newEnd > existStart) {
           return res.status(400).json({ 
             message: "This car has an overlapping rental during the selected dates" 
           });
