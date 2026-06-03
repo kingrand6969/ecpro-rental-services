@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInMonths } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -185,10 +185,36 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
     .sort((a, b) => (a.startDate as string).localeCompare(b.startDate as string));
   const totalIncome = carRentals.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
 
-  const allCarRentalsIncome = (allRentals ?? [])
-    .filter((r) => r.carId === carId && r.paymentStatus === "confirmed")
-    .reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
-  const netProfit = allCarRentalsIncome - totalExpenses;
+  const confirmedCarRentals = (allRentals ?? []).filter(
+    (r) => r.carId === carId && r.paymentStatus === "confirmed",
+  );
+  const allCarRentalsIncome = confirmedCarRentals.reduce(
+    (sum, r) => sum + parseFloat(r.totalAmount),
+    0,
+  );
+
+  // Monthly amortization = car.monthlyPayment × number of months the car has
+  // been in operation (since dateAcquired, falling back to earliest activity).
+  const monthlyPayment = car ? parseFloat(car.monthlyPayment) : 0;
+  const monthsOwned = (() => {
+    let startStr: string | null = (car?.dateAcquired as string) ?? null;
+    if (!startStr) {
+      const activityDates = [
+        ...(allRentals ?? [])
+          .filter((r) => r.carId === carId)
+          .map((r) => r.startDate as string),
+        ...(expenses ?? []).map((e) => e.expenseDate as string),
+      ]
+        .filter(Boolean)
+        .sort();
+      startStr = activityDates[0] ?? null;
+    }
+    if (!startStr) return 1;
+    return Math.max(1, differenceInMonths(new Date(), parseISO(startStr)) + 1);
+  })();
+  const totalAmortization = monthlyPayment * monthsOwned;
+
+  const netProfit = allCarRentalsIncome - totalExpenses - totalAmortization;
   const isIncomeFiltered = !!incomeFrom || !!incomeTo;
 
   return (
@@ -200,7 +226,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3" data-testid="summary-car-income">
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Income</span>
             <span className="font-bold tabular-nums text-neon-cyan">₱{allCarRentalsIncome.toLocaleString()}</span>
@@ -209,8 +235,15 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Expenses</span>
             <span className="font-bold tabular-nums text-neon-magenta">₱{totalExpenses.toLocaleString()}</span>
           </div>
+          <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3" data-testid="summary-car-amortization">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Amortization</span>
+            <span className="font-bold tabular-nums text-neon-magenta">₱{totalAmortization.toLocaleString()}</span>
+            <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground block mt-0.5">
+              ₱{monthlyPayment.toLocaleString()}/mo × {monthsOwned}
+            </span>
+          </div>
           <div className={`rounded-md border p-3 ${netProfit >= 0 ? "border-neon-cyan/30 bg-neon-cyan/5" : "border-neon-magenta/30 bg-neon-magenta/5"}`} data-testid="summary-car-net">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Net</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Net Income</span>
             <span className={`font-bold tabular-nums ${netProfit >= 0 ? "text-neon-cyan" : "text-neon-magenta"}`}>₱{netProfit.toLocaleString()}</span>
           </div>
         </div>
