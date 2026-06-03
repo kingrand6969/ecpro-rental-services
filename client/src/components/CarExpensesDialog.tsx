@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -76,6 +76,8 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("list");
+  const [incomeFrom, setIncomeFrom] = useState("");
+  const [incomeTo, setIncomeTo] = useState("");
 
   const { data: car } = useQuery<Car>({
     queryKey: ["/api/cars", carId],
@@ -91,6 +93,11 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
     queryKey: ["/api/rentals"],
     enabled: !!carId,
   });
+
+  useEffect(() => {
+    setIncomeFrom("");
+    setIncomeTo("");
+  }, [carId]);
 
   const form = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
@@ -169,9 +176,20 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
 
   const carRentals = (allRentals ?? [])
     .filter((r) => r.carId === carId && r.paymentStatus === "confirmed")
+    .filter((r) => {
+      const start = r.startDate as string;
+      if (incomeFrom && start < incomeFrom) return false;
+      if (incomeTo && start > incomeTo) return false;
+      return true;
+    })
     .sort((a, b) => (a.startDate as string).localeCompare(b.startDate as string));
   const totalIncome = carRentals.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
-  const netProfit = totalIncome - totalExpenses;
+
+  const allCarRentalsIncome = (allRentals ?? [])
+    .filter((r) => r.carId === carId && r.paymentStatus === "confirmed")
+    .reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+  const netProfit = allCarRentalsIncome - totalExpenses;
+  const isIncomeFiltered = !!incomeFrom || !!incomeTo;
 
   return (
     <Dialog open={!!carId} onOpenChange={() => onClose()}>
@@ -185,7 +203,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3" data-testid="summary-car-income">
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Income</span>
-            <span className="font-bold tabular-nums text-neon-cyan">₱{totalIncome.toLocaleString()}</span>
+            <span className="font-bold tabular-nums text-neon-cyan">₱{allCarRentalsIncome.toLocaleString()}</span>
           </div>
           <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3" data-testid="summary-car-expenses">
             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Expenses</span>
@@ -211,10 +229,48 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
           </TabsList>
 
           <TabsContent value="income" className="mt-4">
+            <div className="flex items-end gap-3 flex-wrap mb-4">
+              <div className="flex flex-col gap-1">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">From</span>
+                <Input
+                  type="date"
+                  value={incomeFrom}
+                  max={incomeTo || undefined}
+                  onChange={(e) => setIncomeFrom(e.target.value)}
+                  className="w-40"
+                  data-testid="input-income-from"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">To</span>
+                <Input
+                  type="date"
+                  value={incomeTo}
+                  min={incomeFrom || undefined}
+                  onChange={(e) => setIncomeTo(e.target.value)}
+                  className="w-40"
+                  data-testid="input-income-to"
+                />
+              </div>
+              {isIncomeFiltered && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setIncomeFrom(""); setIncomeTo(""); }}
+                  className="font-mono text-xs uppercase tracking-wider"
+                  data-testid="button-clear-income-filter"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
             {carRentals.length > 0 ? (
               <>
-                <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3 mb-4 flex items-center justify-between">
-                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Income (Confirmed)</span>
+                <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3 mb-4 flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                    {isIncomeFiltered ? "Income (Selected Range)" : "Total Income (Confirmed)"}
+                  </span>
                   <span className="font-bold tabular-nums text-neon-cyan">₱{totalIncome.toLocaleString()}</span>
                 </div>
                 <Table>
@@ -242,7 +298,9 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
               </>
             ) : (
               <div className="rounded-md border border-dashed border-border bg-card text-center py-8 font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                No confirmed rental income for this car yet
+                {isIncomeFiltered
+                  ? "No confirmed income in the selected date range"
+                  : "No confirmed rental income for this car yet"}
               </div>
             )}
           </TabsContent>
