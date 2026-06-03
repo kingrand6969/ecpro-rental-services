@@ -43,7 +43,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import type { Car, Expense } from "@shared/schema";
+import type { Car, Expense, Rental } from "@shared/schema";
 
 const EXPENSE_CATEGORIES = [
   "Fuel",
@@ -84,6 +84,11 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
     queryKey: ["/api/cars", carId, "expenses"],
+    enabled: !!carId,
+  });
+
+  const { data: allRentals } = useQuery<Rental[]>({
+    queryKey: ["/api/rentals"],
     enabled: !!carId,
   });
 
@@ -162,24 +167,85 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
 
   const totalExpenses = expenses?.reduce((sum, e) => sum + parseFloat(e.amount), 0) ?? 0;
 
+  const carRentals = (allRentals ?? [])
+    .filter((r) => r.carId === carId && r.paymentStatus === "confirmed")
+    .sort((a, b) => (a.startDate as string).localeCompare(b.startDate as string));
+  const totalIncome = carRentals.reduce((sum, r) => sum + parseFloat(r.totalAmount), 0);
+  const netProfit = totalIncome - totalExpenses;
+
   return (
     <Dialog open={!!carId} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mono text-base uppercase tracking-widest">
-            {car?.name} • Expenses
+            {car?.name} • Income & Expenses
           </DialogTitle>
         </DialogHeader>
 
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3" data-testid="summary-car-income">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Income</span>
+            <span className="font-bold tabular-nums text-neon-cyan">₱{totalIncome.toLocaleString()}</span>
+          </div>
+          <div className="rounded-md border border-neon-magenta/30 bg-neon-magenta/5 p-3" data-testid="summary-car-expenses">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Expenses</span>
+            <span className="font-bold tabular-nums text-neon-magenta">₱{totalExpenses.toLocaleString()}</span>
+          </div>
+          <div className={`rounded-md border p-3 ${netProfit >= 0 ? "border-neon-cyan/30 bg-neon-cyan/5" : "border-neon-magenta/30 bg-neon-magenta/5"}`} data-testid="summary-car-net">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block">Net</span>
+            <span className={`font-bold tabular-nums ${netProfit >= 0 ? "text-neon-cyan" : "text-neon-magenta"}`}>₱{netProfit.toLocaleString()}</span>
+          </div>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="income" data-testid="tab-income-list" className="font-mono text-xs uppercase tracking-wider">
+              Income
+            </TabsTrigger>
             <TabsTrigger value="list" data-testid="tab-expenses-list" className="font-mono text-xs uppercase tracking-wider">
-              Expense History
+              Expenses
             </TabsTrigger>
             <TabsTrigger value="add" data-testid="tab-add-expense" className="font-mono text-xs uppercase tracking-wider">
               Add Expense
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="income" className="mt-4">
+            {carRentals.length > 0 ? (
+              <>
+                <div className="rounded-md border border-neon-cyan/30 bg-neon-cyan/5 p-3 mb-4 flex items-center justify-between">
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Total Income (Confirmed)</span>
+                  <span className="font-bold tabular-nums text-neon-cyan">₱{totalIncome.toLocaleString()}</span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Period</TableHead>
+                      <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Customer</TableHead>
+                      <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {carRentals.map((rental) => (
+                      <TableRow key={rental.id} data-testid={`income-row-${rental.id}`}>
+                        <TableCell className="text-muted-foreground tabular-nums whitespace-nowrap">
+                          {format(parseISO(rental.startDate as string), "MMM d")} – {format(parseISO(rental.endDate as string), "MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell>{rental.customerName}</TableCell>
+                        <TableCell className="text-right tabular-nums font-bold text-neon-cyan">
+                          ₱{parseFloat(rental.totalAmount).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            ) : (
+              <div className="rounded-md border border-dashed border-border bg-card text-center py-8 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                No confirmed rental income for this car yet
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="list" className="mt-4">
             {isLoading ? (
