@@ -41,6 +41,10 @@ import type {
 } from "@shared/schema";
 import { getOilChangeStatus, formatDaysAge } from "@/lib/oilChange";
 
+// How many days before/after today the Fleet Timeline shows and fetches.
+const TIMELINE_DAYS_BEFORE = 60;
+const TIMELINE_DAYS_AFTER = 90;
+
 const TIMELINE_COLORS = [
   "#22D3EE",
   "#F472B6",
@@ -88,8 +92,28 @@ export default function Dashboard() {
     queryKey: ["/api/cars"],
   });
 
+  // The timeline only renders a fixed window around today (see `visibleDays`),
+  // so we ask the server for just the rentals overlapping that window instead
+  // of the full history. Keeping "/api/rentals" as the key prefix means the
+  // existing mutation invalidations still refresh this query.
+  const timelineWindow = useMemo(() => {
+    const t = new Date();
+    return {
+      from: format(subDays(t, TIMELINE_DAYS_BEFORE), "yyyy-MM-dd"),
+      to: format(addDays(t, TIMELINE_DAYS_AFTER), "yyyy-MM-dd"),
+    };
+  }, []);
+
   const { data: rentals, isLoading: rentalsLoading } = useQuery<Rental[]>({
-    queryKey: ["/api/rentals"],
+    queryKey: ["/api/rentals", timelineWindow],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/rentals?from=${timelineWindow.from}&to=${timelineWindow.to}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      return res.json();
+    },
   });
 
   // KPI numbers come from a server-computed payload so they stay fast and
@@ -347,11 +371,12 @@ export default function Dashboard() {
     return items.slice(0, 10);
   }, [rentalLogs, expenseLogs, cars, today]);
 
-  // Show 90 days before and 90 days after today for scrollable range
+  // Scrollable range shown by the timeline; must match the window the rentals
+  // query fetches (see `timelineWindow`).
   const visibleDays = useMemo(() => {
     const t = new Date();
-    const start = subDays(t, 60);
-    const end = addDays(t, 90);
+    const start = subDays(t, TIMELINE_DAYS_BEFORE);
+    const end = addDays(t, TIMELINE_DAYS_AFTER);
     return eachDayOfInterval({ start, end });
   }, []);
 

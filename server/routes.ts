@@ -317,7 +317,25 @@ export async function registerRoutes(
   // Rental routes
   app.get("/api/rentals", isAuthenticated, async (req, res) => {
     try {
-      const rentals = await storage.getAllRentals();
+      // Optional from/to (YYYY-MM-DD) narrow results to rentals overlapping
+      // that window in SQL. Without params, all rentals are returned so
+      // existing callers keep working.
+      const rangeSchema = z.object({
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      });
+      const parsed = rangeSchema.safeParse({
+        from: req.query.from,
+        to: req.query.to,
+      });
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid from/to date; expected YYYY-MM-DD" });
+      }
+      const { from, to } = parsed.data;
+      const rentals =
+        from || to
+          ? await storage.getRentalsInRange(from, to)
+          : await storage.getAllRentals();
       res.json(rentals);
     } catch (error) {
       console.error("Error fetching rentals:", error);

@@ -67,6 +67,7 @@ export interface IStorage {
 
   // Rental operations
   getAllRentals(): Promise<Rental[]>;
+  getRentalsInRange(from?: string, to?: string): Promise<Rental[]>;
   getRentalById(id: number): Promise<Rental | undefined>;
   createRental(rental: InsertRental): Promise<Rental>;
   updateRental(id: number, rental: Partial<InsertRental>): Promise<Rental | undefined>;
@@ -284,6 +285,22 @@ export class DatabaseStorage implements IStorage {
   // Rental operations
   async getAllRentals(): Promise<Rental[]> {
     return db.select().from(rentals).orderBy(desc(rentals.createdAt));
+  }
+
+  // Returns rentals that overlap the [from, to] date window (inclusive).
+  // A rental overlaps when it starts on/before `to` and ends on/after `from`,
+  // so rentals spanning the window edges are included. Either bound may be
+  // omitted to leave that side open.
+  async getRentalsInRange(from?: string, to?: string): Promise<Rental[]> {
+    const conditions = [];
+    if (to) conditions.push(lte(rentals.startDate, to));
+    if (from) conditions.push(gte(rentals.endDate, from));
+    if (conditions.length === 0) return this.getAllRentals();
+    return db
+      .select()
+      .from(rentals)
+      .where(and(...conditions))
+      .orderBy(desc(rentals.createdAt));
   }
 
   async getRentalById(id: number): Promise<Rental | undefined> {
