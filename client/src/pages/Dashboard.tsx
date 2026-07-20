@@ -532,13 +532,19 @@ export default function Dashboard() {
     return visibleDays.findIndex((day) => isSameDay(day, t));
   }, [visibleDays]);
 
+  // Auto-center the timeline on today once the scroll container exists.
+  // The container only mounts after BOTH the cars and rentals queries settle
+  // (see `isLoading`), so this effect must re-run on that flip — depending on
+  // `cars` alone breaks when cars resolves before rentals (the ref is still
+  // null at that point and the effect never fires again).
+  const timelineReady = !carsLoading && !rentalsLoading;
   useEffect(() => {
-    if (scrollContainerRef.current && todayIndex >= 0) {
+    if (timelineReady && scrollContainerRef.current && todayIndex >= 0) {
       const DAY_WIDTH = 70;
       const scrollPosition = todayIndex * DAY_WIDTH - 100;
       scrollContainerRef.current.scrollLeft = Math.max(0, scrollPosition);
     }
-  }, [todayIndex, cars]);
+  }, [todayIndex, timelineReady]);
 
   const monthGroups = useMemo(() => {
     const groups: { month: Date; days: Date[]; startIndex: number }[] = [];
