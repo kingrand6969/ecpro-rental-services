@@ -142,6 +142,7 @@ export function CreateRentalDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       toast({
         title: "Success",
         description: "Rental booked successfully",

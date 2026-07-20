@@ -136,6 +136,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
       queryClient.invalidateQueries({ queryKey: ["/api/edit-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       toast({
         title: "Success",
         description: "Car updated successfully",
@@ -159,6 +160,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
       queryClient.invalidateQueries({ queryKey: ["/api/edit-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       toast({
         title: "Success",
         description: "Registration confirmed successfully",

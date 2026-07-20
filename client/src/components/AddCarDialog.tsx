@@ -93,6 +93,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       toast({
         title: "Success",
         description: "Car added successfully",

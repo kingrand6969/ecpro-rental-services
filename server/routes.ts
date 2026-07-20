@@ -314,6 +314,19 @@ export async function registerRoutes(
     }
   });
 
+  // Monthly income trend: pro-rated income per month for the last 12
+  // calendar months, computed in SQL. See `MonthlyIncomePoint` in
+  // shared/schema.ts for the definition.
+  app.get("/api/dashboard/income-trend", isAuthenticated, async (_req, res) => {
+    try {
+      const trend = await storage.getMonthlyIncomeTrend();
+      res.json(trend);
+    } catch (error) {
+      console.error("Error fetching income trend:", error);
+      res.status(500).json({ message: "Failed to fetch income trend" });
+    }
+  });
+
   // Rental routes
   app.get("/api/rentals", isAuthenticated, async (req, res) => {
     try {

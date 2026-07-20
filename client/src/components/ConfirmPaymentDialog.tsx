@@ -83,6 +83,7 @@ export function ConfirmPaymentDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       queryClient.invalidateQueries({ queryKey: ["/api/rental-logs"] });
       toast({
         title:

@@ -193,6 +193,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       toast({
         title: "Success",
         description: "Rental updated successfully",
@@ -215,6 +216,7 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
       toast({
         title: "Success",
         description: "Rental deleted successfully",

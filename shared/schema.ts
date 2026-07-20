@@ -367,6 +367,23 @@ export type DashboardStats = {
   totalCars: number;
 };
 
+// One point in the monthly income trend returned by
+// GET /api/dashboard/income-trend.
+//
+// - `month`: first day of the calendar month, formatted YYYY-MM-DD.
+// - `income`: sum of each confirmed rental's `totalAmount` pro-rated by
+//   overlap days with that month, using the same inclusive-day formula as
+//   `DashboardStats.monthIncome` above (overlap days / total rental days,
+//   both counted inclusively from start through end). Per-rental
+//   contributions across all months sum to exactly `totalAmount`, so the
+//   trend never double-counts rentals spanning month boundaries.
+// The server returns the last 12 calendar months (including the current
+// month), oldest first, with zeros for months that had no income.
+export type MonthlyIncomePoint = {
+  month: string;
+  income: number;
+};
+
 // Extended types with relations
 export type RentalWithCar = Rental & { car: Car };
 export type ExpenseWithCar = Expense & { car: Car };

@@ -32,9 +32,19 @@ import { CreateRentalDialog } from "@/components/CreateRentalDialog";
 import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { AvailableCarsDialog } from "@/components/AvailableCarsDialog";
 import { CarDetailsDialog } from "@/components/CarDetailsDialog";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+} from "recharts";
 import type {
   Car,
   DashboardStats,
+  MonthlyIncomePoint,
   Rental,
   RentalLogWithUser,
   ExpenseLogWithUser,
@@ -121,6 +131,13 @@ export default function Dashboard() {
   // semantics. We refetch periodically so long-lived sessions don't go stale.
   const { data: dashboardStats } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+    refetchInterval: 60_000,
+  });
+
+  // Pro-rated monthly income for the last 12 months, computed server-side
+  // with the same formula as the KPI cards (see MonthlyIncomePoint).
+  const { data: incomeTrend } = useQuery<MonthlyIncomePoint[]>({
+    queryKey: ["/api/dashboard/income-trend"],
     refetchInterval: 60_000,
   });
 
@@ -370,6 +387,18 @@ export default function Dashboard() {
     items.sort((a, b) => b.sortTime - a.sortTime);
     return items.slice(0, 10);
   }, [rentalLogs, expenseLogs, cars, today]);
+
+  // Chart-ready income trend: short month labels plus a flag for the current
+  // (still in progress) month so it can be styled differently.
+  const incomeTrendData = useMemo(() => {
+    if (!incomeTrend) return [];
+    const currentMonthKey = format(today, "yyyy-MM");
+    return incomeTrend.map((point) => ({
+      ...point,
+      label: format(parseISO(point.month), "MMM"),
+      isCurrent: point.month.startsWith(currentMonthKey),
+    }));
+  }, [incomeTrend, today]);
 
   // Scrollable range shown by the timeline; must match the window the rentals
   // query fetches (see `timelineWindow`).
@@ -682,6 +711,78 @@ export default function Dashboard() {
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Income Trend */}
+            <div
+              className="glass-panel rounded-md p-5 shrink-0"
+              data-testid="panel-income-trend"
+            >
+              <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+                <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  Income Trend
+                </h2>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
+                  Pro-rated monthly · last 12 mo
+                </span>
+              </div>
+              {incomeTrendData.length === 0 ? (
+                <Skeleton className="h-36 w-full" />
+              ) : (
+                <div className="h-36" data-testid="chart-income-trend">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={incomeTrendData}
+                      margin={{ top: 4, right: 4, bottom: 0, left: 4 }}
+                    >
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{
+                          fontSize: 10,
+                          fontFamily: "monospace",
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
+                        interval={0}
+                      />
+                      <YAxis hide domain={[0, "auto"]} />
+                      <Tooltip
+                        cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
+                        contentStyle={{
+                          background: "hsl(var(--popover))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: 6,
+                          fontFamily: "monospace",
+                          fontSize: 12,
+                        }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                        labelFormatter={(_, payload) => {
+                          const p = payload?.[0]?.payload as
+                            | (MonthlyIncomePoint & { isCurrent: boolean })
+                            | undefined;
+                          if (!p) return "";
+                          const name = format(parseISO(p.month), "MMMM yyyy");
+                          return p.isCurrent ? `${name} (in progress)` : name;
+                        }}
+                        formatter={(value: number) => [
+                          `₱${Math.round(value).toLocaleString()}`,
+                          "Income",
+                        ]}
+                      />
+                      <Bar dataKey="income" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                        {incomeTrendData.map((point) => (
+                          <Cell
+                            key={point.month}
+                            fill="#22D3EE"
+                            fillOpacity={point.isCurrent ? 0.45 : 0.85}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
 
             {/* Fleet Timeline */}

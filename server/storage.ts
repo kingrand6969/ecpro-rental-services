@@ -30,6 +30,7 @@ import {
   type InsertExpenseLog,
   type ExpenseLogWithUser,
   type DashboardStats,
+  type MonthlyIncomePoint,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -110,6 +111,7 @@ export interface IStorage {
     totalCustomers: number;
   }>;
   getDashboardStats(): Promise<DashboardStats>;
+  getMonthlyIncomeTrend(): Promise<MonthlyIncomePoint[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -629,6 +631,51 @@ export class DatabaseStorage implements IStorage {
       availableCars: Math.max(0, totalCars - activeRentals),
       totalCars,
     };
+  }
+
+  // Pro-rated income per calendar month for the last 12 months (including
+  // the current month), computed in SQL with the same inclusive-day overlap
+  // formula as getDashboardStats above. See `MonthlyIncomePoint` in
+  // shared/schema.ts for the precise definition. Months with no income are
+  // returned as zeros so the chart always has 12 evenly spaced points.
+  async getMonthlyIncomeTrend(): Promise<MonthlyIncomePoint[]> {
+    const result = await db.execute(sql`
+      WITH months AS (
+        SELECT
+          m::date AS month_start,
+          (m + interval '1 month - 1 day')::date AS month_end
+        FROM generate_series(
+          date_trunc('month', CURRENT_DATE) - interval '11 months',
+          date_trunc('month', CURRENT_DATE),
+          interval '1 month'
+        ) AS m
+      )
+      SELECT
+        to_char(months.month_start, 'YYYY-MM-DD') AS month,
+        COALESCE(SUM(
+          -- Same self-consistent inclusive-day pro-rating as
+          -- getDashboardStats: (end - start + 1) in both numerator and
+          -- denominator so per-rental sums across months equal total_amount.
+          (LEAST(r.end_date, months.month_end) - GREATEST(r.start_date, months.month_start) + 1)::float8
+          / GREATEST(r.end_date - r.start_date + 1, 1)::float8
+          * r.total_amount::float8
+        ), 0)::float8 AS income
+      FROM months
+      LEFT JOIN rentals r
+        ON r.start_date <= months.month_end
+       AND r.end_date >= months.month_start
+       AND r.payment_status = 'confirmed'
+      GROUP BY months.month_start
+      ORDER BY months.month_start
+    `);
+
+    return (result.rows ?? []).map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        month: String(r.month),
+        income: Number(r.income) || 0,
+      };
+    });
   }
 }
 
