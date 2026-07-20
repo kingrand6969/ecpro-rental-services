@@ -11,6 +11,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -78,6 +88,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
   const [activeTab, setActiveTab] = useState("list");
   const [incomeFrom, setIncomeFrom] = useState("");
   const [incomeTo, setIncomeTo] = useState("");
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
 
   const { data: car } = useQuery<Car>({
     queryKey: ["/api/cars", carId],
@@ -158,6 +169,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
         title: "Success",
         description: "Expense deleted successfully",
       });
+      setExpenseToDelete(null);
     },
     onError: () => {
       toast({
@@ -383,7 +395,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => deleteMutation.mutate(expense.id)}
+                              onClick={() => setExpenseToDelete(expense)}
                               disabled={deleteMutation.isPending}
                               data-testid={`button-delete-expense-${expense.id}`}
                             >
@@ -532,6 +544,29 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
             </Form>
           </TabsContent>
         </Tabs>
+
+        <AlertDialog open={!!expenseToDelete} onOpenChange={(open) => { if (!open) setExpenseToDelete(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-mono text-base uppercase tracking-widest">Delete Expense</AlertDialogTitle>
+              <AlertDialogDescription className="font-mono text-xs">
+                Are you sure you want to delete this {expenseToDelete?.category.toLowerCase()} expense
+                {expenseToDelete ? ` of ₱${parseFloat(expenseToDelete.amount).toLocaleString()}` : ""}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="font-mono text-xs uppercase tracking-wider" data-testid="button-cancel-delete-expense">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => expenseToDelete && deleteMutation.mutate(expenseToDelete.id)}
+                disabled={deleteMutation.isPending}
+                className="bg-destructive text-destructive-foreground font-mono text-xs uppercase tracking-wider"
+                data-testid="button-confirm-delete-expense"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
