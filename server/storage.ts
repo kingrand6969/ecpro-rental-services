@@ -540,7 +540,10 @@ export class DatabaseStorage implements IStorage {
         SELECT
           CURRENT_DATE AS today,
           date_trunc('month', CURRENT_DATE)::date AS month_start,
-          (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date AS month_end
+          (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date AS month_end,
+          (date_trunc('month', CURRENT_DATE) - interval '1 month')::date AS last_month_start,
+          (date_trunc('month', CURRENT_DATE) - interval '1 day')::date AS last_month_end,
+          date_trunc('year', CURRENT_DATE)::date AS year_start
       )
       SELECT
         (
@@ -570,6 +573,30 @@ export class DatabaseStorage implements IStorage {
           WHERE r.start_date <= b.month_end AND r.end_date >= b.month_start
             AND r.payment_status = 'confirmed'
         ) AS month_income,
+        (
+          -- Same pro-rated overlap formula as month_income, over the
+          -- previous calendar month.
+          SELECT COALESCE(SUM(
+            (LEAST(r.end_date, b.last_month_end) - GREATEST(r.start_date, b.last_month_start) + 1)::float8
+            / GREATEST(r.end_date - r.start_date + 1, 1)::float8
+            * r.total_amount::float8
+          ), 0)::float8
+          FROM rentals r, bounds b
+          WHERE r.start_date <= b.last_month_end AND r.end_date >= b.last_month_start
+            AND r.payment_status = 'confirmed'
+        ) AS last_month_income,
+        (
+          -- Same pro-rated overlap formula, over Jan 1 through today
+          -- (inclusive) of the current year.
+          SELECT COALESCE(SUM(
+            (LEAST(r.end_date, b.today) - GREATEST(r.start_date, b.year_start) + 1)::float8
+            / GREATEST(r.end_date - r.start_date + 1, 1)::float8
+            * r.total_amount::float8
+          ), 0)::float8
+          FROM rentals r, bounds b
+          WHERE r.start_date <= b.today AND r.end_date >= b.year_start
+            AND r.payment_status = 'confirmed'
+        ) AS year_to_date_income,
         (SELECT COUNT(*)::int FROM cars) AS total_cars
     `);
 
@@ -580,6 +607,8 @@ export class DatabaseStorage implements IStorage {
       activeRentals,
       todayIncome: Number(row.today_income) || 0,
       monthIncome: Number(row.month_income) || 0,
+      lastMonthIncome: Number(row.last_month_income) || 0,
+      yearToDateIncome: Number(row.year_to_date_income) || 0,
       availableCars: Math.max(0, totalCars - activeRentals),
       totalCars,
     };

@@ -144,6 +144,8 @@ export default function Dashboard() {
       activeRentals: 0,
       todayIncome: 0,
       monthIncome: 0,
+      lastMonthIncome: 0,
+      yearToDateIncome: 0,
       availableCars: 0,
       totalCars: cars?.length ?? 0,
     };
@@ -153,6 +155,7 @@ export default function Dashboard() {
   const animToday = useAnimatedNumber(kpis.todayIncome);
   const animMonth = useAnimatedNumber(kpis.monthIncome);
   const animAvailable = useAnimatedNumber(kpis.availableCars);
+  const animYtd = useAnimatedNumber(kpis.yearToDateIncome);
 
   // Activity feed: mixes rental logs, expense logs, and derived ops alerts
   // (oil-change due, OR/CR registration due) into a single recency/urgency-
@@ -498,30 +501,62 @@ export default function Dashboard() {
   const MONTH_HEADER_HEIGHT = 36;
   const DAY_HEADER_HEIGHT = 36;
 
+  // "vs last month" delta for the This Month card. Only shown once server
+  // stats have arrived (so we don't flash a bogus -100% while loading) and
+  // only when last month had income (so the % is well-defined).
+  const monthDelta =
+    dashboardStats && dashboardStats.lastMonthIncome > 0
+      ? ((dashboardStats.monthIncome - dashboardStats.lastMonthIncome) /
+          dashboardStats.lastMonthIncome) *
+        100
+      : null;
+
   const kpiCards = [
     {
       label: "Active Rentals",
       value: animActive.toString(),
       suffix: "",
       prefix: "",
+      sub: null as string | null,
+      subTone: "muted" as "up" | "down" | "muted",
     },
     {
       label: "Today's Income",
       value: animToday.toLocaleString(),
       prefix: "₱",
       suffix: "",
+      sub: null,
+      subTone: "muted" as const,
     },
     {
       label: "This Month",
       value: animMonth.toLocaleString(),
       prefix: "₱",
       suffix: "",
+      sub:
+        monthDelta !== null
+          ? `${monthDelta >= 0 ? "+" : ""}${monthDelta.toFixed(0)}% vs last mo (₱${Math.round(kpis.lastMonthIncome).toLocaleString()})`
+          : dashboardStats
+            ? `Last mo ₱${Math.round(kpis.lastMonthIncome).toLocaleString()}`
+            : null,
+      subTone:
+        monthDelta === null ? ("muted" as const) : monthDelta >= 0 ? ("up" as const) : ("down" as const),
+    },
+    {
+      label: "Year to Date",
+      value: animYtd.toLocaleString(),
+      prefix: "₱",
+      suffix: "",
+      sub: null,
+      subTone: "muted" as const,
     },
     {
       label: "Available Cars",
       value: animAvailable.toString(),
       prefix: "",
       suffix: kpis.totalCars ? ` / ${kpis.totalCars}` : "",
+      sub: null,
+      subTone: "muted" as const,
     },
   ];
 
@@ -568,8 +603,8 @@ export default function Dashboard() {
 
       {isLoading ? (
         <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[0, 1, 2, 3].map((i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {[0, 1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-24 w-full" />
             ))}
           </div>
@@ -580,7 +615,7 @@ export default function Dashboard() {
         <div className="flex-1 overflow-auto p-4 md:p-6 lg:flex lg:gap-6 neon-scrollbar min-h-0">
           <div className="flex-1 flex flex-col gap-6 min-w-0">
             {/* KPI Row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {kpiCards.map((kpi, i) => (
                 <div
                   key={i}
@@ -606,6 +641,20 @@ export default function Dashboard() {
                       </span>
                     )}
                   </div>
+                  {kpi.sub && (
+                    <span
+                      className={`text-[10px] font-mono tracking-wider ${
+                        kpi.subTone === "up"
+                          ? "text-neon-cyan"
+                          : kpi.subTone === "down"
+                            ? "text-neon-magenta"
+                            : "text-muted-foreground"
+                      }`}
+                      data-testid={`kpi-sub-${i}`}
+                    >
+                      {kpi.sub}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

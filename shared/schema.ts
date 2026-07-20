@@ -351,12 +351,18 @@ export type InsertExpenseLog = z.infer<typeof insertExpenseLogSchema>;
 //   across all periods sum to exactly `totalAmount`. This avoids the
 //   double-counting that the previous client-side approximation produced
 //   for rentals spanning month boundaries.
+// - `lastMonthIncome`: same pro-rated overlap formula as `monthIncome`, but
+//   over the previous calendar month.
+// - `yearToDateIncome`: same pro-rated overlap formula, over Jan 1 of the
+//   current year through today (inclusive).
 // - `activeRentals`: distinct cars currently rented (today within range).
 // - `availableCars`: `totalCars - activeRentals`, clamped at zero.
 export type DashboardStats = {
   activeRentals: number;
   todayIncome: number;
   monthIncome: number;
+  lastMonthIncome: number;
+  yearToDateIncome: number;
   availableCars: number;
   totalCars: number;
 };
