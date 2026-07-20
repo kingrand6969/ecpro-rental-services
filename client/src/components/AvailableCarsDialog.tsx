@@ -43,8 +43,8 @@ export function AvailableCarsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Available Cars</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="font-mono text-base uppercase tracking-widest">Available Cars</DialogTitle>
+          <DialogDescription className="font-mono text-xs uppercase tracking-widest text-neon-cyan">
             {format(selectedDate, "MMMM d, yyyy")}
           </DialogDescription>
         </DialogHeader>
@@ -56,7 +56,7 @@ export function AvailableCarsDialog({
               return (
                 <div
                   key={car.id}
-                  className="p-3 rounded-md border"
+                  className="p-3 rounded-md border border-border bg-card"
                   data-testid={`available-car-popup-${car.id}`}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -66,7 +66,7 @@ export function AvailableCarsDialog({
                     />
                     <span className="font-medium">{car.name}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                     {nextRental
                       ? `Available until ${format(new Date(nextRental.getTime() - 86400000), "MMM d")}`
                       : "Available all month"}
@@ -75,7 +75,7 @@ export function AvailableCarsDialog({
               );
             })
           ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground py-4 text-center">
               No cars available on this date
             </p>
           )}

@@ -173,25 +173,25 @@ export function LogDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl" data-testid="dialog-log-details">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 font-mono text-base uppercase tracking-widest">
             {isCarLog ? (
               <>
-                <CarIcon className="h-5 w-5" />
+                <CarIcon className="h-5 w-5 text-neon-cyan" />
                 Car Edit Details
               </>
             ) : isRentalLog ? (
               <>
-                <ClipboardList className="h-5 w-5" />
+                <ClipboardList className="h-5 w-5 text-neon-cyan" />
                 Rental Activity Details
               </>
             ) : (
               <>
-                <Receipt className="h-5 w-5" />
+                <Receipt className="h-5 w-5 text-neon-cyan" />
                 Expense Activity Details
               </>
             )}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="font-mono text-xs">
             Complete information about this activity log entry
           </DialogDescription>
         </DialogHeader>
@@ -222,7 +222,7 @@ export function LogDetailsDialog({
             <Separator />
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-muted-foreground">
+              <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                 Performed By
               </h4>
               <div className="flex items-center gap-3 rounded-md border p-3">
@@ -246,7 +246,7 @@ export function LogDetailsDialog({
             <Separator />
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-muted-foreground">
+              <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                 {isCarLog ? "Car" : isRentalLog ? "Rental Information" : "Expense Information"}
               </h4>
               {isCarLog ? (
@@ -437,8 +437,8 @@ export function LogDetailsDialog({
             <Separator />
 
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-1">
-                <Info className="h-4 w-4" />
+              <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                <Info className="h-4 w-4 text-neon-cyan" />
                 Change Details
               </h4>
 

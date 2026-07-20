@@ -423,20 +423,21 @@ export default function Admin() {
       <AlertDialog open={!!userToToggle} onOpenChange={() => setUserToToggle(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle className="font-mono text-base uppercase tracking-widest">
               {userToToggle?.isAdmin ? "Remove Admin Access" : "Grant Admin Access"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="font-mono text-xs">
               {userToToggle?.isAdmin
                 ? `Are you sure you want to remove admin privileges from ${userToToggle?.email ?? "this user"}?`
                 : `Are you sure you want to grant admin privileges to ${userToToggle?.email ?? "this user"}? They will be able to edit rentals and manage cars.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="font-mono text-xs uppercase tracking-wider">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => userToToggle && toggleAdminMutation.mutate(userToToggle.id)}
               disabled={toggleAdminMutation.isPending}
+              className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
             >
               {toggleAdminMutation.isPending ? "Updating..." : "Confirm"}
             </AlertDialogAction>
@@ -447,16 +448,17 @@ export default function Admin() {
       <AlertDialog open={!!userToApprove} onOpenChange={() => setUserToApprove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Approve User</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="font-mono text-base uppercase tracking-widest">Approve User</AlertDialogTitle>
+            <AlertDialogDescription className="font-mono text-xs">
               Are you sure you want to approve {userToApprove?.email ?? "this user"}? They will be able to login to the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="font-mono text-xs uppercase tracking-wider">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => userToApprove && approveMutation.mutate(userToApprove.id)}
               disabled={approveMutation.isPending}
+              className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
             >
               {approveMutation.isPending ? "Approving..." : "Approve"}
             </AlertDialogAction>
@@ -467,17 +469,17 @@ export default function Admin() {
       <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="font-mono text-base uppercase tracking-widest">Delete User</AlertDialogTitle>
+            <AlertDialogDescription className="font-mono text-xs">
               Are you sure you want to delete {userToDelete?.username ?? userToDelete?.email ?? "this user"}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="font-mono text-xs uppercase tracking-wider">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => userToDelete && deleteUserMutation.mutate(userToDelete.id)}
               disabled={deleteUserMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground font-mono text-xs uppercase tracking-wider"
             >
               {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
@@ -488,16 +490,17 @@ export default function Admin() {
       <AlertDialog open={!!userToResetPassword} onOpenChange={() => setUserToResetPassword(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset Password</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="font-mono text-base uppercase tracking-widest">Reset Password</AlertDialogTitle>
+            <AlertDialogDescription className="font-mono text-xs">
               Are you sure you want to reset the password for {userToResetPassword?.username ?? userToResetPassword?.email ?? "this user"}? Their password will be set to "12345678" and they will be required to change it on next login.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="font-mono text-xs uppercase tracking-wider">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => userToResetPassword && resetPasswordMutation.mutate(userToResetPassword.id)}
               disabled={resetPasswordMutation.isPending}
+              className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
             >
               {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
             </AlertDialogAction>

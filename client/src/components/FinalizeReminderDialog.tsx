@@ -85,10 +85,10 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
       <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-500" />
-            <DialogTitle>Finalization Reminder</DialogTitle>
+            <Clock className="h-5 w-5 text-neon-magenta" />
+            <DialogTitle className="font-mono text-base uppercase tracking-widest">Finalization Reminder</DialogTitle>
           </div>
-          <DialogDescription>
+          <DialogDescription className="font-mono text-xs">
             The following bookings are not yet finalized.
             {isSuperAdmin
               ? " Would you like to finalize them?"
@@ -98,9 +98,9 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
 
         <div className="space-y-4 mt-4">
           {isLoading ? (
-            <p className="text-center text-muted-foreground py-4">Loading...</p>
+            <p className="text-center font-mono text-xs uppercase tracking-widest text-muted-foreground py-4">Loading...</p>
           ) : pendingRentals.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4">
+            <p className="text-center font-mono text-xs uppercase tracking-widest text-muted-foreground py-4">
               No pending reminders at this time
             </p>
           ) : (
@@ -109,7 +109,7 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
               return (
                 <Card key={rental.id} className="p-4" data-testid={`reminder-card-${rental.id}`}>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {car && (
                           <div
@@ -118,9 +118,19 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
                           />
                         )}
                         <span className="font-medium">{car?.name ?? "Unknown Car"}</span>
-                        <Badge variant="outline">{car?.plateNumber}</Badge>
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px] uppercase tracking-widest border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan"
+                        >
+                          {car?.plateNumber}
+                        </Badge>
                       </div>
-                      <Badge variant="secondary">Not Finalized</Badge>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-[10px] uppercase tracking-widest border-neon-magenta/40 bg-neon-magenta/10 text-neon-magenta"
+                      >
+                        Not Finalized
+                      </Badge>
                     </div>
 
                     <Separator />
@@ -138,8 +148,8 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-semibold">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-lg font-bold tabular-nums text-neon-cyan">
                         ₱{parseFloat(rental.totalAmount).toLocaleString()}
                       </span>
                       <div className="flex gap-2">
@@ -148,6 +158,7 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
                           size="sm"
                           onClick={() => dismissMutation.mutate(rental.id)}
                           disabled={dismissMutation.isPending}
+                          className="font-mono text-xs uppercase tracking-wider"
                           data-testid={`dismiss-reminder-${rental.id}`}
                         >
                           Remind Later
@@ -157,6 +168,7 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
                             size="sm"
                             onClick={() => finalizeMutation.mutate(rental.id)}
                             disabled={finalizeMutation.isPending}
+                            className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                             data-testid={`finalize-rental-${rental.id}`}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1" />
@@ -173,7 +185,12 @@ export function FinalizeReminderDialog({ isOpen, onClose, cars }: FinalizeRemind
         </div>
 
         <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={onClose} data-testid="close-reminder-dialog">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="font-mono text-xs uppercase tracking-wider"
+            data-testid="close-reminder-dialog"
+          >
             Close
           </Button>
         </div>

@@ -180,7 +180,7 @@ export default function Customers() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Add New Customer</DialogTitle>
+                <DialogTitle className="font-mono text-base uppercase tracking-widest">Add New Customer</DialogTitle>
               </DialogHeader>
               <Form {...addForm}>
                 <form onSubmit={addForm.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
@@ -189,7 +189,7 @@ export default function Customers() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Name *</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Name *</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="John Doe" data-testid="input-customer-name" />
                         </FormControl>
@@ -202,7 +202,7 @@ export default function Customers() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Email</FormLabel>
                         <FormControl>
                           <Input {...field} type="email" placeholder="john@example.com" data-testid="input-customer-email" />
                         </FormControl>
@@ -215,7 +215,7 @@ export default function Customers() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Phone</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="+1 234 567 8900" data-testid="input-customer-phone" />
                         </FormControl>
@@ -228,7 +228,7 @@ export default function Customers() {
                     name="idNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>ID / Driver's License</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">ID / Driver's License</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="DL12345678" data-testid="input-customer-id" />
                         </FormControl>
@@ -241,7 +241,7 @@ export default function Customers() {
                     name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Address</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Address</FormLabel>
                         <FormControl>
                           <Textarea {...field} placeholder="123 Main St, City" data-testid="input-customer-address" />
                         </FormControl>
@@ -254,7 +254,7 @@ export default function Customers() {
                     name="notes"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Notes</FormLabel>
+                        <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Notes</FormLabel>
                         <FormControl>
                           <Textarea {...field} placeholder="Additional notes..." data-testid="input-customer-notes" />
                         </FormControl>
@@ -262,11 +262,21 @@ export default function Customers() {
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setAddCustomerOpen(false)}>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setAddCustomerOpen(false)}
+                      className="font-mono text-xs uppercase tracking-wider"
+                    >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-customer">
+                    <Button
+                      type="submit"
+                      disabled={createMutation.isPending}
+                      className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
+                      data-testid="button-submit-customer"
+                    >
                       {createMutation.isPending ? "Adding..." : "Add Customer"}
                     </Button>
                   </div>
@@ -501,7 +511,7 @@ export default function Customers() {
       <Dialog open={editCustomerOpen} onOpenChange={setEditCustomerOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogTitle className="font-mono text-base uppercase tracking-widest">Edit Customer</DialogTitle>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit((data) => updateMutation.mutate(data))} className="space-y-4">
@@ -510,7 +520,7 @@ export default function Customers() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name *</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Name *</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="John Doe" data-testid="input-edit-customer-name" />
                     </FormControl>
@@ -523,7 +533,7 @@ export default function Customers() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Email</FormLabel>
                     <FormControl>
                       <Input {...field} type="email" placeholder="john@example.com" data-testid="input-edit-customer-email" />
                     </FormControl>
@@ -536,7 +546,7 @@ export default function Customers() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Phone</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="+1 234 567 8900" data-testid="input-edit-customer-phone" />
                     </FormControl>
@@ -549,7 +559,7 @@ export default function Customers() {
                 name="idNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ID / Driver's License</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">ID / Driver's License</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="DL12345678" data-testid="input-edit-customer-id" />
                     </FormControl>
@@ -562,7 +572,7 @@ export default function Customers() {
                 name="address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Address</FormLabel>
                     <FormControl>
                       <Textarea {...field} placeholder="123 Main St, City" data-testid="input-edit-customer-address" />
                     </FormControl>
@@ -575,7 +585,7 @@ export default function Customers() {
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Notes</FormLabel>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Notes</FormLabel>
                     <FormControl>
                       <Textarea {...field} placeholder="Additional notes..." data-testid="input-edit-customer-notes" />
                     </FormControl>
@@ -583,11 +593,21 @@ export default function Customers() {
                   </FormItem>
                 )}
               />
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditCustomerOpen(false)}>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditCustomerOpen(false)}
+                  className="font-mono text-xs uppercase tracking-wider"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateMutation.isPending} data-testid="button-update-customer">
+                <Button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
+                  data-testid="button-update-customer"
+                >
                   {updateMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
