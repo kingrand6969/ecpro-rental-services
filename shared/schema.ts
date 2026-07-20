@@ -10,6 +10,7 @@ import {
   decimal,
   boolean,
   date,
+  serial,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -141,7 +142,10 @@ export const monthlyPayments = pgTable("monthly_payments", {
 
 // Edit logs table for tracking car edits
 export const editLogs = pgTable("edit_logs", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  // Kept as serial (not identity) to match the production database — the
+  // publish migration cannot convert serial→identity without a sequence-name
+  // collision, so both environments stay on serial for this table.
+  id: serial("id").primaryKey(),
   carId: integer("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull().references(() => users.id),
   fieldName: varchar("field_name", { length: 100 }).notNull(),
@@ -172,7 +176,9 @@ export const expenseLogs = pgTable("expense_logs", {
 
 // Rental logs table for tracking rental changes (create, update, delete)
 export const rentalLogs = pgTable("rental_logs", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  // Kept as serial (not identity) to match the production database — see
+  // note on editLogs above.
+  id: serial("id").primaryKey(),
   rentalId: integer("rental_id"), // nullable because rental may be deleted
   carId: integer("car_id").notNull(),
   userId: varchar("user_id").notNull().references(() => users.id),
