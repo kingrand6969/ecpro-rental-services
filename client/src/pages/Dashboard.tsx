@@ -1,5 +1,23 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   format,
   addDays,
@@ -22,6 +40,7 @@ import {
   CreditCard,
   FileCheck,
   FileText,
+  GripVertical,
   Plus,
   ShieldAlert,
   Wrench,
@@ -88,6 +107,73 @@ function useAnimatedNumber(target: number, duration = 600) {
   return value;
 }
 
+function SortableCarRow({
+  car,
+  carColor,
+  rowHeight,
+  expanded,
+  onToggle,
+}: {
+  car: Car;
+  carColor: string;
+  rowHeight: number;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: car.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        height: rowHeight,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+        zIndex: isDragging ? 30 : undefined,
+        position: "relative",
+      }}
+      className={`flex items-center gap-1.5 px-1.5 border-b border-border hover-elevate cursor-pointer ${
+        isDragging ? "bg-card shadow-cyan-glow" : ""
+      }`}
+      onClick={onToggle}
+      data-testid={`car-row-${car.id}`}
+    >
+      <button
+        type="button"
+        className="flex items-center justify-center flex-shrink-0 text-muted-foreground/60 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none p-0.5"
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`Drag to reorder ${car.name}`}
+        data-testid={`drag-handle-car-${car.id}`}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <ChevronDown
+        className={`h-3 w-3 text-muted-foreground transition-transform flex-shrink-0 ${
+          expanded ? "" : "-rotate-90"
+        }`}
+      />
+      <div
+        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+        style={{
+          backgroundColor: carColor,
+          boxShadow: `0 0 8px ${carColor}66`,
+        }}
+      />
+      <span className="text-sm truncate font-medium">{car.name}</span>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
@@ -101,6 +187,38 @@ export default function Dashboard() {
   const { data: cars, isLoading: carsLoading } = useQuery<Car[]>({
     queryKey: ["/api/cars"],
   });
+
+  // Drag-to-reorder for the timeline vehicle list. Reordering updates the
+  // cache optimistically so the rows (and their rental bars) move instantly,
+  // then persists the order server-side.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const reorderMutation = useMutation({
+    mutationFn: async (carIds: number[]) => {
+      const res = await apiRequest("POST", "/api/cars/reorder", { carIds });
+      return (await res.json()) as Car[];
+    },
+    onSuccess: (orderedCars) => {
+      queryClient.setQueryData(["/api/cars"], orderedCars);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !cars) return;
+    const oldIndex = cars.findIndex((c) => c.id === active.id);
+    const newIndex = cars.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(cars, oldIndex, newIndex);
+    queryClient.setQueryData(["/api/cars"], reordered);
+    reorderMutation.mutate(reordered.map((c) => c.id));
+  };
 
   // The timeline only renders a fixed window around today (see `visibleDays`),
   // so we ask the server for just the rentals overlapping that window instead
@@ -830,34 +948,27 @@ export default function Dashboard() {
                     </span>
                   </div>
 
-                  {cars?.map((car) => {
-                    const carColor = carColorMap.get(car.id) || "#22D3EE";
-                    return (
-                      <div
-                        key={car.id}
-                        className="flex items-center gap-2 px-2 border-b border-border hover-elevate cursor-pointer"
-                        style={{ height: CAR_ROW_HEIGHT }}
-                        onClick={() => toggleCarExpanded(car.id)}
-                        data-testid={`car-row-${car.id}`}
-                      >
-                        <ChevronDown
-                          className={`h-3 w-3 text-muted-foreground transition-transform flex-shrink-0 ${
-                            expandedCars.has(car.id) ? "" : "-rotate-90"
-                          }`}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={cars?.map((c) => c.id) ?? []}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {cars?.map((car) => (
+                        <SortableCarRow
+                          key={car.id}
+                          car={car}
+                          carColor={carColorMap.get(car.id) || "#22D3EE"}
+                          rowHeight={CAR_ROW_HEIGHT}
+                          expanded={expandedCars.has(car.id)}
+                          onToggle={() => toggleCarExpanded(car.id)}
                         />
-                        <div
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: carColor,
-                            boxShadow: `0 0 8px ${carColor}66`,
-                          }}
-                        />
-                        <span className="text-sm truncate font-medium">
-                          {car.name}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
 
                 {/* Scrollable timeline */}

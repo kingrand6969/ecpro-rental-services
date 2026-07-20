@@ -75,6 +75,9 @@ export const cars = pgTable("cars", {
   dateAcquired: date("date_acquired"),
   registrationConfirmedAt: date("registration_confirmed_at"),
   imageUrl: varchar("image_url", { length: 500 }),
+  // Custom display order for car lists (timeline, Cars page). Lower values
+  // sort first; nulls fall back to newest-first (createdAt desc).
+  displayOrder: integer("display_order"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

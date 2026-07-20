@@ -60,6 +60,7 @@ export interface IStorage {
 
   // Car operations
   getAllCars(): Promise<Car[]>;
+  reorderCars(carIds: number[]): Promise<void>;
   getCarById(id: number): Promise<Car | undefined>;
   createCar(car: InsertCar): Promise<Car>;
   updateCar(id: number, car: Partial<InsertCar>): Promise<Car | undefined>;
@@ -240,7 +241,23 @@ export class DatabaseStorage implements IStorage {
 
   // Car operations
   async getAllCars(): Promise<Car[]> {
-    return db.select().from(cars).orderBy(desc(cars.createdAt));
+    // Custom display order first (nulls last), falling back to newest-first
+    // for cars without an assigned order.
+    return db
+      .select()
+      .from(cars)
+      .orderBy(sql`${cars.displayOrder} ASC NULLS LAST`, desc(cars.createdAt));
+  }
+
+  async reorderCars(carIds: number[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < carIds.length; i++) {
+        await tx
+          .update(cars)
+          .set({ displayOrder: i, updatedAt: new Date() })
+          .where(eq(cars.id, carIds[i]));
+      }
+    });
   }
 
   async getCarById(id: number): Promise<Car | undefined> {

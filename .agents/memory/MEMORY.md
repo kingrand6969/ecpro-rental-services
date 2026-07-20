@@ -1,0 +1,2 @@
+- [Drizzle db:push prompt blocker](db-push-prompt.md) — `npm run db:push` hangs on an interactive users_username_unique prompt; apply additive columns via direct SQL instead.
+- [Dev login for testing](dev-login-testing.md) — use the seeded admin account from the auth seed logic for curl/e2e logins; never overwrite user password hashes.

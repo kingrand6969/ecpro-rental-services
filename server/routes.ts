@@ -37,6 +37,26 @@ export async function registerRoutes(
     }
   });
 
+  // Save a custom display order for cars. Must be registered before
+  // /api/cars/:id so "reorder" isn't parsed as an id.
+  app.post("/api/cars/reorder", isAuthenticated, async (req, res) => {
+    try {
+      const bodySchema = z.object({
+        carIds: z.array(z.number().int()).min(1),
+      });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "carIds must be a non-empty array of car ids" });
+      }
+      await storage.reorderCars(parsed.data.carIds);
+      const cars = await storage.getAllCars();
+      res.json(cars);
+    } catch (error) {
+      console.error("Error reordering cars:", error);
+      res.status(500).json({ message: "Failed to reorder cars" });
+    }
+  });
+
   app.get("/api/cars/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
