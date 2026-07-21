@@ -5,30 +5,49 @@ A comprehensive car rental booking system with user authentication, calendar-bas
 ## Run & Operate
 
 ```bash
-npm run dev        # Start development server
-npm run db:push    # Push schema changes to database
+cp .env.example .env   # then fill in the values
+npm install
+npm run db:push        # push schema to the database (first run / schema changes)
+npm run dev            # start development server (http://localhost:5000)
 ```
 
-**Environment Variables:**
-- `DATABASE_URL`: PostgreSQL connection string
+Production:
+
+```bash
+npm run build
+npm start
+```
+
+**Environment variables** (see `.env.example`):
+- `DATABASE_URL`: PostgreSQL connection string (Neon or any Postgres)
 - `SESSION_SECRET`: Express session secret
-- Object Storage environment variables (auto-configured)
+- `PORT`: server port (default 5000)
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`: Cloudflare R2 object storage for payment screenshots and car photos
 
 ## Stack
 
 - **Frontend**: React 18, TypeScript, TailwindCSS, shadcn/ui
 - **Backend**: Express.js, Drizzle ORM
-- **Database**: PostgreSQL (Neon)
-- **Auth**: passport-local (scrypt hashing)
-- **File Storage**: Google Cloud Storage
+- **Database**: PostgreSQL (Neon-compatible serverless driver)
+- **Auth**: passport-local (scrypt hashing), sessions in Postgres
+- **File Storage**: Cloudflare R2 (S3-compatible, presigned uploads)
 
 ## Where things live
 
 - `client/`: Frontend React application
 - `server/`: Backend Express application
+- `server/objectStorage.ts`: R2 presigned-upload + streaming-download service
 - `shared/schema.ts`: Database schema and shared types (source-of-truth for DB schema)
 - `design_guidelines.md`: UI/UX design guidelines (source-of-truth for theme)
 - `client/src/index.css`: Reusable UI utilities like `glass-panel`, `text-neon-cyan`, `shadow-cyan-glow`
+
+## File uploads
+
+The client asks `POST /api/objects/upload` for a presigned R2 PUT URL plus a
+normalized `objectPath` (`/objects/uploads/<uuid>`), uploads the file directly
+to R2, and stores the `objectPath`. Files are always served through the
+authenticated `GET /objects/...` route, which streams from R2 — the bucket
+itself stays private.
 
 ## Architecture decisions
 
@@ -49,16 +68,22 @@ npm run db:push    # Push schema changes to database
 - Admin controls for user and system management.
 - Customer management for history and contact information.
 
-## User preferences
-
-- _Populate as you build_
-
 ## Gotchas
 
 - New users must be approved by an administrator to log in.
 - Finalizing a rental (setting `isFinalized=true`) and confirming a rental's `paymentStatus="confirmed"` can only be done by the literal `Admin` user.
 - Confirming a payment (reservation or total) requires both a `paymentDate` and `paymentBank`.
 - Deleting expenses is restricted to admin users.
+- Screenshot/photo files uploaded while the app ran on Replit live in Replit's
+  object storage; their old paths will 404 until those files are copied into
+  the R2 bucket (`data_export/database_backup.sql` holds the DB rows).
+
+## Deployment (Render free tier)
+
+`render.yaml` describes a free web service. Create the service from this repo
+in Render, then set the environment variables above in the Render dashboard.
+The free instance sleeps after ~15 minutes idle; first request after that
+takes ~30–60s.
 
 ## Pointers
 

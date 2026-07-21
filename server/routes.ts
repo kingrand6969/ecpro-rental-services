@@ -1112,35 +1112,23 @@ export async function registerRoutes(
 
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      objectStorageService.downloadObject(objectFile, res);
+      await objectStorageService.downloadObject(req.path, res);
     } catch (error) {
-      console.error("Error checking object access:", error);
+      console.error("Error serving object:", error);
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }
-      return res.sendStatus(500);
-    }
-  });
-
-  app.get("/public-objects/:filePath(*)", async (req, res) => {
-    const filePath = req.params.filePath;
-    try {
-      const file = await objectStorageService.searchPublicObject(filePath);
-      if (!file) {
-        return res.status(404).json({ error: "File not found" });
+      if (!res.headersSent) {
+        return res.sendStatus(500);
       }
-      objectStorageService.downloadObject(file, res);
-    } catch (error) {
-      console.error("Error searching for public object:", error);
-      return res.status(500).json({ error: "Internal server error" });
     }
   });
 
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
     try {
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
+      const { uploadURL, objectPath } =
+        await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL, objectPath });
     } catch (error) {
       console.error("Error getting upload URL:", error);
       res.status(500).json({ message: "Failed to get upload URL" });
@@ -1153,13 +1141,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "screenshotURL is required" });
       }
 
-      const userId = (req.user as User).id;
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+      const objectPath = objectStorageService.normalizeObjectEntityPath(
         req.body.screenshotURL,
-        {
-          owner: userId,
-          visibility: "public",
-        },
       );
 
       res.status(200).json({

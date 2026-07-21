@@ -8,8 +8,11 @@ interface ObjectUploaderProps {
   onGetUploadParameters: () => Promise<{
     method: "PUT";
     url: string;
+    objectPath?: string;
   }>;
-  onComplete?: (result: { successful: Array<{ uploadURL?: string }> }) => void;
+  onComplete?: (result: {
+    successful: Array<{ uploadURL?: string; objectPath?: string }>;
+  }) => void;
   buttonClassName?: string;
   children: ReactNode;
 }
@@ -43,7 +46,7 @@ export function ObjectUploader({
       setIsUploading(true);
 
       try {
-        const { url } = await onGetUploadParameters();
+        const { url, objectPath } = await onGetUploadParameters();
 
         const response = await fetch(url, {
           method: "PUT",
@@ -55,7 +58,7 @@ export function ObjectUploader({
 
         if (response.ok) {
           onComplete?.({
-            successful: [{ uploadURL: url.split("?")[0] }],
+            successful: [{ uploadURL: url.split("?")[0], objectPath }],
           });
         } else {
           throw new Error("Upload failed");

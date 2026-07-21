@@ -112,13 +112,19 @@ export function ConfirmPaymentDialog({
     return {
       method: "PUT" as const,
       url: data.uploadURL ?? data.url,
+      objectPath: data.objectPath,
     };
   };
 
   const handleUploadComplete = async (result: {
-    successful: Array<{ uploadURL?: string }>;
+    successful: Array<{ uploadURL?: string; objectPath?: string }>;
   }) => {
-    const uploadedUrl = result.successful?.[0]?.uploadURL;
+    const uploaded = result.successful?.[0];
+    if (uploaded?.objectPath) {
+      setScreenshotUrl(uploaded.objectPath);
+      return;
+    }
+    const uploadedUrl = uploaded?.uploadURL;
     if (!uploadedUrl) return;
     try {
       const response = await apiRequest("PUT", "/api/payment-screenshots", {

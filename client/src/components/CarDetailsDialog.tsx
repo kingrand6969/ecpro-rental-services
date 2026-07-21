@@ -328,11 +328,12 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                 onGetUploadParameters={async () => {
                   const response = await apiRequest("POST", "/api/objects/upload", {});
                   const data = await response.json();
-                  return { method: "PUT" as const, url: data.url };
+                  return { method: "PUT" as const, url: data.uploadURL, objectPath: data.objectPath };
                 }}
                 onComplete={(result) => {
-                  if (result.successful[0]?.uploadURL) {
-                    setNewImageUrl(result.successful[0].uploadURL);
+                  const uploaded = result.successful[0];
+                  if (uploaded?.objectPath || uploaded?.uploadURL) {
+                    setNewImageUrl(uploaded.objectPath ?? uploaded.uploadURL!);
                     toast({
                       title: "Image Ready",
                       description: "Click Update to save the new picture",

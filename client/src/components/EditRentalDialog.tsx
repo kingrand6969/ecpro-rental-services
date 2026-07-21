@@ -238,22 +238,29 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
     return {
       method: "PUT" as const,
       url: data.uploadURL,
+      objectPath: data.objectPath,
     };
   };
 
   const handleUploadCompleteFor = (target: "payment" | "reservation") =>
-    async (result: { successful: Array<{ uploadURL?: string }> }) => {
+    async (result: {
+      successful: Array<{ uploadURL?: string; objectPath?: string }>;
+    }) => {
       if (result.successful && result.successful.length > 0) {
-        const uploadedUrl = result.successful[0].uploadURL;
-        if (uploadedUrl) {
+        const uploaded = result.successful[0];
+        let objectPath = uploaded.objectPath;
+        if (!objectPath && uploaded.uploadURL) {
           const response = await apiRequest("PUT", "/api/payment-screenshots", {
-            screenshotURL: uploadedUrl,
+            screenshotURL: uploaded.uploadURL,
           });
           const data = await response.json();
+          objectPath = data.objectPath;
+        }
+        if (objectPath) {
           if (target === "reservation") {
-            setReservationScreenshotUrl(data.objectPath);
+            setReservationScreenshotUrl(objectPath);
           } else {
-            setPaymentScreenshotUrl(data.objectPath);
+            setPaymentScreenshotUrl(objectPath);
           }
           toast({
             title: "Upload Complete",

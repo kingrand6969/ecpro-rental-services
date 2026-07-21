@@ -527,11 +527,12 @@ export function CreateRentalDialog({
                         onGetUploadParameters={async () => {
                           const response = await apiRequest("POST", "/api/objects/upload", {});
                           const data = await response.json();
-                          return { method: "PUT" as const, url: data.url };
+                          return { method: "PUT" as const, url: data.uploadURL, objectPath: data.objectPath };
                         }}
                         onComplete={(result) => {
-                          if (result.successful[0]?.uploadURL) {
-                            setReservationScreenshotUrl(result.successful[0].uploadURL);
+                          const uploaded = result.successful[0];
+                          if (uploaded?.objectPath || uploaded?.uploadURL) {
+                            setReservationScreenshotUrl(uploaded.objectPath ?? uploaded.uploadURL!);
                           }
                         }}
                         data-testid="uploader-reservation-screenshot"
