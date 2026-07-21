@@ -935,63 +935,34 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-1 overflow-hidden">
-                {/* Fixed left column - Car labels */}
-                <div
-                  className="flex-shrink-0 border-r border-border bg-card/30 z-10"
-                  style={{ width: CAR_LABEL_WIDTH }}
-                >
-                  <div
-                    className="border-b border-border bg-muted/40"
-                    style={{ height: MONTH_HEADER_HEIGHT }}
-                  />
-                  <div
-                    className="border-b border-border bg-muted/30 px-3 flex items-center"
-                    style={{ height: DAY_HEADER_HEIGHT }}
-                  >
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      Vehicle
-                    </span>
-                  </div>
-
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={cars?.map((c) => c.id) ?? []}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {cars?.map((car) => (
-                        <SortableCarRow
-                          key={car.id}
-                          car={car}
-                          carColor={carColorMap.get(car.id) || "#22D3EE"}
-                          rowHeight={CAR_ROW_HEIGHT}
-                          expanded={expandedCars.has(car.id)}
-                          onToggle={() => toggleCarExpanded(car.id)}
-                        />
-                      ))}
-                    </SortableContext>
-                  </DndContext>
-                </div>
-
-                {/* Scrollable timeline */}
+              <div className="flex-1 overflow-hidden flex">
+                {/* Single scroll container: the vehicle column is sticky-left
+                    and the headers sticky-top, so rows always stay aligned
+                    no matter how the timeline is scrolled (fixes small-screen
+                    misalignment where the left column didn't scroll with the
+                    rows). */}
                 <div
                   ref={scrollContainerRef}
                   className="flex-1 overflow-x-auto overflow-y-auto neon-scrollbar"
                 >
-                  <div style={{ width: visibleDays.length * DAY_WIDTH }}>
-                    {/* Month headers - sticky */}
+                  <div
+                    style={{
+                      width: CAR_LABEL_WIDTH + visibleDays.length * DAY_WIDTH,
+                    }}
+                  >
+                    {/* Month headers - sticky top */}
                     <div
-                      className="flex sticky top-0 z-20 bg-muted/60 backdrop-blur border-b border-border"
+                      className="flex sticky top-0 z-[60] bg-muted/60 backdrop-blur border-b border-border"
                       style={{ height: MONTH_HEADER_HEIGHT }}
                     >
+                      <div
+                        className="sticky left-0 z-[70] flex-shrink-0 bg-background/95 backdrop-blur border-r border-border"
+                        style={{ width: CAR_LABEL_WIDTH, height: MONTH_HEADER_HEIGHT }}
+                      />
                       {monthGroups.map((group, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-center text-xs font-mono uppercase tracking-wider font-semibold border-r border-border"
+                          className="flex items-center justify-center text-xs font-mono uppercase tracking-wider font-semibold border-r border-border flex-shrink-0"
                           style={{
                             width: group.days.length * DAY_WIDTH,
                             height: MONTH_HEADER_HEIGHT,
@@ -1002,24 +973,32 @@ export default function Dashboard() {
                       ))}
                     </div>
 
-                    {/* Day headers - sticky */}
+                    {/* Day headers - sticky top */}
                     <div
-                      className="flex sticky z-20 bg-muted/40 backdrop-blur border-b border-border"
+                      className="flex sticky z-[60] bg-muted/40 backdrop-blur border-b border-border"
                       style={{ top: MONTH_HEADER_HEIGHT, height: DAY_HEADER_HEIGHT }}
                     >
+                      <div
+                        className="sticky left-0 z-[70] flex-shrink-0 bg-background/95 backdrop-blur border-r border-border px-3 flex items-center"
+                        style={{ width: CAR_LABEL_WIDTH, height: DAY_HEADER_HEIGHT }}
+                      >
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                          Vehicle
+                        </span>
+                      </div>
                       {visibleDays.map((day, idx) => {
                         const isToday = isSameDay(day, new Date());
                         return (
                           <div
                             key={idx}
                             ref={isToday ? todayColumnRef : null}
-                            className={`flex items-center justify-center border-r border-border ${
+                            className={`flex items-center justify-center border-r border-border flex-shrink-0 ${
                               isToday ? "bg-neon-cyan/15" : ""
                             }`}
                             style={{ width: DAY_WIDTH, height: DAY_HEADER_HEIGHT }}
                           >
                             <div
-                              className={`text-xs font-mono ${
+                              className={`text-xs font-mono whitespace-nowrap ${
                                 isToday
                                   ? "text-neon-cyan font-bold"
                                   : "text-muted-foreground"
@@ -1032,22 +1011,50 @@ export default function Dashboard() {
                       })}
                     </div>
 
-                    {cars?.map((car) => {
-                      const bars = getRentalBars(car.id);
-                      const carColor = carColorMap.get(car.id) || "#22D3EE";
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={cars?.map((c) => c.id) ?? []}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {cars?.map((car) => {
+                          const bars = getRentalBars(car.id);
+                          const carColor = carColorMap.get(car.id) || "#22D3EE";
 
-                      return (
-                        <div
-                          key={car.id}
-                          className="relative flex border-b border-border"
-                          style={{ height: CAR_ROW_HEIGHT }}
-                        >
+                          return (
+                            <div
+                              key={car.id}
+                              className="flex border-b border-border"
+                              style={{ height: CAR_ROW_HEIGHT }}
+                            >
+                              <div
+                                className="sticky left-0 z-40 flex-shrink-0 bg-background/95 backdrop-blur border-r border-border"
+                                style={{ width: CAR_LABEL_WIDTH, height: CAR_ROW_HEIGHT }}
+                              >
+                                <SortableCarRow
+                                  car={car}
+                                  carColor={carColor}
+                                  rowHeight={CAR_ROW_HEIGHT}
+                                  expanded={expandedCars.has(car.id)}
+                                  onToggle={() => toggleCarExpanded(car.id)}
+                                />
+                              </div>
+                              <div
+                                className="relative flex"
+                                style={{
+                                  width: visibleDays.length * DAY_WIDTH,
+                                  height: CAR_ROW_HEIGHT,
+                                }}
+                              >
                           {visibleDays.map((day, idx) => {
                             const isToday = isSameDay(day, new Date());
                             return (
                               <div
                                 key={idx}
-                                className={`border-r border-border/50 ${
+                                className={`border-r border-border/50 flex-shrink-0 ${
                                   isToday ? "bg-neon-cyan/[0.07]" : ""
                                 }`}
                                 style={{ width: DAY_WIDTH, height: CAR_ROW_HEIGHT }}
@@ -1093,9 +1100,12 @@ export default function Dashboard() {
                               </div>
                             );
                           })}
-                        </div>
-                      );
-                    })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </SortableContext>
+                    </DndContext>
                   </div>
                 </div>
               </div>
