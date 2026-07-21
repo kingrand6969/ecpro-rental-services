@@ -3,6 +3,10 @@ services:
     name: ecpro-rental-services
     runtime: node
     plan: free
+    # Deploy every push to main. Without this, commits sit on GitHub and the
+    # live site keeps serving the previously built bundle.
+    autoDeploy: true
+    branch: main
     # --include=dev because Render sets NODE_ENV=production, which would
     # otherwise skip vite/esbuild/tsx — the tools the build itself needs.
     buildCommand: npm ci --include=dev && npm run build
