@@ -956,7 +956,7 @@ export default function Dashboard() {
                       style={{ height: MONTH_HEADER_HEIGHT }}
                     >
                       <div
-                        className="flex-shrink-0 bg-background/95 backdrop-blur border-r border-border"
+                        className="sticky left-0 z-[70] flex-shrink-0 bg-background border-r border-border"
                         style={{ width: CAR_LABEL_WIDTH, height: MONTH_HEADER_HEIGHT }}
                       />
                       {monthGroups.map((group, idx) => (
@@ -979,7 +979,7 @@ export default function Dashboard() {
                       style={{ top: MONTH_HEADER_HEIGHT, height: DAY_HEADER_HEIGHT }}
                     >
                       <div
-                        className="flex-shrink-0 bg-background/95 backdrop-blur border-r border-border px-3 flex items-center"
+                        className="sticky left-0 z-[70] flex-shrink-0 bg-background border-r border-border px-3 flex items-center"
                         style={{ width: CAR_LABEL_WIDTH, height: DAY_HEADER_HEIGHT }}
                       >
                         <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -1031,7 +1031,7 @@ export default function Dashboard() {
                               style={{ height: CAR_ROW_HEIGHT }}
                             >
                               <div
-                                className="flex-shrink-0 bg-background/95 border-r border-border"
+                                className="sticky left-0 z-40 flex-shrink-0 bg-background border-r border-border"
                                 style={{ width: CAR_LABEL_WIDTH, height: CAR_ROW_HEIGHT }}
                               >
                                 <SortableCarRow
