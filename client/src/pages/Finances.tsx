@@ -24,6 +24,7 @@ import {
   DollarSign,
   CreditCard,
 } from "lucide-react";
+import { IncomeTrendChart } from "@/components/IncomeTrendChart";
 import type { Car, Rental, Expense, MonthlyPayment } from "@shared/schema";
 
 const months = [
@@ -55,15 +56,18 @@ function KpiTile({ label, value, Icon, accent, testid }: KpiTileProps) {
   };
   const a = accentMap[accent];
   return (
-    <div className="glass-panel rounded-md p-5 relative overflow-hidden group" data-testid={testid}>
+    <div className="glass-panel rounded-md p-4 sm:p-5 relative overflow-hidden group" data-testid={testid}>
       <div className={`absolute -right-4 -top-4 w-24 h-24 ${a.blur} opacity-5 blur-2xl group-hover:opacity-10 transition-opacity pointer-events-none`} />
-      <div className="flex items-center gap-3 relative">
-        <div className={`w-10 h-10 rounded-md ${a.iconBg} flex items-center justify-center shrink-0`}>
-          <Icon className="h-5 w-5" />
+      {/* Stacked at every width so the amount always gets the tile's full
+          width. Beside the icon, a six-figure peso value gets truncated on
+          phones and on the 4-column grid at tablet/laptop widths. */}
+      <div className="flex flex-col gap-2 relative">
+        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-md ${a.iconBg} flex items-center justify-center shrink-0`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
-          <p className={`text-xl font-mono font-bold tabular-nums truncate ${a.text}`}>
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
+          <p className={`text-lg sm:text-xl font-mono font-bold tabular-nums truncate ${a.text}`}>
             {value}
           </p>
         </div>
@@ -320,6 +324,10 @@ export default function Finances() {
                 accent="amber"
                 testid="kpi-monthly-payments"
               />
+            </div>
+
+            <div className="mb-6">
+              <IncomeTrendChart />
             </div>
 
             <div className="glass-panel rounded-md mb-6">
