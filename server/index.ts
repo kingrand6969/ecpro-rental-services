@@ -78,16 +78,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await ensureSchema();
-  await seedAdminUser();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    console.error("Unhandled error:", err);
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
   });
 
   // importantly only setup vite in development and after
@@ -110,8 +110,18 @@ app.use((req, res, next) => {
       port,
       host: "0.0.0.0",
     },
-    () => {
+    async () => {
       log(`serving on port ${port}`);
+      // Bind the port before touching the database: hosts that probe for an
+      // open port (Render, Fly, ...) fail the deploy if a slow or unreachable
+      // database delays startup.
+      try {
+        await ensureSchema();
+        await seedAdminUser();
+        log("database ready");
+      } catch (error) {
+        console.error("Database startup tasks failed:", error);
+      }
     },
   );
 })();
