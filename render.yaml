@@ -3,7 +3,9 @@ services:
     name: ecpro-rental-services
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
+    # --include=dev because Render sets NODE_ENV=production, which would
+    # otherwise skip vite/esbuild/tsx — the tools the build itself needs.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /
     envVars:
