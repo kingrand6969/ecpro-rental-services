@@ -26,7 +26,10 @@
   --popover: 0 0% 100%;
   --popover-foreground: 220 30% 12%;
   --popover-border: 220 20% 88%;
-  --primary: 190 95% 42%;
+  /* Light-mode accents are darkened so financial figures clear WCAG AA on
+     white. At the previous lightness (42%/48%) peso amounts measured about
+     2.6:1 against a 4.5:1 requirement. */
+  --primary: 190 95% 30%;
   --primary-foreground: 0 0% 100%;
   --secondary: 220 20% 92%;
   --secondary-foreground: 220 30% 12%;
@@ -36,13 +39,13 @@
   --accent-foreground: 220 30% 12%;
   --destructive: 320 75% 50%;
   --destructive-foreground: 0 0% 98%;
-  --input: 220 20% 80%;
-  --ring: 190 95% 48%;
-  --chart-1: 190 95% 48%;
-  --chart-2: 320 90% 55%;
+  --input: 220 20% 56%;
+  --ring: 190 95% 34%;
+  --chart-1: 190 95% 32%;
+  --chart-2: 320 90% 40%;
   --chart-3: 220 30% 30%;
-  --chart-4: 43 90% 55%;
-  --chart-5: 160 70% 45%;
+  --chart-4: 43 90% 32%;
+  --chart-5: 160 70% 28%;
   --font-sans: Inter, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: 'JetBrains Mono', Menlo, monospace;
@@ -58,11 +61,20 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
-  /* Neon Fleet accent tokens */
-  --neon-cyan: 190 95% 48%;
-  --neon-magenta: 320 90% 55%;
+  /* Neon Fleet accent tokens. Light mode keeps these dark enough to read as
+     text on white — they are used for peso figures, not just decoration. */
+  --neon-cyan: 190 95% 30%;
+  --neon-magenta: 320 90% 38%;
   --neon-panel: 220 20% 96%;
   --neon-panel-border: 220 20% 88%;
+
+  /* Booking status. Semantic, and deliberately separate from the accent hue
+     so "something is wrong" never competes with "this is the brand colour". */
+  --status-reserved: 220 75% 42%;
+  --status-out: 160 70% 26%;
+  --status-returned: 220 12% 42%;
+  --status-overdue: 350 75% 42%;
+  --status-unpaid: 38 92% 30%;
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -127,7 +139,9 @@
   --accent-foreground: 220 10% 95%;
   --destructive: 320 90% 65%;
   --destructive-foreground: 220 30% 8%;
-  --input: 220 30% 24%;
+  /* Raised from 24%: a text field's boundary measured 1.44:1 against the card,
+     where WCAG 1.4.11 asks for 3:1 on interactive controls. */
+  --input: 220 25% 42%;
   --ring: 190 95% 60%;
   --chart-1: 190 95% 60%;
   --chart-2: 320 90% 65%;
@@ -148,6 +162,13 @@
   --neon-magenta: 320 90% 65%;
   --neon-panel: 220 30% 12%;
   --neon-panel-border: 220 30% 20%;
+
+  /* Booking status on dark grounds. */
+  --status-reserved: 214 72% 64%;
+  --status-out: 160 55% 52%;
+  --status-returned: 220 10% 58%;
+  --status-overdue: 350 82% 66%;
+  --status-unpaid: 38 78% 58%;
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -369,5 +390,111 @@
   }
   .animate-toast {
     animation: pulse-toast 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* ============================================================
+   SKINS
+   Three visual languages over the same layout, chosen in Settings
+   and written to `data-skin` on <html> by ThemeProvider.
+
+   classic — the original look, unchanged, so nobody is moved off it
+   neon    — the same identity with the legibility faults repaired
+   console — the restrained treatment design_guidelines.md describes
+
+   Skins only restyle. They never change what is on screen, so a
+   staff member can switch without relearning where anything is.
+   ============================================================ */
+
+/* --- Neon: keep the identity, drop what hurts reading --- */
+[data-skin="neon"] {
+  /* 95% saturation vibrates against a dark ground (Material's dark-theme
+     guidance). Pulling it back reads the same but sits still. */
+  --neon-cyan: 190 72% 58%;
+  --neon-magenta: 320 68% 62%;
+}
+.dark[data-skin="neon"] {
+  --border: 220 22% 34%;
+  --card-border: 220 22% 36%;
+  --neon-panel-border: 220 22% 34%;
+}
+[data-skin="neon"] .text-glow-cyan {
+  /* A glow whose colour is nearer the text than the ground blurs the glyph
+     edges. It reads as premium on a button and as smudge on a numeral, and
+     no contrast checker can see it. Chrome keeps its glow below. */
+  text-shadow: none;
+}
+
+/* --- Console: flat surfaces, plain labels, quiet colour --- */
+[data-skin="console"] {
+  --neon-cyan: 214 62% 52%;
+  --neon-magenta: 330 55% 52%;
+  --radius: .375rem;
+}
+.dark[data-skin="console"] {
+  --background: 220 14% 9%;
+  --card: 220 12% 13%;
+  --neon-panel: 220 12% 13%;
+  --border: 220 10% 30%;
+  --card-border: 220 10% 32%;
+  --neon-panel-border: 220 10% 30%;
+  --neon-cyan: 214 78% 70%;
+  --neon-magenta: 330 62% 68%;
+}
+[data-skin="console"] .glass-panel {
+  background: hsl(var(--card));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid hsl(var(--card-border));
+}
+[data-skin="console"] .text-glow-cyan,
+[data-skin="console"] .shadow-cyan-glow,
+[data-skin="console"] .shadow-magenta-glow {
+  text-shadow: none;
+  box-shadow: none;
+}
+[data-skin="console"] .neon-bar-confirmed {
+  box-shadow: none;
+}
+/* Sentence-case sans in place of wide-tracked uppercase mono. Uppercase
+   removes word-shape cues and 0.1em tracking at 10px fragments short words —
+   costly on labels staff scan hundreds of times a shift. */
+[data-skin="console"] .ui-label {
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: .01em;
+  font-size: .75rem;
+  font-weight: 500;
+}
+[data-skin="console"] .ui-figure {
+  font-family: var(--font-sans);
+  letter-spacing: -.01em;
+}
+
+/* Shared label primitives. Components use these instead of repeating
+   `font-mono uppercase tracking-widest`, which is what lets a skin restyle
+   every label at once. */
+@layer components {
+  .ui-label {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .6875rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .ui-figure {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Respect a reduced-motion preference across every skin. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
   }
 }

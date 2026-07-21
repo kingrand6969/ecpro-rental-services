@@ -66,8 +66,8 @@ function KpiTile({ label, value, Icon, accent, testid }: KpiTileProps) {
           <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
-          <p className={`text-lg sm:text-xl font-mono font-bold tabular-nums truncate ${a.text}`}>
+          <p className="ui-label">{label}</p>
+          <p className={`text-lg sm:text-xl font-bold ui-figure ${a.text}`} title={value}>
             {value}
           </p>
         </div>
@@ -332,7 +332,7 @@ export default function Finances() {
 
             <div className="glass-panel rounded-md mb-6">
               <div className="p-4 border-b border-border">
-                <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Monthly Amortization Progress</h2>
+                <h2 className="ui-label">Monthly Amortization Progress</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   Income milestone showing progress toward covering each car's monthly payment
                 </p>
@@ -402,7 +402,7 @@ export default function Finances() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="glass-panel rounded-md">
                 <div className="p-4 border-b border-border">
-                  <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Income by Car</h2>
+                  <h2 className="ui-label">Income by Car</h2>
                 </div>
                 <div className="p-2">
                   <Table>
@@ -450,7 +450,7 @@ export default function Finances() {
 
               <div className="glass-panel rounded-md">
                 <div className="p-4 border-b border-border">
-                  <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Summary</h2>
+                  <h2 className="ui-label">Summary</h2>
                 </div>
                 <div className="p-4 space-y-4">
                   <div className="p-4 rounded-md bg-neon-cyan/10 border border-neon-cyan/20">
@@ -486,7 +486,7 @@ export default function Finances() {
 
                   <div className="p-4 rounded-md bg-card border border-border">
                     <div className="flex items-center justify-between mb-2 gap-2">
-                      <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Payment Coverage</span>
+                      <span className="ui-label">Payment Coverage</span>
                       <span className="font-mono font-medium tabular-nums">
                         {financialSummary.totalMonthlyPayments > 0
                           ? `${Math.round((financialSummary.totalIncome / financialSummary.totalMonthlyPayments) * 100)}%`

@@ -59,6 +59,13 @@ import type {
   ExpenseLogWithUser,
 } from "@shared/schema";
 import { getOilChangeStatus, formatDaysAge } from "@/lib/oilChange";
+import {
+  getRentalStatus,
+  readableTextOn,
+  STATUS_STYLES,
+  type RentalStatus,
+} from "@/lib/rentalStatus";
+import { useTheme } from "@/hooks/useTheme";
 
 // How many days before/after today the Fleet Timeline shows and fetches.
 const TIMELINE_DAYS_BEFORE = 60;
@@ -165,6 +172,7 @@ function SortableCarRow({
 }
 
 export default function Dashboard() {
+  const { skin } = useTheme();
   const [, setLocation] = useLocation();
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
   const [availableCarsOpen, setAvailableCarsOpen] = useState(false);
@@ -634,7 +642,9 @@ export default function Dashboard() {
       }
 
       if (startIndex !== -1 && endIndex !== -1 && startIndex <= endIndex) {
-        const daysCount = differenceInDays(rentalEnd, rentalStart);
+        // Inclusive of both days: a rental that starts and ends on the same
+        // date lasts one day, not zero.
+        const daysCount = differenceInDays(rentalEnd, rentalStart) + 1;
         bars.push({ rental, startIndex, endIndex, daysCount });
       }
     });
@@ -777,9 +787,7 @@ export default function Dashboard() {
                   data-testid={`kpi-card-${i}`}
                 >
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-neon-cyan opacity-5 blur-2xl group-hover:opacity-10 transition-opacity pointer-events-none" />
-                  <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
-                    {kpi.label}
-                  </span>
+                  <span className="ui-label">{kpi.label}</span>
                   <div className="flex items-baseline gap-1 mt-auto min-w-0">
                     {kpi.prefix && (
                       <span className="text-base md:text-lg font-mono text-neon-cyan shrink-0">
@@ -826,15 +834,37 @@ export default function Dashboard() {
 
             {/* Fleet Timeline */}
             <div className="glass-panel rounded-md flex-1 flex flex-col min-h-[400px] overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 shrink-0">
-                <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                  Fleet Timeline
-                </h2>
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 flex-wrap shrink-0">
+                <h2 className="ui-label">Fleet Timeline</h2>
+                {skin !== "classic" && (
+                  <ul className="flex items-center gap-3 flex-wrap list-none m-0 p-0 mr-auto ml-2">
+                    {(
+                      ["out", "reserved", "overdue", "unpaid"] as RentalStatus[]
+                    ).map((s) => (
+                      <li
+                        key={s}
+                        className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={
+                            STATUS_STYLES[s].outlined
+                              ? { border: `1px dashed ${STATUS_STYLES[s].color}` }
+                              : { background: STATUS_STYLES[s].color }
+                          }
+                        />
+                        {STATUS_STYLES[s].label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => scrollByDays(-7)}
+                    aria-label="Scroll timeline back one week"
                     data-testid="button-scroll-prev"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -843,6 +873,7 @@ export default function Dashboard() {
                     variant="ghost"
                     size="icon"
                     onClick={() => scrollByDays(7)}
+                    aria-label="Scroll timeline forward one week"
                     data-testid="button-scroll-next"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -964,6 +995,17 @@ export default function Dashboard() {
                                   height: CAR_ROW_HEIGHT,
                                 }}
                               >
+                                {/* A real "now" rule. The cell tint alone
+                                    measured 1.15:1 against its neighbours —
+                                    not perceivable on the one view whose whole
+                                    job is showing where today sits. */}
+                                {todayIndex >= 0 && (
+                                  <div
+                                    aria-hidden="true"
+                                    className="absolute top-0 bottom-0 w-0.5 bg-neon-cyan z-10 pointer-events-none"
+                                    style={{ left: todayIndex * DAY_WIDTH }}
+                                  />
+                                )}
                           {visibleDays.map((day, idx) => {
                             const isToday = isSameDay(day, new Date());
                             return (
@@ -981,38 +1023,63 @@ export default function Dashboard() {
                             const left = bar.startIndex * DAY_WIDTH;
                             const width =
                               (bar.endIndex - bar.startIndex + 1) * DAY_WIDTH;
-                            const pending =
-                              bar.rental.paymentStatus === "pending";
+                            const status = getRentalStatus(bar.rental);
+                            const style = STATUS_STYLES[status];
+                            // Classic keeps vehicle-coloured bars; the other
+                            // skins spend colour on status, which the row
+                            // label cannot already tell you.
+                            const fill =
+                              skin === "classic" ? carColor : style.color;
+                            const outlined =
+                              skin === "classic"
+                                ? bar.rental.paymentStatus === "pending"
+                                : style.outlined;
+                            const label = `${bar.rental.customerName ?? "Rental"} · ${
+                              bar.daysCount
+                            } day${bar.daysCount === 1 ? "" : "s"} · ${style.label}`;
 
                             return (
-                              <div
+                              <button
+                                type="button"
                                 key={bar.rental.id}
-                                className="absolute cursor-pointer transition-all flex items-center justify-center rounded"
+                                className="absolute cursor-pointer flex items-center justify-center gap-1 rounded px-1 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                                 style={{
                                   left: left + 2,
                                   top: 4,
                                   width: width - 4,
                                   height: CAR_ROW_HEIGHT - 8,
-                                  ...(pending
+                                  ...(outlined
                                     ? {
-                                        backgroundColor: `${carColor}1f`,
-                                        border: `1px dashed ${carColor}`,
-                                        color: carColor,
-                                        boxShadow: `0 0 8px ${carColor}33`,
+                                        backgroundColor:
+                                          skin === "classic"
+                                            ? `${carColor}1f`
+                                            : "transparent",
+                                        border: `1px dashed ${fill}`,
+                                        color: fill,
                                       }
                                     : {
-                                        background: `linear-gradient(90deg, ${carColor}, ${carColor}cc)`,
-                                        boxShadow: `0 0 10px ${carColor}55`,
-                                        color: "#0a0f1a",
+                                        background: fill,
+                                        color:
+                                          skin === "classic"
+                                            ? readableTextOn(carColor)
+                                            : "hsl(var(--background))",
                                       }),
                                 }}
                                 onClick={() => setSelectedRental(bar.rental)}
+                                title={label}
+                                aria-label={label}
                                 data-testid={`rental-bar-${bar.rental.id}`}
                               >
-                                <span className="text-xs font-mono font-bold">
+                                <span
+                                  aria-hidden="true"
+                                  className="text-[10px] font-bold leading-none"
+                                >
+                                  {style.glyph}
+                                </span>
+                                <span className="text-xs font-mono font-bold truncate">
                                   {bar.daysCount}d
                                 </span>
-                              </div>
+                              </button>
                             );
                           })}
                               </div>
