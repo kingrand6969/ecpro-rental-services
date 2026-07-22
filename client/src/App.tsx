@@ -11,7 +11,6 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import Auth from "@/pages/Auth";
-import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Cars from "@/pages/Cars";
 import Rentals from "@/pages/Rentals";
@@ -62,13 +61,9 @@ function Router() {
   }
 
   if (!isAuthenticated) {
-    // Visitors (e.g. from the Facebook page) get the marketing site; the
-    // staff app lives behind /login. Any other path still lands on the login
-    // form so old staff bookmarks like /rentals keep working.
     return (
       <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/login" component={Auth} />
+        <Route path="/" component={Auth} />
         <Route component={Auth} />
       </Switch>
     );
@@ -86,8 +81,6 @@ function Router() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/" component={Dashboard} />
-        {/* Already signed in — /login just goes home. */}
-        <Route path="/login" component={Dashboard} />
         <Route path="/cars" component={Cars} />
         <Route path="/rentals" component={Rentals} />
         <Route path="/customers" component={Customers} />

@@ -1182,51 +1182,6 @@ export async function registerRoutes(
     }
   });
 
-  // The marketing landing page is public, so the fleet photos it uses are
-  // served without auth — but ONLY the cars/ prefix. Payment screenshots and
-  // everything else stay behind the authenticated /objects route.
-  app.get("/public-images/cars/:file", async (req, res) => {
-    const file = req.params.file;
-    if (!/^[\w.-]+$/.test(file)) {
-      return res.sendStatus(404);
-    }
-    try {
-      await objectStorageService.downloadObject(
-        `/objects/cars/${file}`,
-        res,
-        86400,
-      );
-    } catch (error) {
-      if (error instanceof ObjectNotFoundError) {
-        return res.sendStatus(404);
-      }
-      console.error("Error serving public image:", error);
-      if (!res.headersSent) {
-        return res.sendStatus(500);
-      }
-    }
-  });
-
-  // Public fleet list for the landing page: names and photos only — no
-  // plates, no mileage, no financials.
-  app.get("/api/public/fleet", async (_req, res) => {
-    try {
-      const cars = await storage.getAllCars();
-      res.json(
-        cars.map((car) => ({
-          id: car.id,
-          name: car.name,
-          imageUrl: car.imageUrl
-            ? car.imageUrl.replace(/^\/objects\/cars\//, "/public-images/cars/")
-            : null,
-        })),
-      );
-    } catch (error) {
-      console.error("Error fetching public fleet:", error);
-      res.status(500).json({ message: "Failed to load fleet" });
-    }
-  });
-
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
     try {
       const { uploadURL, objectPath } =
