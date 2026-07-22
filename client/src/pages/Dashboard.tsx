@@ -180,6 +180,10 @@ export default function Dashboard() {
   const [selectedRental, setSelectedRental] = useState<Rental | null>(null);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [expandedCars, setExpandedCars] = useState<Set<number>>(new Set());
+  // Timeline zoom: column width per day. Week = roomy labels, Month = a
+  // whole month visible at a glance for spotting gaps to fill.
+  const [zoom, setZoom] = useState<"week" | "fortnight" | "month">("week");
+  const DAY_WIDTH = zoom === "week" ? 72 : zoom === "fortnight" ? 40 : 22;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const todayColumnRef = useRef<HTMLDivElement>(null);
 
@@ -527,11 +531,10 @@ export default function Dashboard() {
   const timelineReady = !carsLoading && !rentalsLoading;
   useEffect(() => {
     if (timelineReady && scrollContainerRef.current && todayIndex >= 0) {
-      const DAY_WIDTH = 70;
       const scrollPosition = todayIndex * DAY_WIDTH - 100;
       scrollContainerRef.current.scrollLeft = Math.max(0, scrollPosition);
     }
-  }, [todayIndex, timelineReady]);
+  }, [todayIndex, timelineReady, DAY_WIDTH]);
 
   const monthGroups = useMemo(() => {
     const groups: { month: Date; days: Date[]; startIndex: number }[] = [];
@@ -551,7 +554,6 @@ export default function Dashboard() {
 
   const goToToday = () => {
     if (scrollContainerRef.current && todayIndex >= 0) {
-      const DAY_WIDTH = 70;
       const scrollPosition = todayIndex * DAY_WIDTH - 100;
       scrollContainerRef.current.scrollTo({
         left: Math.max(0, scrollPosition),
@@ -562,7 +564,6 @@ export default function Dashboard() {
 
   const scrollByDays = (delta: number) => {
     if (scrollContainerRef.current) {
-      const DAY_WIDTH = 70;
       scrollContainerRef.current.scrollBy({
         left: delta * DAY_WIDTH,
         behavior: "smooth",
@@ -662,11 +663,12 @@ export default function Dashboard() {
 
   const isLoading = carsLoading || rentalsLoading;
 
-  const DAY_WIDTH = 70;
+  // DAY_WIDTH is derived from the zoom state near the top of the component.
   const CAR_ROW_HEIGHT = 40;
   const CAR_LABEL_WIDTH = 160;
   const MONTH_HEADER_HEIGHT = 36;
   const DAY_HEADER_HEIGHT = 36;
+  const compact = DAY_WIDTH < 48; // fortnight / month: hide per-day text
 
   // "vs last month" delta for the This Month card. Only shown once server
   // stats have arrived (so we don't flash a bogus -100% while loading) and
@@ -927,25 +929,56 @@ export default function Dashboard() {
                     ))}
                   </ul>
                 )}
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => scrollByDays(-7)}
-                    aria-label="Scroll timeline back one week"
-                    data-testid="button-scroll-prev"
+                <div className="flex items-center gap-2">
+                  {/* Zoom: how many days fit on screen at once. */}
+                  <div
+                    className="hidden sm:flex items-center rounded-md border border-border overflow-hidden"
+                    role="group"
+                    aria-label="Timeline zoom"
                   >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => scrollByDays(7)}
-                    aria-label="Scroll timeline forward one week"
-                    data-testid="button-scroll-next"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    {(
+                      [
+                        ["week", "Week"],
+                        ["fortnight", "2 wks"],
+                        ["month", "Month"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setZoom(value)}
+                        aria-pressed={zoom === value}
+                        className={`px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider transition-colors ${
+                          zoom === value
+                            ? "bg-neon-cyan/15 text-neon-cyan"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        data-testid={`button-zoom-${value}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => scrollByDays(-7)}
+                      aria-label="Scroll timeline back one week"
+                      data-testid="button-scroll-prev"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => scrollByDays(7)}
+                      aria-label="Scroll timeline forward one week"
+                      data-testid="button-scroll-next"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -1002,23 +1035,34 @@ export default function Dashboard() {
                       </div>
                       {visibleDays.map((day, idx) => {
                         const isToday = isSameDay(day, new Date());
+                        const dow = day.getDay();
+                        const isWeekend = dow === 0 || dow === 6;
+                        const isWeekStart = dow === 1; // Monday
                         return (
                           <div
                             key={idx}
                             ref={isToday ? todayColumnRef : null}
-                            className={`flex items-center justify-center border-r border-border flex-shrink-0 ${
-                              isToday ? "bg-neon-cyan/15" : ""
+                            className={`flex items-center justify-center flex-shrink-0 ${
+                              isWeekStart ? "border-l border-border" : ""
+                            } ${
+                              isToday
+                                ? "bg-neon-cyan/15"
+                                : isWeekend
+                                  ? "bg-muted/30"
+                                  : ""
                             }`}
                             style={{ width: DAY_WIDTH, height: DAY_HEADER_HEIGHT }}
                           >
                             <div
-                              className={`text-xs font-mono whitespace-nowrap ${
+                              className={`text-[11px] font-mono whitespace-nowrap ${
                                 isToday
                                   ? "text-neon-cyan font-bold"
                                   : "text-muted-foreground"
                               }`}
                             >
-                              {format(day, "EEE")} {format(day, "d")}
+                              {compact
+                                ? format(day, "d")
+                                : `${format(day, "EEE")} ${format(day, "d")}`}
                             </div>
                           </div>
                         );
@@ -1074,14 +1118,19 @@ export default function Dashboard() {
                                     style={{ left: todayIndex * DAY_WIDTH }}
                                   />
                                 )}
+                          {/* Weekend shading + a light rule only at week
+                              starts (Monday). 150 daily borders read as noise
+                              across 10 rows; weekly structure is enough. */}
                           {visibleDays.map((day, idx) => {
-                            const isToday = isSameDay(day, new Date());
+                            const dow = day.getDay();
+                            const isWeekend = dow === 0 || dow === 6;
+                            const isWeekStart = dow === 1;
                             return (
                               <div
                                 key={idx}
-                                className={`border-r border-border/50 flex-shrink-0 ${
-                                  isToday ? "bg-neon-cyan/[0.07]" : ""
-                                }`}
+                                className={`flex-shrink-0 ${
+                                  isWeekStart ? "border-l border-border/60" : ""
+                                } ${isWeekend ? "bg-muted/20" : ""}`}
                                 style={{ width: DAY_WIDTH, height: CAR_ROW_HEIGHT }}
                               />
                             );
@@ -1106,31 +1155,37 @@ export default function Dashboard() {
                               bar.daysCount
                             } day${bar.daysCount === 1 ? "" : "s"} · ${style.label}`;
 
+                            // Below ~48px the name is unreadable; show nothing
+                            // and let colour + width carry it (tooltip has the
+                            // detail).
+                            const showText = width >= 46 && !compact;
                             return (
                               <button
                                 type="button"
                                 key={bar.rental.id}
-                                className="absolute cursor-pointer flex items-center justify-center gap-1 rounded px-1 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                                className="absolute cursor-pointer flex items-center gap-1 rounded-[5px] px-1.5 overflow-hidden transition-transform hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                                 style={{
-                                  left: left + 2,
-                                  top: 4,
-                                  width: width - 4,
-                                  height: CAR_ROW_HEIGHT - 8,
+                                  left: left + 1.5,
+                                  top: 5,
+                                  width: width - 3,
+                                  height: CAR_ROW_HEIGHT - 10,
                                   ...(outlined
                                     ? {
                                         backgroundColor:
                                           skin === "classic"
                                             ? `${carColor}1f`
-                                            : "transparent",
+                                            : `color-mix(in srgb, ${fill} 14%, transparent)`,
                                         border: `1px dashed ${fill}`,
                                         color: fill,
                                       }
                                     : {
-                                        background: fill,
+                                        background: `linear-gradient(180deg, color-mix(in srgb, ${fill} 92%, white), ${fill})`,
                                         color:
                                           skin === "classic"
                                             ? readableTextOn(carColor)
                                             : "hsl(var(--background))",
+                                        boxShadow:
+                                          "inset 0 1px 0 rgba(255,255,255,0.15), 0 1px 2px rgba(0,0,0,0.25)",
                                       }),
                                 }}
                                 onClick={() => setSelectedRental(bar.rental)}
@@ -1142,9 +1197,11 @@ export default function Dashboard() {
                                     so it carries the thing that isn't otherwise
                                     visible: who has the car. Status is the
                                     colour (and dashed outline when unpaid). */}
-                                <span className="text-[11px] font-medium truncate">
-                                  {bar.rental.customerName ?? `${bar.daysCount}d`}
-                                </span>
+                                {showText && (
+                                  <span className="text-[11px] font-semibold truncate">
+                                    {bar.rental.customerName ?? `${bar.daysCount}d`}
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
