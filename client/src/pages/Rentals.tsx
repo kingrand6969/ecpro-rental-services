@@ -29,13 +29,22 @@ import { RentalDetailsDialog } from "@/components/RentalDetailsDialog";
 import { EditRentalDialog } from "@/components/EditRentalDialog";
 import { ConfirmPaymentDialog, type ConfirmPaymentKind } from "@/components/ConfirmPaymentDialog";
 import { getRegistrationStatus } from "@/components/CarDetailsDialog";
+import { getRentalStatus, STATUS_STYLES } from "@/lib/rentalStatus";
 import type { Car, Rental } from "@shared/schema";
 
 export default function Rentals() {
   const { isAdmin, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // The dashboard's attention chips deep-link here, e.g. /rentals?filter=overdue.
+  const [statusFilter, setStatusFilter] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    const preset = new URLSearchParams(window.location.search).get("filter");
+    return preset &&
+      ["overdue", "unpaid", "due-today", "pickups-today"].includes(preset)
+      ? preset
+      : "all";
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [viewRental, setViewRental] = useState<Rental | null>(null);
   const [editRental, setEditRental] = useState<Rental | null>(null);
@@ -57,19 +66,66 @@ export default function Rentals() {
   };
 
   const filteredRentals = rentals?.filter((rental) => {
+    // Includes plate number and phone: the caller says "this is Marvin,
+    // 0917..." and the guard radios a plate, so both must be findable.
+    const q = searchTerm.toLowerCase();
+    const car = getCarById(rental.carId);
     const matchesSearch =
-      rental.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rental.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getCarById(rental.carId)?.name.toLowerCase().includes(searchTerm.toLowerCase());
+      rental.customerName.toLowerCase().includes(q) ||
+      rental.customerEmail?.toLowerCase().includes(q) ||
+      rental.customerPhone?.toLowerCase().includes(q) ||
+      car?.name.toLowerCase().includes(q) ||
+      car?.plateNumber?.toLowerCase().includes(q);
 
+    const todayStr = format(new Date(), "yyyy-MM-dd");
     const matchesStatus =
       statusFilter === "all" ||
       (statusFilter === "finalized" && rental.isFinalized) ||
       (statusFilter === "active" && !rental.isFinalized) ||
       (statusFilter === "reservation" && rental.reservationStatus === "pending") ||
-      (statusFilter === "confirmed" && rental.paymentStatus === "confirmed");
+      (statusFilter === "confirmed" && rental.paymentStatus === "confirmed") ||
+      (statusFilter === "overdue" &&
+        !rental.isFinalized &&
+        (rental.endDate as string) < todayStr) ||
+      (statusFilter === "unpaid" && rental.paymentStatus === "pending") ||
+      (statusFilter === "due-today" &&
+        !rental.isFinalized &&
+        (rental.endDate as string) === todayStr) ||
+      (statusFilter === "pickups-today" &&
+        (rental.startDate as string) === todayStr);
 
     return matchesSearch && matchesStatus;
+  });
+
+  // When looking at an action filter, oldest end date first — the car that
+  // has been out longest is the one most worth chasing. Otherwise keep the
+  // server's newest-first order.
+  const sortedRentals =
+    statusFilter === "overdue" ||
+    statusFilter === "unpaid" ||
+    statusFilter === "due-today"
+      ? filteredRentals
+          ?.slice()
+          .sort((a, b) =>
+            (a.endDate as string).localeCompare(b.endDate as string),
+          )
+      : filteredRentals;
+
+  const finalizeMutation = useMutation({
+    mutationFn: (rentalId: number) =>
+      apiRequest("PATCH", `/api/rentals/${rentalId}`, { isFinalized: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/exceptions"] });
+      toast({ title: "Rental finalized" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Could not finalize",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const isLoading = rentalsLoading || carsLoading;
@@ -115,6 +171,10 @@ export default function Rentals() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                  <SelectItem value="due-today">Due Back Today</SelectItem>
+                  <SelectItem value="pickups-today">Pickups Today</SelectItem>
                   <SelectItem value="reservation">Reservations</SelectItem>
                   <SelectItem value="confirmed">Paid</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
@@ -130,7 +190,7 @@ export default function Rentals() {
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
-            ) : filteredRentals && filteredRentals.length > 0 ? (
+            ) : sortedRentals && sortedRentals.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -146,7 +206,7 @@ export default function Rentals() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRentals.map((rental) => {
+                    {sortedRentals.map((rental) => {
                       const car = getCarById(rental.carId);
                       return (
                         <TableRow key={rental.id} data-testid={`rental-row-${rental.id}`} className="border-border">
@@ -190,7 +250,7 @@ export default function Rentals() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums">
-                            {differenceInDays(parseISO(rental.endDate as string), parseISO(rental.startDate as string))}
+                            {rental.daysRented}
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums text-neon-cyan font-medium">
                             ₱{parseFloat(rental.totalAmount).toLocaleString()}
@@ -198,9 +258,26 @@ export default function Rentals() {
                           <TableCell>
                             <div className="flex flex-col gap-1">
                               {rental.isFinalized ? (
-                                <Badge className="bg-muted text-muted-foreground border border-border">Finalized</Badge>
+                                <Badge className="bg-muted text-muted-foreground border border-border">
+                                  Finalized
+                                </Badge>
                               ) : (
-                                <Badge className="bg-neon-cyan/15 text-neon-cyan border border-neon-cyan/30">Active</Badge>
+                                (() => {
+                                  const status = getRentalStatus(rental);
+                                  const style = STATUS_STYLES[status];
+                                  return (
+                                    <Badge
+                                      className="border"
+                                      style={{
+                                        color: style.color,
+                                        borderColor: style.color,
+                                        background: "transparent",
+                                      }}
+                                    >
+                                      {style.glyph} {style.label}
+                                    </Badge>
+                                  );
+                                })()
                               )}
                             </div>
                           </TableCell>
@@ -282,9 +359,26 @@ export default function Rentals() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
+                              {isSuperAdmin &&
+                                !rental.isFinalized &&
+                                (rental.endDate as string) <=
+                                  format(new Date(), "yyyy-MM-dd") && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 font-mono text-[11px] uppercase tracking-wider"
+                                    disabled={finalizeMutation.isPending}
+                                    onClick={() => finalizeMutation.mutate(rental.id)}
+                                    data-testid={`button-finalize-${rental.id}`}
+                                  >
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Finalize
+                                  </Button>
+                                )}
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label={`View rental for ${rental.customerName}`}
                                 onClick={() => setViewRental(rental)}
                                 data-testid={`button-view-${rental.id}`}
                               >
@@ -294,6 +388,7 @@ export default function Rentals() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  aria-label={`Edit rental for ${rental.customerName}`}
                                   onClick={() => setEditRental(rental)}
                                   data-testid={`button-edit-${rental.id}`}
                                 >

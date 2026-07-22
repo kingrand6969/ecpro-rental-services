@@ -54,6 +54,7 @@ import { CarDetailsDialog } from "@/components/CarDetailsDialog";
 import type {
   Car,
   DashboardStats,
+  DashboardExceptions,
   Rental,
   RentalLogWithUser,
   ExpenseLogWithUser,
@@ -247,6 +248,13 @@ export default function Dashboard() {
   // semantics. We refetch periodically so long-lived sessions don't go stale.
   const { data: dashboardStats } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+    refetchInterval: 60_000,
+  });
+
+  // What needs a person today. Counted server-side across every rental,
+  // because the oldest cars still out fall outside the timeline window.
+  const { data: exceptions } = useQuery<DashboardExceptions>({
+    queryKey: ["/api/dashboard/exceptions"],
     refetchInterval: 60_000,
   });
 
@@ -680,16 +688,6 @@ export default function Dashboard() {
       subTone: "muted" as "up" | "down" | "muted",
     },
     {
-      label: "Today's Income",
-      // Whole pesos only: centavos add width without meaning on a glance
-      // card, and Finances shows the exact figure.
-      value: Math.round(animToday).toLocaleString(),
-      prefix: "₱",
-      suffix: "",
-      sub: null,
-      subTone: "muted" as const,
-    },
-    {
       label: "This Month",
       value: Math.round(animMonth).toLocaleString(),
       prefix: "₱",
@@ -702,14 +700,6 @@ export default function Dashboard() {
             : null,
       subTone:
         monthDelta === null ? ("muted" as const) : monthDelta >= 0 ? ("up" as const) : ("down" as const),
-    },
-    {
-      label: "Year to Date",
-      value: Math.round(animYtd).toLocaleString(),
-      prefix: "₱",
-      suffix: "",
-      sub: null,
-      subTone: "muted" as const,
     },
     {
       label: "Available Cars",
@@ -775,11 +765,89 @@ export default function Dashboard() {
       ) : (
         <div className="flex-1 overflow-auto p-4 md:p-6 lg:flex lg:gap-6 neon-scrollbar min-h-0">
           <div className="flex-1 flex flex-col gap-6 min-w-0">
+            {/* Needs attention — the work of the day. Each chip jumps to the
+                rentals list filtered to those bookings. Rendered only when
+                non-zero: a quiet dashboard should be quiet. */}
+            {exceptions &&
+              (exceptions.overdueCount > 0 ||
+                exceptions.dueTodayCount > 0 ||
+                exceptions.pickupsTodayCount > 0 ||
+                exceptions.unpaidCount > 0) && (
+                <div
+                  className="flex flex-wrap gap-2 sm:gap-3"
+                  data-testid="attention-row"
+                >
+                  {exceptions.overdueCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=overdue")}
+                      className="flex items-center gap-2.5 rounded-md border border-[hsl(var(--status-overdue))] bg-[hsl(var(--status-overdue)/0.12)] px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-overdue"
+                    >
+                      <span className="text-xl font-bold ui-figure text-[hsl(var(--status-overdue))]">
+                        {exceptions.overdueCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        not returned
+                        <br />
+                        <span className="text-muted-foreground">past end date</span>
+                      </span>
+                    </button>
+                  )}
+                  {exceptions.unpaidCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=unpaid")}
+                      className="flex items-center gap-2.5 rounded-md border border-[hsl(var(--status-unpaid))] bg-[hsl(var(--status-unpaid)/0.12)] px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-unpaid"
+                    >
+                      <span className="text-xl font-bold ui-figure text-[hsl(var(--status-unpaid))]">
+                        {exceptions.unpaidCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        unpaid
+                        <br />
+                        <span className="text-muted-foreground">
+                          ₱{Math.round(exceptions.unpaidAmount).toLocaleString()} owed
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  {exceptions.dueTodayCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=due-today")}
+                      className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-due-today"
+                    >
+                      <span className="text-xl font-bold ui-figure">
+                        {exceptions.dueTodayCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        due back today
+                      </span>
+                    </button>
+                  )}
+                  {exceptions.pickupsTodayCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=pickups-today")}
+                      className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-pickups-today"
+                    >
+                      <span className="text-xl font-bold ui-figure">
+                        {exceptions.pickupsTodayCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        pickups today
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+
             {/* KPI Row */}
-            {/* Only go to 5 across once the viewport is wide enough for it:
-                beside the live-feed column, 5 cards leave ~70px each, which
-                clips six- and seven-figure peso amounts. */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {kpiCards.map((kpi, i) => (
                 <div
                   key={i}
@@ -1070,14 +1138,12 @@ export default function Dashboard() {
                                 aria-label={label}
                                 data-testid={`rental-bar-${bar.rental.id}`}
                               >
-                                <span
-                                  aria-hidden="true"
-                                  className="text-[10px] font-bold leading-none"
-                                >
-                                  {style.glyph}
-                                </span>
-                                <span className="text-xs font-mono font-bold truncate">
-                                  {bar.daysCount}d
+                                {/* The bar's width already shows the duration,
+                                    so it carries the thing that isn't otherwise
+                                    visible: who has the car. Status is the
+                                    colour (and dashed outline when unpaid). */}
+                                <span className="text-[11px] font-medium truncate">
+                                  {bar.rental.customerName ?? `${bar.daysCount}d`}
                                 </span>
                               </button>
                             );
