@@ -376,6 +376,24 @@ export type DashboardStats = {
   totalCars: number;
 };
 
+// What needs a person's attention today, from GET /api/dashboard/exceptions.
+//
+// Counted server-side over ALL rentals rather than in the client, because the
+// dashboard only fetches a 60-day timeline window and the oldest unreturned
+// rentals fall outside it.
+export type DashboardExceptions = {
+  /** Past end date and not finalized — a car that has not come back. */
+  overdueCount: number;
+  /** Due back today and not finalized. */
+  dueTodayCount: number;
+  /** Starting today. */
+  pickupsTodayCount: number;
+  /** paymentStatus still 'pending'. */
+  unpaidCount: number;
+  /** Total value of those unpaid rentals. */
+  unpaidAmount: number;
+};
+
 // One point in the monthly income trend returned by
 // GET /api/dashboard/income-trend.
 //

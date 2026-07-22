@@ -12,6 +12,17 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -757,17 +768,40 @@ export function EditRentalDialog({ rental, onClose }: EditRentalDialogProps) {
             )}
 
             <div className="flex items-center gap-3 pt-4">
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-                className="font-mono text-xs uppercase tracking-wider"
-                data-testid="button-delete-rental"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={deleteMutation.isPending}
+                    className="font-mono text-xs uppercase tracking-wider"
+                    data-testid="button-delete-rental"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this rental?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {rental.customerName} ·{" "}
+                      ₱{parseFloat(rental.totalAmount).toLocaleString()}. This
+                      permanently removes the rental and its payment records.
+                      It cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteMutation.mutate()}
+                      data-testid="button-confirm-delete-rental"
+                    >
+                      Delete rental
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <div className="flex-1" />
               <Button
                 type="button"

@@ -30,6 +30,7 @@ import {
   type InsertExpenseLog,
   type ExpenseLogWithUser,
   type DashboardStats,
+  type DashboardExceptions,
   type MonthlyIncomePoint,
 } from "@shared/schema";
 import { db } from "./db";
@@ -112,6 +113,7 @@ export interface IStorage {
     totalCustomers: number;
   }>;
   getDashboardStats(): Promise<DashboardStats>;
+  getDashboardExceptions(): Promise<DashboardExceptions>;
   getMonthlyIncomeTrend(): Promise<MonthlyIncomePoint[]>;
 }
 
@@ -647,6 +649,44 @@ export class DatabaseStorage implements IStorage {
       yearToDateIncome: Number(row.year_to_date_income) || 0,
       availableCars: Math.max(0, totalCars - activeRentals),
       totalCars,
+    };
+  }
+
+  // Counted over every rental, not just the dashboard's timeline window —
+  // the oldest cars still out are the ones most worth chasing, and they sit
+  // outside the 60 days the client fetches.
+  async getDashboardExceptions(): Promise<DashboardExceptions> {
+    const result = await db.execute(sql`
+      SELECT
+        (
+          SELECT COUNT(*)::int FROM rentals
+          WHERE end_date < CURRENT_DATE AND is_finalized = false
+        ) AS overdue_count,
+        (
+          SELECT COUNT(*)::int FROM rentals
+          WHERE end_date = CURRENT_DATE AND is_finalized = false
+        ) AS due_today_count,
+        (
+          SELECT COUNT(*)::int FROM rentals
+          WHERE start_date = CURRENT_DATE
+        ) AS pickups_today_count,
+        (
+          SELECT COUNT(*)::int FROM rentals
+          WHERE payment_status = 'pending'
+        ) AS unpaid_count,
+        (
+          SELECT COALESCE(SUM(total_amount), 0)::float8 FROM rentals
+          WHERE payment_status = 'pending'
+        ) AS unpaid_amount
+    `);
+
+    const row = (result.rows?.[0] ?? {}) as Record<string, unknown>;
+    return {
+      overdueCount: Number(row.overdue_count) || 0,
+      dueTodayCount: Number(row.due_today_count) || 0,
+      pickupsTodayCount: Number(row.pickups_today_count) || 0,
+      unpaidCount: Number(row.unpaid_count) || 0,
+      unpaidAmount: Number(row.unpaid_amount) || 0,
     };
   }
 

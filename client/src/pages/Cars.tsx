@@ -74,6 +74,16 @@ export default function Cars() {
                   className="h-1.5"
                   style={{ backgroundColor: car.colorCode }}
                 />
+                {car.imageUrl && (
+                  <div className="aspect-video bg-black/40 overflow-hidden">
+                    <img
+                      src={car.imageUrl}
+                      alt={car.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 <div className="p-4 pb-3 flex items-start justify-between gap-2">
                   <h3 className="font-mono text-sm uppercase tracking-widest text-foreground" data-testid={`text-car-name-${car.id}`}>
                     {car.name}

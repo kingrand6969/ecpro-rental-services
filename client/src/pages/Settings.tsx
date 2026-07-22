@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Lock, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { AppearancePicker } from "@/components/AppearancePicker";
 
 const passwordSchema = z.object({
   currentPassword: z.string().optional(),
@@ -99,6 +100,8 @@ export default function Settings() {
               </div>
             </div>
           )}
+
+          <AppearancePicker />
 
           <div className="glass-panel rounded-md">
             <div className="p-4 border-b border-border">

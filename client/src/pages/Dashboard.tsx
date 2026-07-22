@@ -54,11 +54,19 @@ import { CarDetailsDialog } from "@/components/CarDetailsDialog";
 import type {
   Car,
   DashboardStats,
+  DashboardExceptions,
   Rental,
   RentalLogWithUser,
   ExpenseLogWithUser,
 } from "@shared/schema";
 import { getOilChangeStatus, formatDaysAge } from "@/lib/oilChange";
+import {
+  getRentalStatus,
+  readableTextOn,
+  STATUS_STYLES,
+  type RentalStatus,
+} from "@/lib/rentalStatus";
+import { useTheme } from "@/hooks/useTheme";
 
 // How many days before/after today the Fleet Timeline shows and fetches.
 const TIMELINE_DAYS_BEFORE = 60;
@@ -165,6 +173,7 @@ function SortableCarRow({
 }
 
 export default function Dashboard() {
+  const { skin } = useTheme();
   const [, setLocation] = useLocation();
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
   const [availableCarsOpen, setAvailableCarsOpen] = useState(false);
@@ -239,6 +248,13 @@ export default function Dashboard() {
   // semantics. We refetch periodically so long-lived sessions don't go stale.
   const { data: dashboardStats } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+    refetchInterval: 60_000,
+  });
+
+  // What needs a person today. Counted server-side across every rental,
+  // because the oldest cars still out fall outside the timeline window.
+  const { data: exceptions } = useQuery<DashboardExceptions>({
+    queryKey: ["/api/dashboard/exceptions"],
     refetchInterval: 60_000,
   });
 
@@ -634,7 +650,9 @@ export default function Dashboard() {
       }
 
       if (startIndex !== -1 && endIndex !== -1 && startIndex <= endIndex) {
-        const daysCount = differenceInDays(rentalEnd, rentalStart);
+        // Inclusive of both days: a rental that starts and ends on the same
+        // date lasts one day, not zero.
+        const daysCount = differenceInDays(rentalEnd, rentalStart) + 1;
         bars.push({ rental, startIndex, endIndex, daysCount });
       }
     });
@@ -670,16 +688,6 @@ export default function Dashboard() {
       subTone: "muted" as "up" | "down" | "muted",
     },
     {
-      label: "Today's Income",
-      // Whole pesos only: centavos add width without meaning on a glance
-      // card, and Finances shows the exact figure.
-      value: Math.round(animToday).toLocaleString(),
-      prefix: "₱",
-      suffix: "",
-      sub: null,
-      subTone: "muted" as const,
-    },
-    {
       label: "This Month",
       value: Math.round(animMonth).toLocaleString(),
       prefix: "₱",
@@ -692,14 +700,6 @@ export default function Dashboard() {
             : null,
       subTone:
         monthDelta === null ? ("muted" as const) : monthDelta >= 0 ? ("up" as const) : ("down" as const),
-    },
-    {
-      label: "Year to Date",
-      value: Math.round(animYtd).toLocaleString(),
-      prefix: "₱",
-      suffix: "",
-      sub: null,
-      subTone: "muted" as const,
     },
     {
       label: "Available Cars",
@@ -765,11 +765,89 @@ export default function Dashboard() {
       ) : (
         <div className="flex-1 overflow-auto p-4 md:p-6 lg:flex lg:gap-6 neon-scrollbar min-h-0">
           <div className="flex-1 flex flex-col gap-6 min-w-0">
+            {/* Needs attention — the work of the day. Each chip jumps to the
+                rentals list filtered to those bookings. Rendered only when
+                non-zero: a quiet dashboard should be quiet. */}
+            {exceptions &&
+              (exceptions.overdueCount > 0 ||
+                exceptions.dueTodayCount > 0 ||
+                exceptions.pickupsTodayCount > 0 ||
+                exceptions.unpaidCount > 0) && (
+                <div
+                  className="flex flex-wrap gap-2 sm:gap-3"
+                  data-testid="attention-row"
+                >
+                  {exceptions.overdueCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=overdue")}
+                      className="flex items-center gap-2.5 rounded-md border border-[hsl(var(--status-overdue))] bg-[hsl(var(--status-overdue)/0.12)] px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-overdue"
+                    >
+                      <span className="text-xl font-bold ui-figure text-[hsl(var(--status-overdue))]">
+                        {exceptions.overdueCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        not returned
+                        <br />
+                        <span className="text-muted-foreground">past end date</span>
+                      </span>
+                    </button>
+                  )}
+                  {exceptions.unpaidCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=unpaid")}
+                      className="flex items-center gap-2.5 rounded-md border border-[hsl(var(--status-unpaid))] bg-[hsl(var(--status-unpaid)/0.12)] px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-unpaid"
+                    >
+                      <span className="text-xl font-bold ui-figure text-[hsl(var(--status-unpaid))]">
+                        {exceptions.unpaidCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        unpaid
+                        <br />
+                        <span className="text-muted-foreground">
+                          ₱{Math.round(exceptions.unpaidAmount).toLocaleString()} owed
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  {exceptions.dueTodayCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=due-today")}
+                      className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-due-today"
+                    >
+                      <span className="text-xl font-bold ui-figure">
+                        {exceptions.dueTodayCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        due back today
+                      </span>
+                    </button>
+                  )}
+                  {exceptions.pickupsTodayCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/rentals?filter=pickups-today")}
+                      className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3.5 py-2.5 text-left hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      data-testid="chip-pickups-today"
+                    >
+                      <span className="text-xl font-bold ui-figure">
+                        {exceptions.pickupsTodayCount}
+                      </span>
+                      <span className="text-xs leading-tight">
+                        pickups today
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+
             {/* KPI Row */}
-            {/* Only go to 5 across once the viewport is wide enough for it:
-                beside the live-feed column, 5 cards leave ~70px each, which
-                clips six- and seven-figure peso amounts. */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {kpiCards.map((kpi, i) => (
                 <div
                   key={i}
@@ -777,9 +855,7 @@ export default function Dashboard() {
                   data-testid={`kpi-card-${i}`}
                 >
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-neon-cyan opacity-5 blur-2xl group-hover:opacity-10 transition-opacity pointer-events-none" />
-                  <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
-                    {kpi.label}
-                  </span>
+                  <span className="ui-label">{kpi.label}</span>
                   <div className="flex items-baseline gap-1 mt-auto min-w-0">
                     {kpi.prefix && (
                       <span className="text-base md:text-lg font-mono text-neon-cyan shrink-0">
@@ -826,15 +902,37 @@ export default function Dashboard() {
 
             {/* Fleet Timeline */}
             <div className="glass-panel rounded-md flex-1 flex flex-col min-h-[400px] overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 shrink-0">
-                <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                  Fleet Timeline
-                </h2>
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 flex-wrap shrink-0">
+                <h2 className="ui-label">Fleet Timeline</h2>
+                {skin !== "classic" && (
+                  <ul className="flex items-center gap-3 flex-wrap list-none m-0 p-0 mr-auto ml-2">
+                    {(
+                      ["out", "reserved", "overdue", "unpaid"] as RentalStatus[]
+                    ).map((s) => (
+                      <li
+                        key={s}
+                        className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={
+                            STATUS_STYLES[s].outlined
+                              ? { border: `1px dashed ${STATUS_STYLES[s].color}` }
+                              : { background: STATUS_STYLES[s].color }
+                          }
+                        />
+                        {STATUS_STYLES[s].label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => scrollByDays(-7)}
+                    aria-label="Scroll timeline back one week"
                     data-testid="button-scroll-prev"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -843,6 +941,7 @@ export default function Dashboard() {
                     variant="ghost"
                     size="icon"
                     onClick={() => scrollByDays(7)}
+                    aria-label="Scroll timeline forward one week"
                     data-testid="button-scroll-next"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -964,6 +1063,17 @@ export default function Dashboard() {
                                   height: CAR_ROW_HEIGHT,
                                 }}
                               >
+                                {/* A real "now" rule. The cell tint alone
+                                    measured 1.15:1 against its neighbours —
+                                    not perceivable on the one view whose whole
+                                    job is showing where today sits. */}
+                                {todayIndex >= 0 && (
+                                  <div
+                                    aria-hidden="true"
+                                    className="absolute top-0 bottom-0 w-0.5 bg-neon-cyan z-10 pointer-events-none"
+                                    style={{ left: todayIndex * DAY_WIDTH }}
+                                  />
+                                )}
                           {visibleDays.map((day, idx) => {
                             const isToday = isSameDay(day, new Date());
                             return (
@@ -981,38 +1091,61 @@ export default function Dashboard() {
                             const left = bar.startIndex * DAY_WIDTH;
                             const width =
                               (bar.endIndex - bar.startIndex + 1) * DAY_WIDTH;
-                            const pending =
-                              bar.rental.paymentStatus === "pending";
+                            const status = getRentalStatus(bar.rental);
+                            const style = STATUS_STYLES[status];
+                            // Classic keeps vehicle-coloured bars; the other
+                            // skins spend colour on status, which the row
+                            // label cannot already tell you.
+                            const fill =
+                              skin === "classic" ? carColor : style.color;
+                            const outlined =
+                              skin === "classic"
+                                ? bar.rental.paymentStatus === "pending"
+                                : style.outlined;
+                            const label = `${bar.rental.customerName ?? "Rental"} · ${
+                              bar.daysCount
+                            } day${bar.daysCount === 1 ? "" : "s"} · ${style.label}`;
 
                             return (
-                              <div
+                              <button
+                                type="button"
                                 key={bar.rental.id}
-                                className="absolute cursor-pointer transition-all flex items-center justify-center rounded"
+                                className="absolute cursor-pointer flex items-center justify-center gap-1 rounded px-1 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                                 style={{
                                   left: left + 2,
                                   top: 4,
                                   width: width - 4,
                                   height: CAR_ROW_HEIGHT - 8,
-                                  ...(pending
+                                  ...(outlined
                                     ? {
-                                        backgroundColor: `${carColor}1f`,
-                                        border: `1px dashed ${carColor}`,
-                                        color: carColor,
-                                        boxShadow: `0 0 8px ${carColor}33`,
+                                        backgroundColor:
+                                          skin === "classic"
+                                            ? `${carColor}1f`
+                                            : "transparent",
+                                        border: `1px dashed ${fill}`,
+                                        color: fill,
                                       }
                                     : {
-                                        background: `linear-gradient(90deg, ${carColor}, ${carColor}cc)`,
-                                        boxShadow: `0 0 10px ${carColor}55`,
-                                        color: "#0a0f1a",
+                                        background: fill,
+                                        color:
+                                          skin === "classic"
+                                            ? readableTextOn(carColor)
+                                            : "hsl(var(--background))",
                                       }),
                                 }}
                                 onClick={() => setSelectedRental(bar.rental)}
+                                title={label}
+                                aria-label={label}
                                 data-testid={`rental-bar-${bar.rental.id}`}
                               >
-                                <span className="text-xs font-mono font-bold">
-                                  {bar.daysCount}d
+                                {/* The bar's width already shows the duration,
+                                    so it carries the thing that isn't otherwise
+                                    visible: who has the car. Status is the
+                                    colour (and dashed outline when unpaid). */}
+                                <span className="text-[11px] font-medium truncate">
+                                  {bar.rental.customerName ?? `${bar.daysCount}d`}
                                 </span>
-                              </div>
+                              </button>
                             );
                           })}
                               </div>

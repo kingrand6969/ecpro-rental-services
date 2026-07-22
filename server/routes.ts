@@ -7,6 +7,47 @@ import { insertCarSchema, insertRentalSchema, insertExpenseSchema, insertCustome
 import { z } from "zod";
 import type { User } from "@shared/schema";
 
+// The rental (if any) on the same car whose dates overlap [start, end].
+//
+// Same-day handover is allowed: a rental ending on day X does not conflict
+// with another starting on day X (returned in the morning, re-rented that
+// afternoon). But two same-day rentals on the same date DO conflict — with
+// a pure exclusive comparison a start===end booking slips past the guard
+// and the car is promised to two customers at once.
+//
+// Used by both POST and PATCH: without the PATCH check, extending a booking
+// in the edit dialog could silently double-book over the next rental.
+async function findOverlappingRental(
+  carId: number,
+  startDate: string,
+  endDate: string,
+  excludeRentalId?: number,
+) {
+  const allRentals = await storage.getAllRentals();
+  const newStart = new Date(startDate);
+  const newEnd = new Date(endDate);
+
+  return allRentals.find((existing) => {
+    if (existing.carId !== carId) return false;
+    if (excludeRentalId !== undefined && existing.id === excludeRentalId) {
+      return false;
+    }
+    const existStart = new Date(existing.startDate);
+    const existEnd = new Date(existing.endDate);
+    if (newStart < existEnd && newEnd > existStart) return true;
+    const sameDay = newStart.getTime() === newEnd.getTime();
+    const existingSameDay = existStart.getTime() === existEnd.getTime();
+    if (sameDay && newStart >= existStart && newStart < existEnd) return true;
+    if (existingSameDay && existStart >= newStart && existStart < newEnd) {
+      return true;
+    }
+    if (sameDay && existingSameDay && newStart.getTime() === existStart.getTime()) {
+      return true;
+    }
+    return false;
+  });
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -334,6 +375,17 @@ export async function registerRoutes(
     }
   });
 
+  // What needs attention today. See `DashboardExceptions` in shared/schema.ts.
+  app.get("/api/dashboard/exceptions", isAuthenticated, async (_req, res) => {
+    try {
+      const exceptions = await storage.getDashboardExceptions();
+      res.json(exceptions);
+    } catch (error) {
+      console.error("Error fetching dashboard exceptions:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard exceptions" });
+    }
+  });
+
   // Monthly income trend: pro-rated income per month for the last 12
   // calendar months, computed in SQL. See `MonthlyIncomePoint` in
   // shared/schema.ts for the definition.
@@ -459,30 +511,18 @@ export async function registerRoutes(
         userId,
       };
       const validated = insertRentalSchema.parse(rentalData);
-      
-      // Check for duplicate or overlapping rental for the same car
-      const allRentals = await storage.getAllRentals();
-      const carRentals = allRentals.filter(r => r.carId === validated.carId);
-      
-      const newStart = new Date(validated.startDate);
-      const newEnd = new Date(validated.endDate);
-      
-      for (const existing of carRentals) {
-        const existStart = new Date(existing.startDate);
-        const existEnd = new Date(existing.endDate);
-        
-        // Check for overlapping dates.
-        // Same-day handover is allowed: a rental ending on day X does not
-        // conflict with another rental starting on day X (car returned in
-        // the morning, re-rented in the afternoon — or returned past
-        // midnight and re-rented that same morning).
-        if (newStart < existEnd && newEnd > existStart) {
-          return res.status(400).json({ 
-            message: "This car has an overlapping rental during the selected dates" 
-          });
-        }
+
+      const conflict = await findOverlappingRental(
+        validated.carId as number,
+        validated.startDate as string,
+        validated.endDate as string,
+      );
+      if (conflict) {
+        return res.status(400).json({
+          message: "This car has an overlapping rental during the selected dates",
+        });
       }
-      
+
       const rental = await storage.createRental(validated);
       
       // Log the rental creation
@@ -564,6 +604,24 @@ export async function registerRoutes(
         if (!incomingDate || !String(incomingBank ?? "").trim()) {
           return res.status(400).json({
             message: "Payment date and bank are required for a confirmed payment",
+          });
+        }
+      }
+
+      // Date changes get the same double-booking guard as creation.
+      if (req.body.startDate !== undefined || req.body.endDate !== undefined) {
+        const nextStart = req.body.startDate ?? existing.startDate;
+        const nextEnd = req.body.endDate ?? existing.endDate;
+        const nextCarId = req.body.carId ?? existing.carId;
+        const conflict = await findOverlappingRental(
+          nextCarId,
+          nextStart as string,
+          nextEnd as string,
+          id,
+        );
+        if (conflict) {
+          return res.status(400).json({
+            message: `These dates overlap another rental for this car (${conflict.customerName}, ${conflict.startDate} to ${conflict.endDate})`,
           });
         }
       }
