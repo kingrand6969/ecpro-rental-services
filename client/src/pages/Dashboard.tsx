@@ -73,6 +73,7 @@ import {
   type RentalStatus,
 } from "@/lib/rentalStatus";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
 
 // How many days before/after today the Fleet Timeline shows and fetches.
 const TIMELINE_DAYS_BEFORE = 60;
@@ -180,7 +181,15 @@ function SortableCarRow({
 
 export default function Dashboard() {
   const { skin } = useTheme();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Time-aware greeting by first name (falls back to username). Computed once
+  // per render from the local clock.
+  const greetingName = user?.firstName?.trim() || user?.username || "there";
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const [createRentalOpen, setCreateRentalOpen] = useState(false);
   const [availableCarsOpen, setAvailableCarsOpen] = useState(false);
   const [selectedRental, setSelectedRental] = useState<Rental | null>(null);
@@ -731,10 +740,11 @@ export default function Dashboard() {
       <div className="flex items-center justify-between gap-4 px-4 md:px-6 h-14 border-b border-border flex-wrap shrink-0 bg-background/60 backdrop-blur">
         <div className="flex items-center gap-3 min-w-0">
           <h1
-            className="font-mono text-base md:text-lg font-bold uppercase tracking-widest text-foreground"
+            className="text-base md:text-lg font-bold text-foreground truncate"
             data-testid="text-dashboard-title"
           >
-            Dashboard
+            {greeting},{" "}
+            <span className="text-neon-cyan">{greetingName}</span>
           </h1>
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted border border-border text-[11px] font-mono text-muted-foreground">
             <Calendar className="h-3 w-3 text-neon-cyan" />
