@@ -65,14 +65,24 @@ export default function Auth() {
     return defaultMessage;
   };
 
+  // Prefer the person's first name; fall back to their username so the
+  // greeting is never blank (some accounts have no name set).
+  const greetingName = (user: {
+    firstName?: string | null;
+    username?: string | null;
+  }) => user.firstName?.trim() || user.username || "there";
+
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
       const response = await apiRequest("POST", "/api/login", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (user) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({ title: "Login successful", description: "Welcome back!" });
+      toast({
+        title: `Hi ${greetingName(user)}!`,
+        description: "Welcome back to ECPro.",
+      });
       setLocation("/");
     },
     onError: (error: any) => {
@@ -89,9 +99,12 @@ export default function Auth() {
       const response = await apiRequest("POST", "/api/register", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (user) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({ title: "Registration successful", description: "Your account has been created." });
+      toast({
+        title: `Hi ${greetingName(user)}!`,
+        description: "Your account has been created.",
+      });
       setLocation("/");
     },
     onError: (error: any) => {
