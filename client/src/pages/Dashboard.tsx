@@ -45,6 +45,12 @@ import {
   ShieldAlert,
   Wrench,
   Trash2,
+  KeyRound,
+  TrendingUp,
+  TrendingDown,
+  CircleParking,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
@@ -688,6 +694,8 @@ export default function Dashboard() {
       prefix: "",
       sub: null as string | null,
       subTone: "muted" as "up" | "down" | "muted",
+      Icon: KeyRound,
+      accent: "cyan" as "cyan" | "amber",
     },
     {
       label: "This Month",
@@ -696,12 +704,14 @@ export default function Dashboard() {
       suffix: "",
       sub:
         monthDelta !== null
-          ? `${monthDelta >= 0 ? "+" : ""}${monthDelta.toFixed(0)}% vs last mo (₱${Math.round(kpis.lastMonthIncome).toLocaleString()})`
+          ? `${monthDelta >= 0 ? "+" : ""}${monthDelta.toFixed(0)}% vs last month`
           : dashboardStats
             ? `Last mo ₱${Math.round(kpis.lastMonthIncome).toLocaleString()}`
             : null,
       subTone:
         monthDelta === null ? ("muted" as const) : monthDelta >= 0 ? ("up" as const) : ("down" as const),
+      Icon: TrendingUp,
+      accent: "cyan" as "cyan" | "amber",
     },
     {
       label: "Available Cars",
@@ -710,6 +720,8 @@ export default function Dashboard() {
       suffix: kpis.totalCars ? ` / ${kpis.totalCars}` : "",
       sub: null,
       subTone: "muted" as const,
+      Icon: CircleParking,
+      accent: "amber" as "cyan" | "amber",
     },
   ];
 
@@ -850,56 +862,93 @@ export default function Dashboard() {
 
             {/* KPI Row */}
             <div className="grid grid-cols-3 gap-3 sm:gap-4">
-              {kpiCards.map((kpi, i) => (
-                <div
-                  key={i}
-                  className="glass-panel rounded-md p-5 flex flex-col gap-2 relative overflow-hidden group"
-                  data-testid={`kpi-card-${i}`}
-                >
-                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-neon-cyan opacity-5 blur-2xl group-hover:opacity-10 transition-opacity pointer-events-none" />
-                  <span className="ui-label">{kpi.label}</span>
-                  <div className="flex items-baseline gap-1 mt-auto min-w-0">
-                    {kpi.prefix && (
-                      <span className="text-base md:text-lg font-mono text-neon-cyan shrink-0">
-                        {kpi.prefix}
-                      </span>
-                    )}
-                    {/* Step the size down for longer figures: a full peso
-                        amount like 2,144,499 overflows the card at the size a
-                        two-digit count is set in. */}
-                    <span
-                      className={`font-mono font-bold text-neon-cyan text-glow-cyan truncate ${
-                        kpi.value.length > 7
-                          ? "text-base md:text-lg"
-                          : kpi.value.length > 4
-                            ? "text-lg md:text-xl"
-                            : "text-3xl md:text-4xl"
+              {kpiCards.map((kpi, i) => {
+                const isAmber = kpi.accent === "amber";
+                const accentText = isAmber ? "text-chart-4" : "text-neon-cyan";
+                const TrendIcon =
+                  kpi.subTone === "up"
+                    ? ArrowUpRight
+                    : kpi.subTone === "down"
+                      ? ArrowDownRight
+                      : null;
+                return (
+                  <div
+                    key={i}
+                    className="kpi-card group relative overflow-hidden rounded-lg p-4 sm:p-5 flex flex-col gap-3"
+                    data-testid={`kpi-card-${i}`}
+                  >
+                    {/* Accent wash bleeding from the corner behind the icon —
+                        gives the flat panel depth without a hard border. */}
+                    <div
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-[0.12] group-hover:opacity-20 transition-opacity ${
+                        isAmber ? "bg-chart-4" : "bg-neon-cyan"
                       }`}
-                    >
-                      {kpi.value}
-                    </span>
-                    {kpi.suffix && (
-                      <span className="text-sm font-mono text-muted-foreground ml-1">
-                        {kpi.suffix}
+                    />
+                    <div className="flex items-center justify-between gap-2 relative">
+                      <span className="ui-label">{kpi.label}</span>
+                      <span
+                        className={`flex h-8 w-8 items-center justify-center rounded-md ${
+                          isAmber
+                            ? "bg-chart-4/10 text-chart-4"
+                            : "bg-neon-cyan/10 text-neon-cyan"
+                        }`}
+                      >
+                        <kpi.Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline gap-1 mt-auto min-w-0 relative">
+                      {kpi.prefix && (
+                        <span
+                          className={`text-base md:text-lg font-mono shrink-0 ${accentText}`}
+                        >
+                          {kpi.prefix}
+                        </span>
+                      )}
+                      {/* Step the size down for longer figures: a full peso
+                          amount like 2,144,499 overflows at the size a
+                          two-digit count is set in. */}
+                      <span
+                        className={`font-mono font-bold tracking-tight truncate ${accentText} ${
+                          skin === "classic" ? "text-glow-cyan" : ""
+                        } ${
+                          kpi.value.length > 7
+                            ? "text-xl md:text-2xl"
+                            : kpi.value.length > 4
+                              ? "text-2xl md:text-3xl"
+                              : "text-3xl md:text-4xl"
+                        }`}
+                      >
+                        {kpi.value}
+                      </span>
+                      {kpi.suffix && (
+                        <span className="text-sm font-mono text-muted-foreground ml-0.5">
+                          {kpi.suffix}
+                        </span>
+                      )}
+                    </div>
+
+                    {kpi.sub && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium relative ${
+                          kpi.subTone === "up"
+                            ? "text-chart-5"
+                            : kpi.subTone === "down"
+                              ? "text-neon-magenta"
+                              : "text-muted-foreground"
+                        }`}
+                        data-testid={`kpi-sub-${i}`}
+                      >
+                        {TrendIcon && (
+                          <TrendIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {kpi.sub}
                       </span>
                     )}
                   </div>
-                  {kpi.sub && (
-                    <span
-                      className={`text-[10px] font-mono tracking-wider ${
-                        kpi.subTone === "up"
-                          ? "text-neon-cyan"
-                          : kpi.subTone === "down"
-                            ? "text-neon-magenta"
-                            : "text-muted-foreground"
-                      }`}
-                      data-testid={`kpi-sub-${i}`}
-                    >
-                      {kpi.sub}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Fleet Timeline */}

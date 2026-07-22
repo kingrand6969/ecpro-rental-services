@@ -98,7 +98,10 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
+      // If the user no longer exists (deleted account, wiped DB), treat the
+      // session as logged-out rather than throwing — passport turns an
+      // undefined user into a 500 on every request otherwise.
+      done(null, user ?? false);
     } catch (error) {
       done(error);
     }
