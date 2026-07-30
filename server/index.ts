@@ -8,6 +8,9 @@ import { pool } from "./db";
 
 async function ensureSchema() {
   await pool.query(
+    `ALTER TABLE cars ADD COLUMN IF NOT EXISTS down_payment numeric(12, 2) NOT NULL DEFAULT 0`
+  );
+  await pool.query(
     `ALTER TABLE cars ADD COLUMN IF NOT EXISTS oil_change_interval_days integer DEFAULT 180`
   );
   await pool.query(

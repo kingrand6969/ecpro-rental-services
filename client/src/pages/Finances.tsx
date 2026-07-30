@@ -138,7 +138,7 @@ export default function Finances() {
 
   const financialSummary = useMemo(() => {
     if (!rentals || !expenses || !cars) {
-      return { totalIncome: 0, totalExpenses: 0, netProfit: 0, totalMonthlyPayments: 0 };
+      return { totalIncome: 0, totalExpenses: 0, netProfit: 0, totalMonthlyPayments: 0, totalDownPayments: 0 };
     }
 
     const confirmedRentals = rentals.filter(r => r.paymentStatus === "confirmed");
@@ -152,6 +152,13 @@ export default function Finances() {
     });
 
     const totalExpensesAmount = periodExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const totalDownPayments = cars.reduce((sum, car) => {
+      if (!car.dateAcquired) return sum;
+      const acquiredAt = parseISO(car.dateAcquired as string);
+      return isWithinInterval(acquiredAt, { start: periodStart, end: periodEnd })
+        ? sum + parseFloat(car.downPayment ?? "0")
+        : sum;
+    }, 0);
 
     let periodCount = 1;
     if (periodType === "quarterly") {
@@ -160,9 +167,10 @@ export default function Finances() {
       periodCount = 12;
     }
     const totalMonthlyPayments = cars.reduce((sum, c) => sum + parseFloat(c.monthlyPayment), 0) * periodCount;
-    const netProfit = totalIncome - totalMonthlyPayments - totalExpensesAmount;
+    const totalExpenses = totalExpensesAmount + totalDownPayments;
+    const netProfit = totalIncome - totalMonthlyPayments - totalExpenses;
 
-    return { totalIncome, totalExpenses: totalExpensesAmount, netProfit, totalMonthlyPayments };
+    return { totalIncome, totalExpenses, netProfit, totalMonthlyPayments, totalDownPayments };
   }, [rentals, expenses, cars, periodStart, periodEnd, periodType]);
 
   const carFinancials = useMemo(() => {
@@ -188,9 +196,15 @@ export default function Finances() {
       }, 0);
       const expenseTotal = carExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
       const monthlyPayment = parseFloat(car.monthlyPayment);
+      const downPayment = car.dateAcquired && isWithinInterval(parseISO(car.dateAcquired as string), {
+        start: periodStart,
+        end: periodEnd,
+      })
+        ? parseFloat(car.downPayment ?? "0")
+        : 0;
       const totalAmortization = monthlyPayment * periodCount;
       const netProfit = income - expenseTotal;
-      const netAfterAmortization = netProfit - totalAmortization;
+      const netAfterAmortization = netProfit - totalAmortization - downPayment;
       const paymentProgress = monthlyPayment > 0 ? Math.min(100, (netProfit / monthlyPayment) * 100) : 0;
 
       return {
@@ -200,6 +214,7 @@ export default function Finances() {
         netProfit,
         netAfterAmortization,
         monthlyPayment,
+        downPayment,
         totalAmortization,
         paymentProgress,
       };
@@ -411,12 +426,13 @@ export default function Finances() {
                         <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Car</TableHead>
                         <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Income</TableHead>
                         <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Expenses</TableHead>
+                        <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Down Payment</TableHead>
                         <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Amortization</TableHead>
                         <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground text-right">Net</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {carFinancials.map(({ car, income, expenses: expensesVal, netAfterAmortization, totalAmortization }) => (
+                      {carFinancials.map(({ car, income, expenses: expensesVal, downPayment, netAfterAmortization, totalAmortization }) => (
                         <TableRow key={car.id} className="border-border">
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -432,6 +448,9 @@ export default function Finances() {
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums text-neon-magenta">
                             ₱{formatCurrency(expensesVal)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums text-neon-magenta">
+                            ₱{formatCurrency(downPayment)}
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums text-chart-4">
                             ₱{formatCurrency(totalAmortization)}

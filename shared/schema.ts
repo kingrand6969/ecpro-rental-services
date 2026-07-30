@@ -65,6 +65,7 @@ export const cars = pgTable("cars", {
   color: varchar("color", { length: 50 }).notNull(),
   colorCode: varchar("color_code", { length: 7 }).notNull(), // hex color for calendar
   monthlyPayment: decimal("monthly_payment", { precision: 10, scale: 2 }).notNull(),
+  downPayment: decimal("down_payment", { precision: 12, scale: 2 }).notNull().default("0"),
   lastOilChangeMileage: integer("last_oil_change_mileage").default(0),
   currentMileage: integer("current_mileage").default(0),
   oilChangeIntervalKm: integer("oil_change_interval_km").default(5000),

@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const CAR_COLORS = [
   { name: "Blue", code: "#3B82F6" },
@@ -42,6 +43,10 @@ const carSchema = z.object({
   color: z.string().min(1, "Color is required"),
   colorCode: z.string().min(1, "Calendar color is required"),
   monthlyPayment: z.string().min(1, "Monthly payment is required"),
+  downPayment: z.string().refine(
+    (value) => value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0),
+    "Enter a valid non-negative amount",
+  ).optional(),
   oilChangeIntervalKm: z.string().optional(),
   oilChangeIntervalDays: z.string().optional(),
   dateAcquired: z.string().optional(),
@@ -56,6 +61,7 @@ interface AddCarDialogProps {
 
 export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
   const { toast } = useToast();
+  const { isSuperAdmin } = useAuth();
 
   const form = useForm<CarFormData>({
     resolver: zodResolver(carSchema),
@@ -66,6 +72,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
       color: "",
       colorCode: CAR_COLORS[0].code,
       monthlyPayment: "",
+      downPayment: "",
       oilChangeIntervalKm: "5000",
       oilChangeIntervalDays: "180",
       dateAcquired: "",
@@ -81,6 +88,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
         color: data.color,
         colorCode: data.colorCode,
         monthlyPayment: data.monthlyPayment,
+        ...(isSuperAdmin && { downPayment: data.downPayment || "0" }),
         currentMileage: 0,
         lastOilChangeMileage: 0,
         oilChangeIntervalKm: parseInt(data.oilChangeIntervalKm || "5000"),
@@ -253,6 +261,34 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                 </FormItem>
               )}
             />
+
+            {isSuperAdmin && (
+              <FormField
+                control={form.control}
+                name="downPayment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                      Down Payment (₱)
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        {...field}
+                        data-testid="input-down-payment"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Counted once as a cost on the acquisition date.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

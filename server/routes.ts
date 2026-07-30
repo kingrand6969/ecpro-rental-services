@@ -119,6 +119,16 @@ export async function registerRoutes(
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
+      if (req.body.downPayment !== undefined && user.username !== "Admin") {
+        return res.status(403).json({ message: "Only the Admin user can set the down payment" });
+      }
+      if (req.body.downPayment !== undefined) {
+        const downPayment = z.coerce.number().finite().min(0).max(1_000_000_000).safeParse(req.body.downPayment);
+        if (!downPayment.success) {
+          return res.status(400).json({ message: "Down payment must be a valid non-negative amount" });
+        }
+        req.body.downPayment = downPayment.data.toFixed(2);
+      }
 
       const validated = insertCarSchema.parse(req.body);
       const car = await storage.createCar(validated);
@@ -158,6 +168,27 @@ export async function registerRoutes(
         }
         req.body.monthlyPayment = monthlyPayment.data.toFixed(2);
       }
+
+      if (req.body.downPayment !== undefined) {
+        if (user?.username !== "Admin") {
+          return res.status(403).json({
+            message: "Only the Admin user can change the down payment",
+          });
+        }
+
+        const downPayment = z.coerce
+          .number()
+          .finite()
+          .min(0)
+          .max(1_000_000_000)
+          .safeParse(req.body.downPayment);
+        if (!downPayment.success) {
+          return res.status(400).json({
+            message: "Down payment must be a valid non-negative amount",
+          });
+        }
+        req.body.downPayment = downPayment.data.toFixed(2);
+      }
       
       // Get current car state BEFORE update to capture old values
       const currentCar = await storage.getCarById(id);
@@ -182,6 +213,7 @@ export async function registerRoutes(
         color: 'Color',
         colorCode: 'Color Code',
         monthlyPayment: 'Monthly Payment',
+        downPayment: 'Down Payment',
         lastOilChangeMileage: 'Last Oil Change Mileage',
         oilChangeIntervalKm: 'Oil Change Interval (km)',
         oilChangeIntervalDays: 'Oil Change Interval (days)',

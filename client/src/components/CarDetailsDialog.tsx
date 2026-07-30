@@ -75,6 +75,10 @@ const updateCarSchema = z.object({
     (value) => value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0),
     "Enter a valid non-negative amount",
   ).optional(),
+  downPayment: z.string().refine(
+    (value) => value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0),
+    "Enter a valid non-negative amount",
+  ).optional(),
   lastOilChangeMileage: z.string().optional(),
   oilChangeIntervalKm: z.string().optional(),
   oilChangeIntervalDays: z.string().optional(),
@@ -99,6 +103,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
     defaultValues: {
       plateNumber: "",
       monthlyPayment: "",
+      downPayment: "",
       lastOilChangeMileage: "",
       oilChangeIntervalKm: "",
       oilChangeIntervalDays: "",
@@ -111,6 +116,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       form.reset({
         plateNumber: car.plateNumber ?? "",
         monthlyPayment: car.monthlyPayment ?? "",
+        downPayment: car.downPayment ?? "0",
         lastOilChangeMileage: car.lastOilChangeMileage?.toString() ?? "0",
         oilChangeIntervalKm: (car.oilChangeIntervalKm ?? 5000).toString(),
         oilChangeIntervalDays: (car.oilChangeIntervalDays ?? DEFAULT_OIL_INTERVAL_DAYS).toString(),
@@ -136,6 +142,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           : undefined,
         dateAcquired: data.dateAcquired || null,
         ...(isSuperAdmin && { monthlyPayment: data.monthlyPayment }),
+        ...(isSuperAdmin && { downPayment: data.downPayment }),
         ...(newImageUrl && { imageUrl: newImageUrl }),
       });
     },
@@ -476,39 +483,64 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
               />
 
               {isSuperAdmin && (
-                <FormField
-                  control={form.control}
-                  name="monthlyPayment"
-                  render={({ field }) => (
-                    <FormItem className="rounded-lg border border-neon-cyan/30 bg-neon-cyan/[0.06] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                <div className="rounded-lg border border-neon-cyan/30 bg-neon-cyan/[0.06] p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      Financing details can only be changed by the Admin account.
+                    </p>
+                    <Badge variant="outline" className="shrink-0 border-neon-cyan/40 text-neon-cyan">
+                      Admin only
+                    </Badge>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="monthlyPayment"
+                      render={({ field }) => (
+                        <FormItem>
                           <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-neon-cyan">
                             Monthly Amortization (₱)
                           </FormLabel>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Only the Admin account can change this amount.
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="border-neon-cyan/40 text-neon-cyan">
-                          Admin only
-                        </Badge>
-                      </div>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          inputMode="decimal"
-                          className="mt-3 font-mono text-base tabular-nums"
-                          {...field}
-                          data-testid="input-monthly-amortization"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              className="font-mono text-base tabular-nums"
+                              {...field}
+                              data-testid="input-monthly-amortization"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="downPayment"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-mono text-[11px] uppercase tracking-widest text-neon-cyan">
+                            Down Payment (₱)
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              className="font-mono text-base tabular-nums"
+                              {...field}
+                              data-testid="input-down-payment"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
