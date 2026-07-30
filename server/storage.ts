@@ -38,6 +38,7 @@ import {
   type DashboardExceptions,
   type MonthlyIncomePoint,
   type AvailabilityResponse,
+  type AffectedRental,
   type CarSwitchWithDetails,
   type SafeUser,
 } from "@shared/schema";
@@ -175,7 +176,7 @@ export interface IStorage {
   deleteCar(id: number): Promise<void>;
   recordOilChange(id: number): Promise<Car | undefined>;
   getAvailability(startDate: string, endDate: string, excludeRentalId?: number): Promise<AvailabilityResponse>;
-  getAffectedRentals(carId: number): Promise<Rental[]>;
+  getAffectedRentals(carId: number): Promise<AffectedRental[]>;
   setCarMaintenance(carId: number, reason: string, userId: string): Promise<Car | undefined>;
   clearCarMaintenance(carId: number, userId: string): Promise<Car | undefined>;
 
@@ -476,9 +477,16 @@ export class DatabaseStorage implements IStorage {
     return response;
   }
 
-  async getAffectedRentals(carId: number): Promise<Rental[]> {
+  async getAffectedRentals(carId: number): Promise<AffectedRental[]> {
     return db
-      .select()
+      .select({
+        id: rentals.id,
+        customerName: rentals.customerName,
+        startDate: rentals.startDate,
+        endDate: rentals.endDate,
+        paymentStatus: rentals.paymentStatus,
+        totalAmount: rentals.totalAmount,
+      })
       .from(rentals)
       .where(
         and(

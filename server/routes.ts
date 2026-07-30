@@ -13,6 +13,7 @@ import {
   insertExpenseSchema,
   insertCustomerSchema,
   type InsertRental,
+  type AffectedRental,
   type CarSwitchWithDetails,
 } from "@shared/schema";
 import { z } from "zod";
@@ -78,6 +79,27 @@ export function sanitizeCarSwitchDetails(
   return {
     ...record,
     user: { id, username, firstName, lastName },
+  };
+}
+
+export function sanitizeAffectedRental(
+  rental: AffectedRental,
+): AffectedRental {
+  const {
+    id,
+    customerName,
+    startDate,
+    endDate,
+    paymentStatus,
+    totalAmount,
+  } = rental;
+  return {
+    id,
+    customerName,
+    startDate,
+    endDate,
+    paymentStatus,
+    totalAmount,
   };
 }
 
@@ -196,10 +218,16 @@ export function registerTask4Routes(
     }
   });
 
-  app.get("/api/cars/:id/affected-rentals", authenticate, async (req, res) => {
+  app.get("/api/cars/:id/affected-rentals", authenticate, async (req: any, res) => {
     try {
+      const userId = (req.user as User).id;
+      const user = await taskStorage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
       const id = z.coerce.number().int().positive().parse(req.params.id);
-      res.json(await taskStorage.getAffectedRentals(id));
+      const affectedRentals = await taskStorage.getAffectedRentals(id);
+      res.json(affectedRentals.map(sanitizeAffectedRental));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid car id" });

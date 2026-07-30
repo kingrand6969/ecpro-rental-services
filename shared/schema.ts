@@ -503,6 +503,11 @@ export type AvailabilityResponse = {
   maintenance: AvailabilityCar[];
 };
 
+export type AffectedRental = Pick<
+  Rental,
+  "id" | "customerName" | "startDate" | "endDate" | "paymentStatus" | "totalAmount"
+>;
+
 // Extended types with relations
 export type RentalWithCar = Rental & { car: Car };
 export type ExpenseWithCar = Expense & { car: Car };

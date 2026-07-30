@@ -190,6 +190,67 @@ test("regular users cannot mutate maintenance or switch cars", async () => {
   );
 });
 
+test("regular users cannot read affected rental maintenance details", async () => {
+  await withTask4Api(
+    {
+      user: { id: "user-1", username: "User", isAdmin: false, isManager: false },
+      storage: {
+        getAffectedRentals: async () => assert.fail("unauthorized affected rentals call"),
+      },
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(
+        baseUrl,
+        "/api/cars/1/affected-rentals",
+      );
+      assert.equal(response.status, 403);
+      assert.equal(body.message, "Manager or Admin access required");
+    },
+  );
+});
+
+test("affected rental responses expose only maintenance workflow fields", async () => {
+  await withTask4Api(
+    {
+      user: { id: "manager-1", username: "Manager", isAdmin: false, isManager: true },
+      storage: {
+        getAffectedRentals: async () => [
+          {
+            id: 12,
+            customerName: "Route Test",
+            startDate: "2026-08-10",
+            endDate: "2026-08-12",
+            paymentStatus: "pending",
+            totalAmount: "200.00",
+            customerEmail: "private@example.com",
+            customerPhone: "555-0100",
+            paymentBank: "Private Bank",
+            paymentScreenshotUrl: "https://private.example/payment.png",
+            notes: "Internal note",
+          },
+        ],
+      },
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(
+        baseUrl,
+        "/api/cars/1/affected-rentals",
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(body, [
+        {
+          id: 12,
+          customerName: "Route Test",
+          startDate: "2026-08-10",
+          endDate: "2026-08-12",
+          paymentStatus: "pending",
+          totalAmount: "200.00",
+        },
+      ]);
+    },
+  );
+});
+
 test("Managers and Admins can perform Task 4 mutations", async () => {
   for (const user of [
     { id: "manager-1", username: "Manager", isManager: true, isAdmin: false },

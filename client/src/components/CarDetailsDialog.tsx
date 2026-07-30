@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { getOilChangeStatus, formatDaysAge, DEFAULT_OIL_INTERVAL_DAYS } from "@/lib/oilChange";
-import type { Car, Rental } from "@shared/schema";
+import type { AffectedRental, Car } from "@shared/schema";
 import { useEffect, useState } from "react";
 import { MaintenanceStatusDialog } from "@/components/MaintenanceStatusDialog";
 
@@ -92,7 +92,7 @@ interface CarDetailsDialogProps {
   car: Car | null;
   onClose: () => void;
   onMaintenanceChanged?: (car: Car) => void;
-  onSwitchCar?: (rental: Rental) => void;
+  onSwitchCar?: (rental: AffectedRental) => void;
 }
 
 export function CarDetailsDialog({
@@ -112,9 +112,11 @@ export function CarDetailsDialog({
     isLoading: affectedRentalsLoading,
     isError: affectedRentalsError,
     refetch: refetchAffectedRentals,
-  } = useQuery<Rental[]>({
+  } = useQuery<AffectedRental[]>({
     queryKey: [`/api/cars/${car?.id}/affected-rentals`],
-    enabled: Boolean(car?.id && car.status === "maintenance"),
+    enabled: Boolean(canManage && car?.id && car.status === "maintenance"),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const form = useForm<UpdateCarFormData>({
@@ -474,7 +476,7 @@ export function CarDetailsDialog({
             )}
           </section>
 
-          {car.status === "maintenance" && (
+          {canManage && car.status === "maintenance" && (
             <>
               <Separator />
               <section className="space-y-3" aria-labelledby="affected-rentals-heading">
