@@ -60,6 +60,7 @@ export type StorageDomainErrorCode =
   | "SWITCH_REASON_REQUIRED"
   | "SWITCH_USER_REQUIRED"
   | "INVALID_RENTAL_DATES"
+  | "CAR_CHANGE_REQUIRES_SWITCH"
   | "CAR_SWITCH_DETAILS_RELOAD_FAILED"
   | "CAR_SWITCH_DETAILS_MISSING";
 
@@ -107,6 +108,19 @@ export function resolveRentalAvailabilityTarget(
       startDate !== existing.startDate ||
       endDate !== existing.endDate,
   };
+}
+
+export function assertRentalCarUnchanged(
+  existingCarId: number,
+  requestedCarId: number | undefined,
+): void {
+  if (requestedCarId !== undefined && requestedCarId !== existingCarId) {
+    throw new StorageDomainError(
+      "validation",
+      "CAR_CHANGE_REQUIRES_SWITCH",
+      "Rental car changes must use the audited car switch operation",
+    );
+  }
 }
 
 export interface IStorage {
@@ -611,6 +625,7 @@ export class DatabaseStorage implements IStorage {
         throw new StorageDomainError("not_found", "RENTAL_NOT_FOUND", "Rental not found");
       }
 
+      assertRentalCarUnchanged(existingRental.carId, patch.carId);
       const {
         carId: targetCarId,
         startDate: targetStartDate,

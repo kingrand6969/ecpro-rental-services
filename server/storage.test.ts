@@ -30,3 +30,17 @@ test("resolveRentalAvailabilityTarget preserves omitted availability fields", as
     changed: false,
   });
 });
+
+test("assertRentalCarUnchanged requires audited switching for car changes", async () => {
+  const { assertRentalCarUnchanged, StorageDomainError } = await import("./storage");
+
+  assert.doesNotThrow(() => assertRentalCarUnchanged(10, undefined));
+  assert.doesNotThrow(() => assertRentalCarUnchanged(10, 10));
+  assert.throws(
+    () => assertRentalCarUnchanged(10, 11),
+    (error: unknown) =>
+      error instanceof StorageDomainError &&
+      error.kind === "validation" &&
+      error.code === "CAR_CHANGE_REQUIRES_SWITCH",
+  );
+});
