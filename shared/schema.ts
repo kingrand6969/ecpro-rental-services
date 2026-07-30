@@ -120,15 +120,21 @@ export const rentals = pgTable("rentals", {
 });
 
 // Car switches table
-export const carSwitches = pgTable("car_switches", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  rentalId: integer("rental_id").notNull().references(() => rentals.id, { onDelete: "cascade" }),
-  oldCarId: integer("old_car_id").notNull().references(() => cars.id, { onDelete: "restrict" }),
-  newCarId: integer("new_car_id").notNull().references(() => cars.id, { onDelete: "restrict" }),
-  reason: text("reason").notNull(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  switchedAt: timestamp("switched_at").defaultNow().notNull(),
-});
+export const carSwitches = pgTable(
+  "car_switches",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    rentalId: integer("rental_id").notNull().references(() => rentals.id, { onDelete: "restrict" }),
+    oldCarId: integer("old_car_id").notNull().references(() => cars.id, { onDelete: "restrict" }),
+    newCarId: integer("new_car_id").notNull().references(() => cars.id, { onDelete: "restrict" }),
+    reason: text("reason").notNull(),
+    userId: varchar("user_id").notNull().references(() => users.id),
+    switchedAt: timestamp("switched_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("car_switches_rental_time_idx").on(table.rentalId, table.switchedAt),
+  ],
+);
 
 // Expenses table
 export const expenses = pgTable("expenses", {
@@ -331,6 +337,9 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
 });
 
 export const insertCarSchema = createInsertSchema(cars).omit({
+  maintenanceReason: true,
+  maintenanceUpdatedAt: true,
+  maintenanceUpdatedBy: true,
   createdAt: true,
   updatedAt: true,
 });
