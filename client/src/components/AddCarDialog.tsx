@@ -61,7 +61,7 @@ interface AddCarDialogProps {
 
 export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
   const { toast } = useToast();
-  const { isSuperAdmin } = useAuth();
+  const { isAdmin } = useAuth();
 
   const form = useForm<CarFormData>({
     resolver: zodResolver(carSchema),
@@ -88,7 +88,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
         color: data.color,
         colorCode: data.colorCode,
         monthlyPayment: data.monthlyPayment,
-        ...(isSuperAdmin && { downPayment: data.downPayment || "0" }),
+        ...(isAdmin && { downPayment: data.downPayment || "0" }),
         currentMileage: 0,
         lastOilChangeMileage: 0,
         oilChangeIntervalKm: parseInt(data.oilChangeIntervalKm || "5000"),
@@ -262,7 +262,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               )}
             />
 
-            {isSuperAdmin && (
+            {isAdmin && (
               <FormField
                 control={form.control}
                 name="downPayment"

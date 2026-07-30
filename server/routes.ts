@@ -119,9 +119,6 @@ export async function registerRoutes(
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
-      if (req.body.downPayment !== undefined && user.username !== "Admin") {
-        return res.status(403).json({ message: "Only the Admin user can set the down payment" });
-      }
       if (req.body.downPayment !== undefined) {
         const downPayment = z.coerce.number().finite().min(0).max(1_000_000_000).safeParse(req.body.downPayment);
         if (!downPayment.success) {
@@ -149,9 +146,9 @@ export async function registerRoutes(
       const id = parseInt(req.params.id);
 
       if (req.body.monthlyPayment !== undefined) {
-        if (user?.username !== "Admin") {
+        if (!user?.isAdmin) {
           return res.status(403).json({
-            message: "Only the Admin user can change monthly amortization",
+            message: "Admin access is required to change monthly amortization",
           });
         }
 
@@ -170,9 +167,9 @@ export async function registerRoutes(
       }
 
       if (req.body.downPayment !== undefined) {
-        if (user?.username !== "Admin") {
+        if (!user?.isAdmin) {
           return res.status(403).json({
-            message: "Only the Admin user can change the down payment",
+            message: "Admin access is required to change the down payment",
           });
         }
 

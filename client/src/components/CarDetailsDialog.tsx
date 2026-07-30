@@ -94,7 +94,7 @@ interface CarDetailsDialogProps {
 
 export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const { toast } = useToast();
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
   const [registrationDate, setRegistrationDate] = useState("");
 
@@ -141,8 +141,8 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           ? parseInt(data.oilChangeIntervalDays)
           : undefined,
         dateAcquired: data.dateAcquired || null,
-        ...(isSuperAdmin && { monthlyPayment: data.monthlyPayment }),
-        ...(isSuperAdmin && { downPayment: data.downPayment }),
+        ...(isAdmin && { monthlyPayment: data.monthlyPayment }),
+        ...(isAdmin && { downPayment: data.downPayment }),
         ...(newImageUrl && { imageUrl: newImageUrl }),
       });
     },
@@ -482,11 +482,11 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                 )}
               />
 
-              {isSuperAdmin && (
+              {isAdmin && (
                 <div className="rounded-lg border border-neon-cyan/30 bg-neon-cyan/[0.06] p-4">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <p className="text-xs text-muted-foreground">
-                      Financing details can only be changed by the Admin account.
+                      Financing details can only be changed by admin accounts.
                     </p>
                     <Badge variant="outline" className="shrink-0 border-neon-cyan/40 text-neon-cyan">
                       Admin only
