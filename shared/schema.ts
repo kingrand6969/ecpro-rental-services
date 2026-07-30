@@ -75,6 +75,9 @@ export const cars = pgTable("cars", {
   oilChangeIntervalDays: integer("oil_change_interval_days").notNull().default(180),
   lastMaintenanceDate: date("last_maintenance_date"),
   status: varchar("status", { length: 20 }).default("available").notNull(), // available, rented, maintenance
+  maintenanceReason: text("maintenance_reason"),
+  maintenanceUpdatedAt: timestamp("maintenance_updated_at"),
+  maintenanceUpdatedBy: varchar("maintenance_updated_by").references(() => users.id, { onDelete: "set null" }),
   dateAcquired: date("date_acquired"),
   registrationConfirmedAt: date("registration_confirmed_at"),
   imageUrl: varchar("image_url", { length: 500 }),
@@ -114,6 +117,17 @@ export const rentals = pgTable("rentals", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Car switches table
+export const carSwitches = pgTable("car_switches", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  rentalId: integer("rental_id").notNull().references(() => rentals.id, { onDelete: "cascade" }),
+  oldCarId: integer("old_car_id").notNull().references(() => cars.id, { onDelete: "restrict" }),
+  newCarId: integer("new_car_id").notNull().references(() => cars.id, { onDelete: "restrict" }),
+  reason: text("reason").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  switchedAt: timestamp("switched_at").defaultNow().notNull(),
 });
 
 // Expenses table
@@ -241,6 +255,27 @@ export const rentalsRelations = relations(rentals, ({ one }) => ({
   }),
 }));
 
+export const carSwitchesRelations = relations(carSwitches, ({ one }) => ({
+  rental: one(rentals, {
+    fields: [carSwitches.rentalId],
+    references: [rentals.id],
+  }),
+  oldCar: one(cars, {
+    fields: [carSwitches.oldCarId],
+    references: [cars.id],
+    relationName: "oldCar",
+  }),
+  newCar: one(cars, {
+    fields: [carSwitches.newCarId],
+    references: [cars.id],
+    relationName: "newCar",
+  }),
+  user: one(users, {
+    fields: [carSwitches.userId],
+    references: [users.id],
+  }),
+}));
+
 export const expensesRelations = relations(expenses, ({ one }) => ({
   car: one(cars, {
     fields: [expenses.carId],
@@ -305,6 +340,10 @@ export const insertRentalSchema = createInsertSchema(rentals).omit({
   updatedAt: true,
 });
 
+export const insertCarSwitchSchema = createInsertSchema(carSwitches).omit({
+  switchedAt: true,
+});
+
 export const insertExpenseSchema = createInsertSchema(expenses).omit({
   createdAt: true,
 });
@@ -344,6 +383,15 @@ export type InsertCar = z.infer<typeof insertCarSchema>;
 
 export type Rental = typeof rentals.$inferSelect;
 export type InsertRental = z.infer<typeof insertRentalSchema>;
+
+export type CarSwitch = typeof carSwitches.$inferSelect;
+export type InsertCarSwitch = z.infer<typeof insertCarSwitchSchema>;
+export type CarSwitchWithDetails = CarSwitch & {
+  rental: Rental;
+  oldCar: Car;
+  newCar: Car;
+  user: User;
+};
 
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
@@ -425,6 +473,21 @@ export type DashboardExceptions = {
 export type MonthlyIncomePoint = {
   month: string;
   income: number;
+};
+
+export type AvailabilityReason = "available" | "booked" | "maintenance";
+
+export type AvailabilityCar = Car & {
+  availability: AvailabilityReason;
+  conflictingRental?: Pick<Rental, "id" | "customerName" | "startDate" | "endDate">;
+};
+
+export type AvailabilityResponse = {
+  startDate: string;
+  endDate: string;
+  available: AvailabilityCar[];
+  booked: AvailabilityCar[];
+  maintenance: AvailabilityCar[];
 };
 
 // Extended types with relations
