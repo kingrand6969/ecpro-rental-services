@@ -89,6 +89,25 @@ export default function Logs() {
       }));
   };
 
+  const getCarSnapshotName = (value: unknown) => {
+    if (!value || typeof value !== "object") return "Unknown vehicle";
+    const car = value as Record<string, unknown>;
+    const name = typeof car.name === "string" ? car.name : "Unknown vehicle";
+    const plate = typeof car.plateNumber === "string" ? car.plateNumber : "";
+    return plate ? `${name} (${plate})` : name;
+  };
+
+  const getSwitchAuditDetails = (log: ActivityLogWithUser) => {
+    const before = (log.beforeData ?? {}) as Record<string, unknown>;
+    const after = (log.afterData ?? {}) as Record<string, unknown>;
+    return {
+      oldCar: getCarSnapshotName(before.oldCar),
+      newCar: getCarSnapshotName(after.newCar),
+      reason: typeof after.reason === "string" ? after.reason : "No reason recorded",
+      price: formatCurrency((after.price ?? before.price) as string | number | null | undefined),
+    };
+  };
+
   const getActionIcon = (action: string) => {
     switch (action) {
       case "created": return <Plus className="h-4 w-4 text-neon-cyan" />;
@@ -668,13 +687,32 @@ export default function Logs() {
                           {log.loggedAt ? format(new Date(log.loggedAt), "MMM d, yyyy h:mm a") : "-"}
                         </TableCell>
                         <TableCell>{log.user.firstName || log.user.username || "Unknown"}</TableCell>
-                        <TableCell className="capitalize">
-                          {log.entityType} #{log.entityId}
+                        <TableCell>
+                          {log.entityType === "rental_car_switch"
+                            ? "Car Switch"
+                            : log.entityType.replaceAll("_", " ")} #{log.entityId}
                         </TableCell>
                         <TableCell>{getActionBadge(log.action)}</TableCell>
                         <TableCell>
                           <div className="max-w-xl space-y-1 text-xs">
-                            {getAuditDetails(log).map((detail) => (
+                            {log.entityType === "rental_car_switch" ? (
+                              <>
+                                <div>
+                                  <span className="font-mono font-medium">Vehicle: </span>
+                                  {getSwitchAuditDetails(log).oldCar}
+                                  <ArrowRight className="mx-1 inline h-3 w-3" />
+                                  {getSwitchAuditDetails(log).newCar}
+                                </div>
+                                <div className="break-words">
+                                  <span className="font-mono font-medium">Reason: </span>
+                                  {getSwitchAuditDetails(log).reason}
+                                </div>
+                                <div>
+                                  <span className="font-mono font-medium">Rental price unchanged: </span>
+                                  {getSwitchAuditDetails(log).price}
+                                </div>
+                              </>
+                            ) : getAuditDetails(log).map((detail) => (
                               <div key={detail.key} className="break-words">
                                 <span className="font-mono font-medium text-foreground">{detail.key}: </span>
                                 {log.action === "updated" && (
