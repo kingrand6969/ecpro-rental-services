@@ -65,7 +65,8 @@ export type StorageDomainErrorCode =
   | "INVALID_RENTAL_DATES"
   | "CAR_CHANGE_REQUIRES_SWITCH"
   | "CAR_SWITCH_DETAILS_MISSING"
-  | "CAR_HAS_SWITCH_HISTORY";
+  | "CAR_HAS_SWITCH_HISTORY"
+  | "CAR_DELETE_RETRYABLE_CONFLICT";
 
 export class StorageDomainError extends Error {
   constructor(
@@ -199,6 +200,36 @@ export function mapCarDeleteForeignKeyViolation(
     "CAR_HAS_SWITCH_HISTORY",
     "Cars with rental switch history cannot be deleted",
   );
+}
+
+export function isPostgresDeadlockDetected(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "40P01",
+  );
+}
+
+export function mapCarDeletePersistenceError(
+  error: unknown,
+): StorageDomainError | undefined {
+  const foreignKeyError = mapCarDeleteForeignKeyViolation(error);
+  if (foreignKeyError) return foreignKeyError;
+  if (!isPostgresDeadlockDetected(error)) return undefined;
+  return new StorageDomainError(
+    "conflict",
+    "CAR_DELETE_RETRYABLE_CONFLICT",
+    "Car deletion conflicted with another update; retry the request",
+  );
+}
+
+export async function executeCarDeleteLockPlan<T>(actions: {
+  lockRentalsById: () => Promise<void>;
+  lockCar: () => Promise<T>;
+}): Promise<T> {
+  await actions.lockRentalsById();
+  return actions.lockCar();
 }
 
 export interface IStorage {
@@ -484,11 +515,27 @@ export class DatabaseStorage implements IStorage {
   async deleteCarPreservingSwitchHistory(id: number): Promise<void> {
     try {
       await db.transaction(async (tx) => {
-        const [car] = await tx
-          .select({ id: cars.id })
-          .from(cars)
-          .where(eq(cars.id, id))
-          .for("update");
+        // Match switchRentalCar's rental-first lock order. Lock every rental
+        // currently referencing this car in a deterministic order before the
+        // car row; switches also lock their rental before any target car.
+        const car = await executeCarDeleteLockPlan({
+          lockRentalsById: async () => {
+            await tx
+              .select({ id: rentals.id })
+              .from(rentals)
+              .where(eq(rentals.carId, id))
+              .orderBy(asc(rentals.id))
+              .for("update");
+          },
+          lockCar: async () => {
+            const [lockedCar] = await tx
+              .select({ id: cars.id })
+              .from(cars)
+              .where(eq(cars.id, id))
+              .for("update");
+            return lockedCar;
+          },
+        });
         if (!car) return;
 
         const [switchRecord] = await tx
@@ -508,7 +555,7 @@ export class DatabaseStorage implements IStorage {
       });
     } catch (error) {
       if (error instanceof StorageDomainError) throw error;
-      const mappedError = mapCarDeleteForeignKeyViolation(error);
+      const mappedError = mapCarDeletePersistenceError(error);
       if (mappedError) throw mappedError;
       throw error;
     }

@@ -159,3 +159,36 @@ test("Postgres foreign-key violations map to the stable car switch conflict", as
   assert.equal(mapped.code, "CAR_HAS_SWITCH_HISTORY");
   assert.equal(mapCarDeleteForeignKeyViolation({ code: "23505" }), undefined);
 });
+
+test("car deletion locks rentals before the car in deterministic protocol order", async () => {
+  const { executeCarDeleteLockPlan } = await import("./storage");
+  const calls: string[] = [];
+
+  const result = await executeCarDeleteLockPlan({
+    lockRentalsById: async () => {
+      calls.push("rentals:order-by-id");
+    },
+    lockCar: async () => {
+      calls.push("car");
+      return { id: 7 };
+    },
+  });
+
+  assert.deepEqual(calls, ["rentals:order-by-id", "car"]);
+  assert.deepEqual(result, { id: 7 });
+});
+
+test("Postgres deadlocks map to a stable retryable car-delete conflict", async () => {
+  const {
+    isPostgresDeadlockDetected,
+    mapCarDeletePersistenceError,
+    StorageDomainError,
+  } = await import("./storage");
+
+  assert.equal(isPostgresDeadlockDetected({ code: "40P01" }), true);
+  assert.equal(isPostgresDeadlockDetected({ code: "40001" }), false);
+  const mapped = mapCarDeletePersistenceError({ code: "40P01" });
+  assert(mapped instanceof StorageDomainError);
+  assert.equal(mapped.kind, "conflict");
+  assert.equal(mapped.code, "CAR_DELETE_RETRYABLE_CONFLICT");
+});

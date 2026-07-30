@@ -698,6 +698,31 @@ test("car delete maps the guarded storage conflict to 409", async () => {
   assert.equal(guardedDeleteCalls, 1);
 });
 
+test("car delete maps retryable deadlocks to stable 409 responses", async () => {
+  const { StorageDomainError } = await import("./storage");
+  await withTask4Api(
+    {
+      user: { id: "admin-1", isAdmin: true, isManager: false },
+      storage: {
+        deleteCarPreservingSwitchHistory: async () => {
+          throw new StorageDomainError(
+            "conflict",
+            "CAR_DELETE_RETRYABLE_CONFLICT",
+            "Car deletion conflicted with another update; retry the request",
+          );
+        },
+      },
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(baseUrl, "/api/cars/7", {
+        method: "DELETE",
+      });
+      assert.equal(response.status, 409);
+      assert.equal(body.code, "CAR_DELETE_RETRYABLE_CONFLICT");
+    },
+  );
+});
+
 test("car delete delegates only to the transactional guarded storage method", async () => {
   let guardedDeleteCalls = 0;
   let legacyDeleteCalls = 0;
