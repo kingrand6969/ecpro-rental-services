@@ -1,11 +1,55 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import {
+  storage,
+  StorageDomainError,
+  type IStorage,
+} from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertCarSchema, insertRentalSchema, insertExpenseSchema, insertCustomerSchema } from "@shared/schema";
+import {
+  insertCarSchema,
+  insertRentalSchema,
+  insertExpenseSchema,
+  insertCustomerSchema,
+  type InsertRental,
+} from "@shared/schema";
 import { z } from "zod";
 import type { User } from "@shared/schema";
+import { datesConflict, validateDateRange } from "./availability";
+
+type RentalAvailabilityStorage = Pick<
+  IStorage,
+  "createRentalWithAvailability" | "updateRentalWithAvailability"
+>;
+
+export function createRentalThroughAvailability(
+  rentalStorage: RentalAvailabilityStorage,
+  rental: InsertRental,
+) {
+  return rentalStorage.createRentalWithAvailability(rental);
+}
+
+export function updateRentalThroughAvailability(
+  rentalStorage: RentalAvailabilityStorage,
+  id: number,
+  patch: Partial<InsertRental>,
+) {
+  return rentalStorage.updateRentalWithAvailability(id, patch);
+}
+
+export function storageDomainErrorStatus(error: StorageDomainError): number {
+  switch (error.kind) {
+    case "not_found":
+      return 404;
+    case "conflict":
+      return 409;
+    case "validation":
+      return 400;
+    case "invariant":
+      return 500;
+  }
+}
 
 // The rental (if any) on the same car whose dates overlap [start, end].
 //
@@ -24,27 +68,18 @@ async function findOverlappingRental(
   excludeRentalId?: number,
 ) {
   const allRentals = await storage.getAllRentals();
-  const newStart = new Date(startDate);
-  const newEnd = new Date(endDate);
 
   return allRentals.find((existing) => {
     if (existing.carId !== carId) return false;
     if (excludeRentalId !== undefined && existing.id === excludeRentalId) {
       return false;
     }
-    const existStart = new Date(existing.startDate);
-    const existEnd = new Date(existing.endDate);
-    if (newStart < existEnd && newEnd > existStart) return true;
-    const sameDay = newStart.getTime() === newEnd.getTime();
-    const existingSameDay = existStart.getTime() === existEnd.getTime();
-    if (sameDay && newStart >= existStart && newStart < existEnd) return true;
-    if (existingSameDay && existStart >= newStart && existStart < newEnd) {
-      return true;
-    }
-    if (sameDay && existingSameDay && newStart.getTime() === existStart.getTime()) {
-      return true;
-    }
-    return false;
+    return datesConflict(
+      existing.startDate,
+      existing.endDate,
+      startDate,
+      endDate,
+    );
   });
 }
 
@@ -80,6 +115,37 @@ export async function registerRoutes(
 
   // Setup local authentication
   setupAuth(app);
+
+  const availabilityQuery = z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    excludeRentalId: z.coerce.number().int().positive().optional(),
+  });
+
+  app.get("/api/availability", isAuthenticated, async (req, res) => {
+    try {
+      const query = availabilityQuery.parse(req.query);
+      validateDateRange(query.startDate, query.endDate);
+      res.json(
+        await storage.getAvailability(
+          query.startDate,
+          query.endDate,
+          query.excludeRentalId,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError || error instanceof Error) {
+        if (
+          error instanceof z.ZodError ||
+          /date|YYYY-MM-DD/i.test(error.message)
+        ) {
+          return res.status(400).json({ message: error.message });
+        }
+      }
+      console.error("Error fetching availability:", error);
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -161,6 +227,90 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching car:", error);
       res.status(500).json({ message: "Failed to fetch car" });
+    }
+  });
+
+  app.patch("/api/cars/:id/maintenance", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      const body = z
+        .object({ reason: z.string().trim().min(3).max(500) })
+        .strict()
+        .parse(req.body);
+      const oldCar = await storage.getCarById(id);
+      if (!oldCar) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      const car = await storage.setCarMaintenance(id, body.reason, userId);
+      if (!car) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      await logActivity(userId, "car", id, "updated", oldCar, car);
+      res.json(car);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid maintenance data", errors: error.errors });
+      }
+      if (error instanceof StorageDomainError) {
+        return res.status(storageDomainErrorStatus(error)).json({
+          message: error.message,
+          code: error.code,
+        });
+      }
+      console.error("Error setting car maintenance:", error);
+      res.status(500).json({ message: "Failed to set car maintenance" });
+    }
+  });
+
+  app.patch("/api/cars/:id/availability", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      z.object({}).strict().parse(req.body ?? {});
+      const oldCar = await storage.getCarById(id);
+      if (!oldCar) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      const car = await storage.clearCarMaintenance(id, userId);
+      if (!car) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      await logActivity(userId, "car", id, "updated", oldCar, car);
+      res.json(car);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "No availability fields are accepted" });
+      }
+      if (error instanceof StorageDomainError) {
+        return res.status(storageDomainErrorStatus(error)).json({
+          message: error.message,
+          code: error.code,
+        });
+      }
+      console.error("Error clearing car maintenance:", error);
+      res.status(500).json({ message: "Failed to clear car maintenance" });
+    }
+  });
+
+  app.get("/api/cars/:id/affected-rentals", isAuthenticated, async (req, res) => {
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      res.json(await storage.getAffectedRentals(id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid car id" });
+      }
+      console.error("Error fetching affected rentals:", error);
+      res.status(500).json({ message: "Failed to fetch affected rentals" });
     }
   });
 
@@ -591,6 +741,63 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/rentals/:id/car-switches", isAuthenticated, async (req, res) => {
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      res.json(await storage.getCarSwitchesByRentalId(id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid rental id" });
+      }
+      if (error instanceof StorageDomainError) {
+        return res.status(storageDomainErrorStatus(error)).json({
+          message: error.message,
+          code: error.code,
+        });
+      }
+      console.error("Error fetching car switches:", error);
+      res.status(500).json({ message: "Failed to fetch car switches" });
+    }
+  });
+
+  app.post("/api/rentals/:id/switch-car", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
+      const rentalId = z.coerce.number().int().positive().parse(req.params.id);
+      const body = z
+        .object({
+          newCarId: z.number().int().positive(),
+          reason: z.string().trim().min(3).max(500),
+        })
+        .strict()
+        .parse(req.body);
+      res.json(
+        await storage.switchRentalCar({
+          rentalId,
+          newCarId: body.newCarId,
+          reason: body.reason,
+          userId,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid car switch data", errors: error.errors });
+      }
+      if (error instanceof StorageDomainError) {
+        return res.status(storageDomainErrorStatus(error)).json({
+          message: error.message,
+          code: error.code,
+        });
+      }
+      console.error("Error switching rental car:", error);
+      res.status(500).json({ message: "Failed to switch rental car" });
+    }
+  });
+
   app.post("/api/rentals", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as User).id;
@@ -661,28 +868,7 @@ export async function registerRoutes(
         validated.endDate as string,
       );
 
-      const selectedCar = await storage.getCarById(validated.carId as number);
-      if (!selectedCar) {
-        return res.status(404).json({ message: "Selected car was not found" });
-      }
-      if (selectedCar.status === "maintenance") {
-        return res.status(400).json({
-          message: "This car is under maintenance and cannot be booked",
-        });
-      }
-
-      const conflict = await findOverlappingRental(
-        validated.carId as number,
-        validated.startDate as string,
-        validated.endDate as string,
-      );
-      if (conflict) {
-        return res.status(400).json({
-          message: "This car has an overlapping rental during the selected dates",
-        });
-      }
-
-      const rental = await storage.createRental(validated);
+      const rental = await createRentalThroughAvailability(storage, validated);
       await logActivity(userId, "rental", rental.id, "created", null, rental);
       
       // Log the rental creation
@@ -703,6 +889,12 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid rental data", errors: error.errors });
+      }
+      if (error instanceof StorageDomainError) {
+        return res.status(storageDomainErrorStatus(error)).json({
+          message: error.message,
+          code: error.code,
+        });
       }
       console.error("Error creating rental:", error);
       res.status(500).json({ message: "Failed to create rental" });
@@ -781,7 +973,8 @@ export async function registerRoutes(
         }
       }
 
-      // Date or vehicle changes get the same availability guard as creation.
+      // Availability-sensitive edits are validated again inside a serialized
+      // storage transaction. Car changes must use the audited switch endpoint.
       if (
         req.body.carId !== undefined ||
         req.body.startDate !== undefined ||
@@ -793,26 +986,6 @@ export async function registerRoutes(
         if (nextEnd < nextStart) {
           return res.status(400).json({
             message: "Rental end date cannot be before the start date",
-          });
-        }
-        const selectedCar = await storage.getCarById(nextCarId);
-        if (!selectedCar) {
-          return res.status(404).json({ message: "Selected car was not found" });
-        }
-        if (selectedCar.status === "maintenance") {
-          return res.status(400).json({
-            message: "This car is under maintenance and cannot be booked",
-          });
-        }
-        const conflict = await findOverlappingRental(
-          nextCarId,
-          nextStart as string,
-          nextEnd as string,
-          id,
-        );
-        if (conflict) {
-          return res.status(400).json({
-            message: `These dates overlap another rental for this car (${conflict.customerName}, ${conflict.startDate} to ${conflict.endDate})`,
           });
         }
         req.body.daysRented = calculateRentalDays(nextStart, nextEnd);
@@ -840,7 +1013,7 @@ export async function registerRoutes(
         }
       }
 
-      const rental = await storage.updateRental(id, req.body);
+      const rental = await updateRentalThroughAvailability(storage, id, req.body);
       await logActivity(userId, "rental", id, "updated", existing, rental);
 
       // Log each changed field
@@ -868,6 +1041,12 @@ export async function registerRoutes(
       
       res.json(rental);
     } catch (error) {
+      if (error instanceof StorageDomainError) {
+        return res.status(storageDomainErrorStatus(error)).json({
+          message: error.message,
+          code: error.code,
+        });
+      }
       console.error("Error updating rental:", error);
       res.status(500).json({ message: "Failed to update rental" });
     }
@@ -883,6 +1062,11 @@ export async function registerRoutes(
 
       const id = parseInt(req.params.id);
       const existing = await storage.getRentalById(id);
+      if (await storage.hasCarSwitchesForRental(id)) {
+        return res.status(409).json({
+          message: "Rentals with car switch history cannot be deleted",
+        });
+      }
       
       if (existing) {
         // Log the deletion before actually deleting
