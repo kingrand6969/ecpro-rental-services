@@ -41,17 +41,72 @@ import {
   type CarSwitchWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, asc, ne, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, ne, inArray, sql } from "drizzle-orm";
 import { classifyCarAvailability, datesConflict, validateDateRange } from "./availability";
 
-export class StorageConflictError extends Error {
+export type StorageDomainErrorKind = "not_found" | "conflict" | "validation" | "invariant";
+
+export type StorageDomainErrorCode =
+  | "RENTAL_NOT_FOUND"
+  | "CAR_NOT_FOUND"
+  | "OLD_CAR_NOT_FOUND"
+  | "USER_NOT_FOUND"
+  | "RENTAL_FINALIZED"
+  | "SAME_CAR"
+  | "CAR_IN_MAINTENANCE"
+  | "CAR_DATE_CONFLICT"
+  | "MAINTENANCE_REASON_REQUIRED"
+  | "MAINTENANCE_USER_REQUIRED"
+  | "SWITCH_REASON_REQUIRED"
+  | "SWITCH_USER_REQUIRED"
+  | "INVALID_RENTAL_DATES"
+  | "CAR_SWITCH_DETAILS_RELOAD_FAILED"
+  | "CAR_SWITCH_DETAILS_MISSING";
+
+export class StorageDomainError extends Error {
   constructor(
-    public readonly code: string,
+    public readonly kind: StorageDomainErrorKind,
+    public readonly code: StorageDomainErrorCode,
     message: string,
   ) {
     super(message);
-    this.name = "StorageConflictError";
+    this.name = "StorageDomainError";
   }
+}
+
+function validateRentalDateRange(startDate: string, endDate: string): void {
+  try {
+    validateDateRange(startDate, endDate);
+  } catch (error) {
+    throw new StorageDomainError(
+      "validation",
+      "INVALID_RENTAL_DATES",
+      error instanceof Error ? error.message : "Invalid rental dates",
+    );
+  }
+}
+
+export function resolveRentalAvailabilityTarget(
+  existing: Pick<Rental, "carId" | "startDate" | "endDate">,
+  patch: Partial<Pick<InsertRental, "carId" | "startDate" | "endDate">>,
+): {
+  carId: number;
+  startDate: string;
+  endDate: string;
+  changed: boolean;
+} {
+  const carId = patch.carId ?? existing.carId;
+  const startDate = patch.startDate ?? existing.startDate;
+  const endDate = patch.endDate ?? existing.endDate;
+  return {
+    carId,
+    startDate,
+    endDate,
+    changed:
+      carId !== existing.carId ||
+      startDate !== existing.startDate ||
+      endDate !== existing.endDate,
+  };
 }
 
 export interface IStorage {
@@ -97,6 +152,8 @@ export interface IStorage {
   getRentalById(id: number): Promise<Rental | undefined>;
   createRental(rental: InsertRental): Promise<Rental>;
   updateRental(id: number, rental: Partial<InsertRental>): Promise<Rental | undefined>;
+  createRentalWithAvailability(rental: InsertRental): Promise<Rental>;
+  updateRentalWithAvailability(id: number, patch: Partial<InsertRental>): Promise<Rental>;
   deleteRental(id: number): Promise<void>;
   getRentalsNeedingFinalizeReminder(): Promise<Rental[]>;
   updateFinalizeReminder(id: number): Promise<Rental | undefined>;
@@ -356,8 +413,14 @@ export class DatabaseStorage implements IStorage {
     validateDateRange(startDate, endDate);
     const [allCars, allRentals] = await Promise.all([
       db.select().from(cars).orderBy(sql`${cars.displayOrder} ASC NULLS LAST`, desc(cars.createdAt)),
-      db.select().from(rentals),
+      this.getRentalsInRange(startDate, endDate),
     ]);
+    const rentalsByCarId = new Map<number, Rental[]>();
+    for (const rental of allRentals) {
+      const grouped = rentalsByCarId.get(rental.carId);
+      if (grouped) grouped.push(rental);
+      else rentalsByCarId.set(rental.carId, [rental]);
+    }
     const response: AvailabilityResponse = {
       startDate,
       endDate,
@@ -369,7 +432,7 @@ export class DatabaseStorage implements IStorage {
     for (const car of allCars) {
       const classified = classifyCarAvailability(
         car,
-        allRentals,
+        rentalsByCarId.get(car.id) ?? [],
         startDate,
         endDate,
         excludeRentalId,
@@ -402,10 +465,18 @@ export class DatabaseStorage implements IStorage {
     const maintenanceReason = reason.trim();
     const maintenanceUpdatedBy = userId.trim();
     if (!maintenanceReason) {
-      throw new StorageConflictError("MAINTENANCE_REASON_REQUIRED", "Maintenance reason is required");
+      throw new StorageDomainError(
+        "validation",
+        "MAINTENANCE_REASON_REQUIRED",
+        "Maintenance reason is required",
+      );
     }
     if (!maintenanceUpdatedBy) {
-      throw new StorageConflictError("MAINTENANCE_USER_REQUIRED", "Maintenance user is required");
+      throw new StorageDomainError(
+        "validation",
+        "MAINTENANCE_USER_REQUIRED",
+        "Maintenance user is required",
+      );
     }
 
     const now = new Date();
@@ -426,7 +497,11 @@ export class DatabaseStorage implements IStorage {
   async clearCarMaintenance(carId: number, userId: string): Promise<Car | undefined> {
     const maintenanceUpdatedBy = userId.trim();
     if (!maintenanceUpdatedBy) {
-      throw new StorageConflictError("MAINTENANCE_USER_REQUIRED", "Maintenance user is required");
+      throw new StorageDomainError(
+        "validation",
+        "MAINTENANCE_USER_REQUIRED",
+        "Maintenance user is required",
+      );
     }
 
     const now = new Date();
@@ -484,6 +559,106 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async createRentalWithAvailability(rental: InsertRental): Promise<Rental> {
+    validateRentalDateRange(rental.startDate, rental.endDate);
+
+    // All availability-sensitive write paths serialize on the target car
+    // before checking conflicts. True concurrency coverage requires an
+    // isolated PostgreSQL database and remains part of Task 8 verification.
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ${cars} WHERE id = ${rental.carId} FOR UPDATE`);
+      const [targetCar] = await tx.select().from(cars).where(eq(cars.id, rental.carId));
+      if (!targetCar) {
+        throw new StorageDomainError("not_found", "CAR_NOT_FOUND", "Car not found");
+      }
+      if (targetCar.status === "maintenance") {
+        throw new StorageDomainError(
+          "conflict",
+          "CAR_IN_MAINTENANCE",
+          "Car is under maintenance",
+        );
+      }
+
+      const existingRentals = await tx
+        .select()
+        .from(rentals)
+        .where(eq(rentals.carId, rental.carId));
+      if (
+        existingRentals.some((existing) =>
+          datesConflict(existing.startDate, existing.endDate, rental.startDate, rental.endDate),
+        )
+      ) {
+        throw new StorageDomainError(
+          "conflict",
+          "CAR_DATE_CONFLICT",
+          "Car is already booked for these dates",
+        );
+      }
+
+      const [created] = await tx.insert(rentals).values(rental).returning();
+      return created;
+    });
+  }
+
+  async updateRentalWithAvailability(
+    id: number,
+    patch: Partial<InsertRental>,
+  ): Promise<Rental> {
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ${rentals} WHERE id = ${id} FOR UPDATE`);
+      const [existingRental] = await tx.select().from(rentals).where(eq(rentals.id, id));
+      if (!existingRental) {
+        throw new StorageDomainError("not_found", "RENTAL_NOT_FOUND", "Rental not found");
+      }
+
+      const {
+        carId: targetCarId,
+        startDate: targetStartDate,
+        endDate: targetEndDate,
+        changed: availabilityChanged,
+      } = resolveRentalAvailabilityTarget(existingRental, patch);
+
+      if (availabilityChanged) {
+        validateRentalDateRange(targetStartDate, targetEndDate);
+        await tx.execute(sql`SELECT id FROM ${cars} WHERE id = ${targetCarId} FOR UPDATE`);
+        const [targetCar] = await tx.select().from(cars).where(eq(cars.id, targetCarId));
+        if (!targetCar) {
+          throw new StorageDomainError("not_found", "CAR_NOT_FOUND", "Car not found");
+        }
+        if (targetCar.status === "maintenance") {
+          throw new StorageDomainError(
+            "conflict",
+            "CAR_IN_MAINTENANCE",
+            "Car is under maintenance",
+          );
+        }
+
+        const existingRentals = await tx
+          .select()
+          .from(rentals)
+          .where(and(eq(rentals.carId, targetCarId), ne(rentals.id, id)));
+        if (
+          existingRentals.some((rental) =>
+            datesConflict(rental.startDate, rental.endDate, targetStartDate, targetEndDate),
+          )
+        ) {
+          throw new StorageDomainError(
+            "conflict",
+            "CAR_DATE_CONFLICT",
+            "Car is already booked for these dates",
+          );
+        }
+      }
+
+      const [updated] = await tx
+        .update(rentals)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(rentals.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
   async deleteRental(id: number): Promise<void> {
     await db.delete(rentals).where(eq(rentals.id, id));
   }
@@ -529,41 +704,63 @@ export class DatabaseStorage implements IStorage {
     const switchReason = reason.trim();
     const switchingUserId = userId.trim();
     if (!switchReason) {
-      throw new StorageConflictError("SWITCH_REASON_REQUIRED", "Car switch reason is required");
+      throw new StorageDomainError(
+        "validation",
+        "SWITCH_REASON_REQUIRED",
+        "Car switch reason is required",
+      );
     }
     if (!switchingUserId) {
-      throw new StorageConflictError("SWITCH_USER_REQUIRED", "Car switch user is required");
+      throw new StorageDomainError(
+        "validation",
+        "SWITCH_USER_REQUIRED",
+        "Car switch user is required",
+      );
     }
 
     return db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM ${rentals} WHERE id = ${rentalId} FOR UPDATE`);
       const [rental] = await tx.select().from(rentals).where(eq(rentals.id, rentalId));
       if (!rental) {
-        throw new StorageConflictError("RENTAL_NOT_FOUND", "Rental not found");
+        throw new StorageDomainError("not_found", "RENTAL_NOT_FOUND", "Rental not found");
       }
       if (rental.isFinalized) {
-        throw new StorageConflictError("RENTAL_FINALIZED", "Finalized rentals cannot change cars");
+        throw new StorageDomainError(
+          "conflict",
+          "RENTAL_FINALIZED",
+          "Finalized rentals cannot change cars",
+        );
       }
       if (rental.carId === newCarId) {
-        throw new StorageConflictError("SAME_CAR", "Replacement car must be different");
+        throw new StorageDomainError("conflict", "SAME_CAR", "Replacement car must be different");
       }
 
+      // Match updateRentalWithAvailability's lock order: rental first, then
+      // target car, with conflict checks only after the car lock is held.
       await tx.execute(sql`SELECT id FROM ${cars} WHERE id = ${newCarId} FOR UPDATE`);
       const [newCar] = await tx.select().from(cars).where(eq(cars.id, newCarId));
       if (!newCar) {
-        throw new StorageConflictError("CAR_NOT_FOUND", "Replacement car not found");
+        throw new StorageDomainError("not_found", "CAR_NOT_FOUND", "Replacement car not found");
       }
       if (newCar.status === "maintenance") {
-        throw new StorageConflictError("CAR_IN_MAINTENANCE", "Replacement car is under maintenance");
+        throw new StorageDomainError(
+          "conflict",
+          "CAR_IN_MAINTENANCE",
+          "Replacement car is under maintenance",
+        );
       }
 
       const [oldCar] = await tx.select().from(cars).where(eq(cars.id, rental.carId));
       if (!oldCar) {
-        throw new StorageConflictError("OLD_CAR_NOT_FOUND", "Rental's current car was not found");
+        throw new StorageDomainError(
+          "not_found",
+          "OLD_CAR_NOT_FOUND",
+          "Rental's current car was not found",
+        );
       }
       const [user] = await tx.select().from(users).where(eq(users.id, switchingUserId));
       if (!user) {
-        throw new StorageConflictError("USER_NOT_FOUND", "Switching user not found");
+        throw new StorageDomainError("not_found", "USER_NOT_FOUND", "Switching user not found");
       }
 
       const possibleConflicts = await tx
@@ -575,7 +772,8 @@ export class DatabaseStorage implements IStorage {
           datesConflict(existing.startDate, existing.endDate, rental.startDate, rental.endDate),
         )
       ) {
-        throw new StorageConflictError(
+        throw new StorageDomainError(
+          "conflict",
           "CAR_DATE_CONFLICT",
           "Replacement car is already booked for these dates",
         );
@@ -625,7 +823,8 @@ export class DatabaseStorage implements IStorage {
       const [reloadedNewCar] = await tx.select().from(cars).where(eq(cars.id, newCar.id));
       const [reloadedUser] = await tx.select().from(users).where(eq(users.id, switchingUserId));
       if (!reloadedOldCar || !reloadedNewCar || !reloadedUser) {
-        throw new StorageConflictError(
+        throw new StorageDomainError(
+          "invariant",
           "CAR_SWITCH_DETAILS_RELOAD_FAILED",
           "Failed to reload car switch details",
         );
@@ -650,24 +849,36 @@ export class DatabaseStorage implements IStorage {
       .from(carSwitches)
       .where(eq(carSwitches.rentalId, rentalId))
       .orderBy(desc(carSwitches.switchedAt));
+    if (switches.length === 0) return [];
 
-    return Promise.all(
-      switches.map(async (record) => {
-        const [[rental], [oldCar], [newCar], [user]] = await Promise.all([
-          db.select().from(rentals).where(eq(rentals.id, record.rentalId)),
-          db.select().from(cars).where(eq(cars.id, record.oldCarId)),
-          db.select().from(cars).where(eq(cars.id, record.newCarId)),
-          db.select().from(users).where(eq(users.id, record.userId)),
-        ]);
-        if (!rental || !oldCar || !newCar || !user) {
-          throw new StorageConflictError(
-            "CAR_SWITCH_DETAILS_MISSING",
-            `Related details are missing for car switch ${record.id}`,
-          );
-        }
-        return { ...record, rental, oldCar, newCar, user };
-      }),
+    const rentalIds = Array.from(new Set(switches.map((record) => record.rentalId)));
+    const carIds = Array.from(
+      new Set(switches.flatMap((record) => [record.oldCarId, record.newCarId])),
     );
+    const userIds = Array.from(new Set(switches.map((record) => record.userId)));
+    const [relatedRentals, relatedCars, relatedUsers] = await Promise.all([
+      db.select().from(rentals).where(inArray(rentals.id, rentalIds)),
+      db.select().from(cars).where(inArray(cars.id, carIds)),
+      db.select().from(users).where(inArray(users.id, userIds)),
+    ]);
+    const rentalsById = new Map(relatedRentals.map((rental) => [rental.id, rental]));
+    const carsById = new Map(relatedCars.map((car) => [car.id, car]));
+    const usersById = new Map(relatedUsers.map((user) => [user.id, user]));
+
+    return switches.map((record) => {
+      const rental = rentalsById.get(record.rentalId);
+      const oldCar = carsById.get(record.oldCarId);
+      const newCar = carsById.get(record.newCarId);
+      const user = usersById.get(record.userId);
+      if (!rental || !oldCar || !newCar || !user) {
+        throw new StorageDomainError(
+          "invariant",
+          "CAR_SWITCH_DETAILS_MISSING",
+          `Related details are missing for car switch ${record.id}`,
+        );
+      }
+      return { ...record, rental, oldCar, newCar, user };
+    });
   }
 
   async hasCarSwitchesForRental(rentalId: number): Promise<boolean> {
