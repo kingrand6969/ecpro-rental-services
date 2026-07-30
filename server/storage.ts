@@ -9,6 +9,7 @@ import {
   rentalLogs,
   expenseLogs,
   activityLogs,
+  carSwitches,
   type User,
   type UpsertUser,
   type Car,
@@ -36,9 +37,22 @@ import {
   type DashboardStats,
   type DashboardExceptions,
   type MonthlyIncomePoint,
+  type AvailabilityResponse,
+  type CarSwitchWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, ne, sql } from "drizzle-orm";
+import { classifyCarAvailability, datesConflict, validateDateRange } from "./availability";
+
+export class StorageConflictError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "StorageConflictError";
+  }
+}
 
 export interface IStorage {
   // User operations
@@ -72,6 +86,10 @@ export interface IStorage {
   updateCar(id: number, car: Partial<InsertCar>): Promise<Car | undefined>;
   deleteCar(id: number): Promise<void>;
   recordOilChange(id: number): Promise<Car | undefined>;
+  getAvailability(startDate: string, endDate: string, excludeRentalId?: number): Promise<AvailabilityResponse>;
+  getAffectedRentals(carId: number): Promise<Rental[]>;
+  setCarMaintenance(carId: number, reason: string, userId: string): Promise<Car | undefined>;
+  clearCarMaintenance(carId: number, userId: string): Promise<Car | undefined>;
 
   // Rental operations
   getAllRentals(): Promise<Rental[]>;
@@ -82,6 +100,14 @@ export interface IStorage {
   deleteRental(id: number): Promise<void>;
   getRentalsNeedingFinalizeReminder(): Promise<Rental[]>;
   updateFinalizeReminder(id: number): Promise<Rental | undefined>;
+  switchRentalCar(input: {
+    rentalId: number;
+    newCarId: number;
+    reason: string;
+    userId: string;
+  }): Promise<{ rental: Rental; switchRecord: CarSwitchWithDetails }>;
+  getCarSwitchesByRentalId(rentalId: number): Promise<CarSwitchWithDetails[]>;
+  hasCarSwitchesForRental(rentalId: number): Promise<boolean>;
 
   // Expense operations
   getAllExpenses(): Promise<Expense[]>;
@@ -322,6 +348,102 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getAvailability(
+    startDate: string,
+    endDate: string,
+    excludeRentalId?: number,
+  ): Promise<AvailabilityResponse> {
+    validateDateRange(startDate, endDate);
+    const [allCars, allRentals] = await Promise.all([
+      db.select().from(cars).orderBy(sql`${cars.displayOrder} ASC NULLS LAST`, desc(cars.createdAt)),
+      db.select().from(rentals),
+    ]);
+    const response: AvailabilityResponse = {
+      startDate,
+      endDate,
+      available: [],
+      booked: [],
+      maintenance: [],
+    };
+
+    for (const car of allCars) {
+      const classified = classifyCarAvailability(
+        car,
+        allRentals,
+        startDate,
+        endDate,
+        excludeRentalId,
+      );
+      response[classified.availability].push(classified);
+    }
+
+    return response;
+  }
+
+  async getAffectedRentals(carId: number): Promise<Rental[]> {
+    return db
+      .select()
+      .from(rentals)
+      .where(
+        and(
+          eq(rentals.carId, carId),
+          eq(rentals.isFinalized, false),
+          gte(rentals.endDate, sql`CURRENT_DATE`),
+        ),
+      )
+      .orderBy(asc(rentals.startDate));
+  }
+
+  async setCarMaintenance(
+    carId: number,
+    reason: string,
+    userId: string,
+  ): Promise<Car | undefined> {
+    const maintenanceReason = reason.trim();
+    const maintenanceUpdatedBy = userId.trim();
+    if (!maintenanceReason) {
+      throw new StorageConflictError("MAINTENANCE_REASON_REQUIRED", "Maintenance reason is required");
+    }
+    if (!maintenanceUpdatedBy) {
+      throw new StorageConflictError("MAINTENANCE_USER_REQUIRED", "Maintenance user is required");
+    }
+
+    const now = new Date();
+    const [updated] = await db
+      .update(cars)
+      .set({
+        status: "maintenance",
+        maintenanceReason,
+        maintenanceUpdatedAt: now,
+        maintenanceUpdatedBy,
+        updatedAt: now,
+      })
+      .where(eq(cars.id, carId))
+      .returning();
+    return updated;
+  }
+
+  async clearCarMaintenance(carId: number, userId: string): Promise<Car | undefined> {
+    const maintenanceUpdatedBy = userId.trim();
+    if (!maintenanceUpdatedBy) {
+      throw new StorageConflictError("MAINTENANCE_USER_REQUIRED", "Maintenance user is required");
+    }
+
+    const now = new Date();
+    const [updated] = await db
+      .update(cars)
+      .set({
+        status: "available",
+        maintenanceReason: null,
+        maintenanceUpdatedAt: now,
+        maintenanceUpdatedBy,
+        updatedAt: now,
+      })
+      .where(eq(cars.id, carId))
+      .returning();
+    return updated;
+  }
+
   // Rental operations
   async getAllRentals(): Promise<Rental[]> {
     return db.select().from(rentals).orderBy(desc(rentals.createdAt));
@@ -391,6 +513,176 @@ export class DatabaseStorage implements IStorage {
       .where(eq(rentals.id, id))
       .returning();
     return updated;
+  }
+
+  async switchRentalCar({
+    rentalId,
+    newCarId,
+    reason,
+    userId,
+  }: {
+    rentalId: number;
+    newCarId: number;
+    reason: string;
+    userId: string;
+  }): Promise<{ rental: Rental; switchRecord: CarSwitchWithDetails }> {
+    const switchReason = reason.trim();
+    const switchingUserId = userId.trim();
+    if (!switchReason) {
+      throw new StorageConflictError("SWITCH_REASON_REQUIRED", "Car switch reason is required");
+    }
+    if (!switchingUserId) {
+      throw new StorageConflictError("SWITCH_USER_REQUIRED", "Car switch user is required");
+    }
+
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ${rentals} WHERE id = ${rentalId} FOR UPDATE`);
+      const [rental] = await tx.select().from(rentals).where(eq(rentals.id, rentalId));
+      if (!rental) {
+        throw new StorageConflictError("RENTAL_NOT_FOUND", "Rental not found");
+      }
+      if (rental.isFinalized) {
+        throw new StorageConflictError("RENTAL_FINALIZED", "Finalized rentals cannot change cars");
+      }
+      if (rental.carId === newCarId) {
+        throw new StorageConflictError("SAME_CAR", "Replacement car must be different");
+      }
+
+      await tx.execute(sql`SELECT id FROM ${cars} WHERE id = ${newCarId} FOR UPDATE`);
+      const [newCar] = await tx.select().from(cars).where(eq(cars.id, newCarId));
+      if (!newCar) {
+        throw new StorageConflictError("CAR_NOT_FOUND", "Replacement car not found");
+      }
+      if (newCar.status === "maintenance") {
+        throw new StorageConflictError("CAR_IN_MAINTENANCE", "Replacement car is under maintenance");
+      }
+
+      const [oldCar] = await tx.select().from(cars).where(eq(cars.id, rental.carId));
+      if (!oldCar) {
+        throw new StorageConflictError("OLD_CAR_NOT_FOUND", "Rental's current car was not found");
+      }
+      const [user] = await tx.select().from(users).where(eq(users.id, switchingUserId));
+      if (!user) {
+        throw new StorageConflictError("USER_NOT_FOUND", "Switching user not found");
+      }
+
+      const possibleConflicts = await tx
+        .select()
+        .from(rentals)
+        .where(and(eq(rentals.carId, newCarId), ne(rentals.id, rentalId)));
+      if (
+        possibleConflicts.some((existing) =>
+          datesConflict(existing.startDate, existing.endDate, rental.startDate, rental.endDate),
+        )
+      ) {
+        throw new StorageConflictError(
+          "CAR_DATE_CONFLICT",
+          "Replacement car is already booked for these dates",
+        );
+      }
+
+      const now = new Date();
+      const [updatedRental] = await tx
+        .update(rentals)
+        .set({ carId: newCarId, updatedAt: now })
+        .where(eq(rentals.id, rentalId))
+        .returning();
+      const [createdSwitch] = await tx
+        .insert(carSwitches)
+        .values({
+          rentalId,
+          oldCarId: oldCar.id,
+          newCarId: newCar.id,
+          reason: switchReason,
+          userId: switchingUserId,
+        })
+        .returning();
+
+      await tx.insert(activityLogs).values({
+        userId: switchingUserId,
+        entityType: "rental_car_switch",
+        entityId: String(rentalId),
+        action: "update",
+        beforeData: {
+          rental,
+          oldCar,
+          reason: switchReason,
+          priceStatus: {
+            totalAmount: rental.totalAmount,
+            daysRented: rental.daysRented,
+            paymentStatus: rental.paymentStatus,
+            paymentDate: rental.paymentDate,
+            paymentBank: rental.paymentBank,
+            reservationFee: rental.reservationFee,
+            reservationStatus: rental.reservationStatus,
+            reservationDate: rental.reservationDate,
+            reservationBank: rental.reservationBank,
+          },
+        },
+        afterData: {
+          rental: updatedRental,
+          newCar,
+          reason: switchReason,
+          priceStatus: {
+            totalAmount: updatedRental.totalAmount,
+            daysRented: updatedRental.daysRented,
+            paymentStatus: updatedRental.paymentStatus,
+            paymentDate: updatedRental.paymentDate,
+            paymentBank: updatedRental.paymentBank,
+            reservationFee: updatedRental.reservationFee,
+            reservationStatus: updatedRental.reservationStatus,
+            reservationDate: updatedRental.reservationDate,
+            reservationBank: updatedRental.reservationBank,
+          },
+        },
+      });
+
+      return {
+        rental: updatedRental,
+        switchRecord: {
+          ...createdSwitch,
+          rental: updatedRental,
+          oldCar,
+          newCar,
+          user,
+        },
+      };
+    });
+  }
+
+  async getCarSwitchesByRentalId(rentalId: number): Promise<CarSwitchWithDetails[]> {
+    const switches = await db
+      .select()
+      .from(carSwitches)
+      .where(eq(carSwitches.rentalId, rentalId))
+      .orderBy(desc(carSwitches.switchedAt));
+
+    return Promise.all(
+      switches.map(async (record) => {
+        const [[rental], [oldCar], [newCar], [user]] = await Promise.all([
+          db.select().from(rentals).where(eq(rentals.id, record.rentalId)),
+          db.select().from(cars).where(eq(cars.id, record.oldCarId)),
+          db.select().from(cars).where(eq(cars.id, record.newCarId)),
+          db.select().from(users).where(eq(users.id, record.userId)),
+        ]);
+        if (!rental || !oldCar || !newCar || !user) {
+          throw new StorageConflictError(
+            "CAR_SWITCH_DETAILS_MISSING",
+            `Related details are missing for car switch ${record.id}`,
+          );
+        }
+        return { ...record, rental, oldCar, newCar, user };
+      }),
+    );
+  }
+
+  async hasCarSwitchesForRental(rentalId: number): Promise<boolean> {
+    const [record] = await db
+      .select({ id: carSwitches.id })
+      .from(carSwitches)
+      .where(eq(carSwitches.rentalId, rentalId))
+      .limit(1);
+    return Boolean(record);
   }
 
   // Expense operations
