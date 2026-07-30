@@ -42,7 +42,7 @@ const carSchema = z.object({
   plateNumber: z.string().min(1, "Plate number is required"),
   color: z.string().min(1, "Color is required"),
   colorCode: z.string().min(1, "Calendar color is required"),
-  monthlyPayment: z.string().min(1, "Monthly payment is required"),
+  monthlyPayment: z.string().optional(),
   downPayment: z.string().refine(
     (value) => value === "" || (Number.isFinite(Number(value)) && Number(value) >= 0),
     "Enter a valid non-negative amount",
@@ -87,7 +87,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
         plateNumber: data.plateNumber,
         color: data.color,
         colorCode: data.colorCode,
-        monthlyPayment: data.monthlyPayment,
+        monthlyPayment: isAdmin ? (data.monthlyPayment || "0") : "0",
         ...(isAdmin && { downPayment: data.downPayment || "0" }),
         currentMileage: 0,
         lastOilChangeMileage: 0,
@@ -241,7 +241,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
               )}
             />
 
-            <FormField
+            {isAdmin && <FormField
               control={form.control}
               name="monthlyPayment"
               render={({ field }) => (
@@ -260,7 +260,7 @@ export function AddCarDialog({ open, onOpenChange }: AddCarDialogProps) {
                   <FormMessage />
                 </FormItem>
               )}
-            />
+            />}
 
             {isAdmin && (
               <FormField

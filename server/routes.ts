@@ -52,6 +52,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  const canManageOperations = (user: User | undefined) =>
+    Boolean(user?.isAdmin || user?.isManager);
+
   // Setup local authentication
   setupAuth(app);
 
@@ -80,8 +83,12 @@ export async function registerRoutes(
 
   // Save a custom display order for cars. Must be registered before
   // /api/cars/:id so "reorder" isn't parsed as an id.
-  app.post("/api/cars/reorder", isAuthenticated, async (req, res) => {
+  app.post("/api/cars/reorder", isAuthenticated, async (req: any, res) => {
     try {
+      const user = await storage.getUser((req.user as User).id);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
       const bodySchema = z.object({
         carIds: z.array(z.number().int()).min(1),
       });
@@ -116,8 +123,12 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
       if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+        req.body.monthlyPayment = "0.00";
+        req.body.downPayment = "0.00";
       }
       if (req.body.downPayment !== undefined) {
         const downPayment = z.coerce.number().finite().min(0).max(1_000_000_000).safeParse(req.body.downPayment);
@@ -144,6 +155,9 @@ export async function registerRoutes(
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
 
       if (req.body.monthlyPayment !== undefined) {
         if (!user?.isAdmin) {
@@ -271,8 +285,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
       }
 
       const id = parseInt(req.params.id);
@@ -302,8 +316,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
       }
 
       const id = parseInt(req.params.id);
@@ -361,6 +375,10 @@ export async function registerRoutes(
 
   app.post("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
+      const user = await storage.getUser((req.user as User).id);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
       const validated = insertCustomerSchema.parse(req.body);
       const customer = await storage.createCustomer(validated);
       res.status(201).json(customer);
@@ -377,8 +395,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
       }
 
       const id = parseInt(req.params.id);
@@ -509,6 +527,9 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const requester = await storage.getUser(userId);
+      if (!canManageOperations(requester)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
 
       // Only the dedicated "Admin" superuser can create a rental that is already finalized
       if (req.body?.isFinalized === true && requester?.username !== "Admin") {
@@ -609,6 +630,9 @@ export async function registerRoutes(
 
       if (!existing) {
         return res.status(404).json({ message: "Rental not found" });
+      }
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
       }
 
       // Only admin can edit finalized rentals
@@ -806,6 +830,10 @@ export async function registerRoutes(
   app.post("/api/expenses", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
       const expenseData = {
         ...req.body,
         userId,
@@ -860,8 +888,8 @@ export async function registerRoutes(
     try {
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
       }
 
       const id = parseInt(req.params.id);

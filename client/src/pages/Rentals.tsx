@@ -33,7 +33,7 @@ import { getRentalStatus, STATUS_STYLES } from "@/lib/rentalStatus";
 import type { Car, Rental } from "@shared/schema";
 
 export default function Rentals() {
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { canManage, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   // The dashboard's attention chips deep-link here, e.g. /rentals?filter=overdue.
@@ -139,7 +139,7 @@ export default function Rentals() {
         >
           Rentals
         </h1>
-        <Button
+        {canManage && <Button
           onClick={() => setCreateOpen(true)}
           size="sm"
           data-testid="button-book-rent"
@@ -147,7 +147,7 @@ export default function Rentals() {
         >
           <Plus className="h-4 w-4 mr-1" />
           Book a Rent
-        </Button>
+        </Button>}
       </div>
 
       <div className="flex-1 overflow-auto p-4 md:p-6 neon-scrollbar">
@@ -384,7 +384,7 @@ export default function Rentals() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {isAdmin && (
+                              {canManage && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -416,7 +416,9 @@ export default function Rentals() {
         </div>
       </div>
 
-      <CreateRentalDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {canManage && (
+        <CreateRentalDialog open={createOpen} onOpenChange={setCreateOpen} />
+      )}
 
       <RentalDetailsDialog
         rental={viewRental}
@@ -424,7 +426,7 @@ export default function Rentals() {
         onClose={() => setViewRental(null)}
       />
 
-      {isAdmin && (
+      {canManage && (
         <EditRentalDialog
           rental={editRental}
           onClose={() => setEditRental(null)}

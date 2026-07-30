@@ -84,7 +84,7 @@ interface CarExpensesDialogProps {
 
 export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canManage } = useAuth();
   const [activeTab, setActiveTab] = useState("list");
   const [incomeFrom, setIncomeFrom] = useState("");
   const [incomeTo, setIncomeTo] = useState("");
@@ -268,9 +268,9 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
             <TabsTrigger value="list" data-testid="tab-expenses-list" className="font-mono text-xs uppercase tracking-wider">
               Expenses
             </TabsTrigger>
-            <TabsTrigger value="add" data-testid="tab-add-expense" className="font-mono text-xs uppercase tracking-wider">
+            {canManage && <TabsTrigger value="add" data-testid="tab-add-expense" className="font-mono text-xs uppercase tracking-wider">
               Add Expense
-            </TabsTrigger>
+            </TabsTrigger>}
           </TabsList>
 
           <TabsContent value="income" className="mt-4">

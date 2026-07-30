@@ -94,7 +94,7 @@ interface CarDetailsDialogProps {
 
 export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canManage } = useAuth();
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
   const [registrationDate, setRegistrationDate] = useState("");
 
@@ -239,7 +239,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
               <p className="text-sm text-red-600 dark:text-red-400 mb-2">
                 Registration is overdue by {Math.abs(regStatus.daysUntilDue ?? 0)} day(s).
               </p>
-              {isAdmin && (
+              {canManage && (
                 <div className="flex items-center gap-2 mt-2">
                   <Input
                     type="date"
@@ -299,7 +299,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
               <p className="text-sm text-orange-600 dark:text-orange-400 mb-2">
                 Registration is due in {regStatus.daysUntilDue} day(s). Please prepare your documents.
               </p>
-              {isAdmin && (
+              {canManage && (
                 <div className="flex items-center gap-2 mt-2">
                   <Input
                     type="date"
@@ -443,7 +443,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
           <Separator />
 
-          <Form {...form}>
+          {canManage && <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Update Car Information</h4>
 
@@ -605,7 +605,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
                 </Button>
               </div>
             </form>
-          </Form>
+          </Form>}
         </div>
       </DialogContent>
     </Dialog>

@@ -19,7 +19,7 @@ const statusBadge: Record<string, string> = {
 };
 
 export default function Cars() {
-  const { isAdmin } = useAuth();
+  const { canManage } = useAuth();
   const [addCarOpen, setAddCarOpen] = useState(false);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [expensesCarId, setExpensesCarId] = useState<number | null>(null);
@@ -37,7 +37,7 @@ export default function Cars() {
         >
           Fleet
         </h1>
-        {isAdmin && (
+        {canManage && (
           <Button
             onClick={() => setAddCarOpen(true)}
             size="sm"
@@ -198,11 +198,11 @@ export default function Cars() {
             </div>
             <h3 className="font-mono text-sm uppercase tracking-widest text-foreground mb-2">No cars yet</h3>
             <p className="text-muted-foreground mb-4">
-              {isAdmin
+              {canManage
                 ? "Add your first car to start managing your fleet."
                 : "No cars have been added yet."}
             </p>
-            {isAdmin && (
+            {canManage && (
               <Button
                 onClick={() => setAddCarOpen(true)}
                 className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
@@ -215,7 +215,7 @@ export default function Cars() {
         )}
       </div>
 
-      {isAdmin && (
+      {canManage && (
         <AddCarDialog open={addCarOpen} onOpenChange={setAddCarOpen} />
       )}
 

@@ -80,7 +80,7 @@ const userNavItems = [
 
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isManager } = useAuth();
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -253,6 +253,9 @@ export function AppSidebar() {
             </p>
             {isAdmin && (
               <p className="text-xs text-muted-foreground">Admin</p>
+            )}
+            {!isAdmin && isManager && (
+              <p className="text-xs text-muted-foreground">Manager</p>
             )}
           </div>
           <Button

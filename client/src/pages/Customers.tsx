@@ -48,7 +48,7 @@ const customerFormSchema = z.object({
 type CustomerFormData = z.infer<typeof customerFormSchema>;
 
 export default function Customers() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canManage } = useAuth();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -179,7 +179,7 @@ export default function Customers() {
             />
           </div>
           <Dialog open={addCustomerOpen} onOpenChange={setAddCustomerOpen}>
-            <DialogTrigger asChild>
+            {canManage && <DialogTrigger asChild>
               <Button
                 size="sm"
                 data-testid="button-add-customer"
@@ -188,7 +188,7 @@ export default function Customers() {
                 <Plus className="h-4 w-4 mr-1" />
                 Add Customer
               </Button>
-            </DialogTrigger>
+            </DialogTrigger>}
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-mono text-base uppercase tracking-widest">Add New Customer</DialogTitle>
@@ -360,7 +360,7 @@ export default function Customers() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {isAdmin && (
+                          {canManage && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -389,13 +389,13 @@ export default function Customers() {
                 <p className="text-muted-foreground mb-4">
                   Add your first customer to start tracking rental history.
                 </p>
-                <Button
+                {canManage && <Button
                   onClick={() => setAddCustomerOpen(true)}
                   className="font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Customer
-                </Button>
+                </Button>}
               </div>
             )}
           </div>
