@@ -48,6 +48,12 @@ async function findOverlappingRental(
   });
 }
 
+function calculateRentalDays(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -91,7 +97,29 @@ export async function registerRoutes(
   app.get("/api/cars", isAuthenticated, async (req, res) => {
     try {
       const cars = await storage.getAllCars();
-      res.json(cars);
+      const rentals = await storage.getAllRentals();
+      const today = new Date().toISOString().slice(0, 10);
+      const activelyRentedCarIds = new Set(
+        rentals
+          .filter(
+            (rental) =>
+              !rental.isFinalized &&
+              rental.startDate <= today &&
+              rental.endDate >= today,
+          )
+          .map((rental) => rental.carId),
+      );
+      res.json(
+        cars.map((car) => ({
+          ...car,
+          status:
+            car.status === "maintenance"
+              ? "maintenance"
+              : activelyRentedCarIds.has(car.id)
+                ? "rented"
+                : "available",
+        })),
+      );
     } catch (error) {
       console.error("Error fetching cars:", error);
       res.status(500).json({ message: "Failed to fetch cars" });
@@ -623,6 +651,25 @@ export async function registerRoutes(
         userId,
       };
       const validated = insertRentalSchema.parse(rentalData);
+      if (validated.endDate < validated.startDate) {
+        return res.status(400).json({
+          message: "Rental end date cannot be before the start date",
+        });
+      }
+      validated.daysRented = calculateRentalDays(
+        validated.startDate as string,
+        validated.endDate as string,
+      );
+
+      const selectedCar = await storage.getCarById(validated.carId as number);
+      if (!selectedCar) {
+        return res.status(404).json({ message: "Selected car was not found" });
+      }
+      if (selectedCar.status === "maintenance") {
+        return res.status(400).json({
+          message: "This car is under maintenance and cannot be booked",
+        });
+      }
 
       const conflict = await findOverlappingRental(
         validated.carId as number,
@@ -677,7 +724,7 @@ export async function registerRoutes(
       }
       const editableRentalFields = [
         "carId", "customerId", "customerName", "customerPhone", "customerEmail",
-        "startDate", "endDate", "totalAmount", "paymentStatus", "paymentDate",
+        "startDate", "endDate", "daysRented", "totalAmount", "paymentStatus", "paymentDate",
         "paymentBank", "paymentScreenshotUrl", "reservationFee",
         "reservationStatus", "reservationDate", "reservationBank",
         "reservationScreenshotUrl", "isFinalized", "notes",
@@ -734,11 +781,29 @@ export async function registerRoutes(
         }
       }
 
-      // Date changes get the same double-booking guard as creation.
-      if (req.body.startDate !== undefined || req.body.endDate !== undefined) {
+      // Date or vehicle changes get the same availability guard as creation.
+      if (
+        req.body.carId !== undefined ||
+        req.body.startDate !== undefined ||
+        req.body.endDate !== undefined
+      ) {
         const nextStart = req.body.startDate ?? existing.startDate;
         const nextEnd = req.body.endDate ?? existing.endDate;
         const nextCarId = req.body.carId ?? existing.carId;
+        if (nextEnd < nextStart) {
+          return res.status(400).json({
+            message: "Rental end date cannot be before the start date",
+          });
+        }
+        const selectedCar = await storage.getCarById(nextCarId);
+        if (!selectedCar) {
+          return res.status(404).json({ message: "Selected car was not found" });
+        }
+        if (selectedCar.status === "maintenance") {
+          return res.status(400).json({
+            message: "This car is under maintenance and cannot be booked",
+          });
+        }
         const conflict = await findOverlappingRental(
           nextCarId,
           nextStart as string,
@@ -750,6 +815,7 @@ export async function registerRoutes(
             message: `These dates overlap another rental for this car (${conflict.customerName}, ${conflict.startDate} to ${conflict.endDate})`,
           });
         }
+        req.body.daysRented = calculateRentalDays(nextStart, nextEnd);
       }
 
       // A confirmed reservation must always have both reservationDate and

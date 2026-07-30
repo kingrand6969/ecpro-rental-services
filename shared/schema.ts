@@ -291,30 +291,25 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertCarSchema = createInsertSchema(cars).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertRentalSchema = createInsertSchema(rentals).omit({
-  id: true,
   createdAt: true,
   updatedAt: true,
 });
 
 export const insertExpenseSchema = createInsertSchema(expenses).omit({
-  id: true,
   createdAt: true,
 });
 
 export const insertMonthlyPaymentSchema = createInsertSchema(monthlyPayments).omit({
-  id: true,
   createdAt: true,
 });
 
@@ -329,12 +324,10 @@ export const insertRentalLogSchema = createInsertSchema(rentalLogs).omit({
 });
 
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
-  id: true,
   loggedAt: true,
 });
 
 export const insertExpenseLogSchema = createInsertSchema(expenseLogs).omit({
-  id: true,
   loggedAt: true,
 });
 
