@@ -58,6 +58,7 @@ type CreateRentalDialogProps = {
   initialCarId?: number;
   initialStartDate?: string;
   initialEndDate?: string;
+  onCreated?: () => void | Promise<void>;
 };
 
 export function CreateRentalDialog({
@@ -67,6 +68,7 @@ export function CreateRentalDialog({
   initialCarId,
   initialStartDate,
   initialEndDate,
+  onCreated,
 }: CreateRentalDialogProps) {
   const { toast } = useToast();
   const [step, setStep] = useState<"car" | "dates" | "details">("car");
@@ -173,11 +175,15 @@ export function CreateRentalDialog({
       };
       await apiRequest("POST", "/api/rentals", payload);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/rentals"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cars"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/rentals"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/cars"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/availability"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/income-trend"] }),
+      ]);
+      await onCreated?.();
       toast({
         title: "Success",
         description: "Rental booked successfully",

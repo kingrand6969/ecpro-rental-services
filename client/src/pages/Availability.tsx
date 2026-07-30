@@ -227,6 +227,11 @@ export default function Availability() {
     setRentalDialogOpen(true);
   };
 
+  const handleRentalCreated = async () => {
+    if (!submittedRange) return;
+    await refetch();
+  };
+
   return (
     <div className="min-h-full min-w-0 bg-background text-foreground">
       <header className="border-b border-border bg-background/60 px-4 py-4 backdrop-blur md:px-6">
@@ -364,6 +369,7 @@ export default function Availability() {
         initialCarId={selectedCarId}
         initialStartDate={submittedRange?.startDate}
         initialEndDate={submittedRange?.endDate}
+        onCreated={handleRentalCreated}
       />
     </div>
   );
