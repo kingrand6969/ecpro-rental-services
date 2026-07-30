@@ -395,11 +395,15 @@ export type InsertRental = z.infer<typeof insertRentalSchema>;
 
 export type CarSwitch = typeof carSwitches.$inferSelect;
 export type InsertCarSwitch = z.infer<typeof insertCarSwitchSchema>;
+export type SafeUser = Pick<
+  User,
+  "id" | "username" | "firstName" | "lastName"
+>;
 export type CarSwitchWithDetails = CarSwitch & {
   rental: Rental;
   oldCar: Car;
   newCar: Car;
-  user: User;
+  user: SafeUser;
 };
 
 export type Expense = typeof expenses.$inferSelect;

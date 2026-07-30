@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import {
   storage,
@@ -13,6 +13,7 @@ import {
   insertExpenseSchema,
   insertCustomerSchema,
   type InsertRental,
+  type CarSwitchWithDetails,
 } from "@shared/schema";
 import { z } from "zod";
 import type { User } from "@shared/schema";
@@ -49,6 +50,214 @@ export function storageDomainErrorStatus(error: StorageDomainError): number {
     case "invariant":
       return 500;
   }
+}
+
+type Task4Storage = Pick<
+  IStorage,
+  | "getUser"
+  | "createActivityLog"
+  | "getAvailability"
+  | "getCarById"
+  | "setCarMaintenance"
+  | "clearCarMaintenance"
+  | "getAffectedRentals"
+  | "switchRentalCar"
+  | "getCarSwitchesByRentalId"
+>;
+
+const availabilityQuery = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  excludeRentalId: z.coerce.number().int().positive().optional(),
+});
+
+export function sanitizeCarSwitchDetails(
+  record: CarSwitchWithDetails,
+): CarSwitchWithDetails {
+  const { id, username, firstName, lastName } = record.user;
+  return {
+    ...record,
+    user: { id, username, firstName, lastName },
+  };
+}
+
+export function registerTask4Routes(
+  app: Express,
+  dependencies: {
+    storage: Task4Storage;
+    isAuthenticated: RequestHandler;
+  },
+): void {
+  const taskStorage = dependencies.storage;
+  const authenticate = dependencies.isAuthenticated;
+  const canManageOperations = (user: User | undefined) =>
+    Boolean(user?.isAdmin || user?.isManager);
+  const sendDomainError = (res: any, error: StorageDomainError) =>
+    res.status(storageDomainErrorStatus(error)).json({
+      message: error.message,
+      code: error.code,
+    });
+
+  app.get("/api/availability", authenticate, async (req, res) => {
+    try {
+      const query = availabilityQuery.parse(req.query);
+      validateDateRange(query.startDate, query.endDate);
+      res.json(
+        await taskStorage.getAvailability(
+          query.startDate,
+          query.endDate,
+          query.excludeRentalId,
+        ),
+      );
+    } catch (error) {
+      if (
+        error instanceof z.ZodError ||
+        (error instanceof Error && /date|YYYY-MM-DD/i.test(error.message))
+      ) {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error("Error fetching availability:", error);
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
+
+  app.patch("/api/cars/:id/maintenance", authenticate, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await taskStorage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      const body = z
+        .object({ reason: z.string().trim().min(3).max(500) })
+        .strict()
+        .parse(req.body);
+      const oldCar = await taskStorage.getCarById(id);
+      if (!oldCar) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      const car = await taskStorage.setCarMaintenance(id, body.reason, userId);
+      if (!car) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      await taskStorage.createActivityLog({
+        userId,
+        entityType: "car",
+        entityId: String(id),
+        action: "updated",
+        beforeData: oldCar as any,
+        afterData: car as any,
+      });
+      res.json(car);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid maintenance data", errors: error.errors });
+      }
+      if (error instanceof StorageDomainError) return sendDomainError(res, error);
+      console.error("Error setting car maintenance:", error);
+      res.status(500).json({ message: "Failed to set car maintenance" });
+    }
+  });
+
+  app.patch("/api/cars/:id/availability", authenticate, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await taskStorage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      z.object({}).strict().parse(req.body ?? {});
+      const oldCar = await taskStorage.getCarById(id);
+      if (!oldCar) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      const car = await taskStorage.clearCarMaintenance(id, userId);
+      if (!car) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+      await taskStorage.createActivityLog({
+        userId,
+        entityType: "car",
+        entityId: String(id),
+        action: "updated",
+        beforeData: oldCar as any,
+        afterData: car as any,
+      });
+      res.json(car);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "No availability fields are accepted" });
+      }
+      if (error instanceof StorageDomainError) return sendDomainError(res, error);
+      console.error("Error clearing car maintenance:", error);
+      res.status(500).json({ message: "Failed to clear car maintenance" });
+    }
+  });
+
+  app.get("/api/cars/:id/affected-rentals", authenticate, async (req, res) => {
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      res.json(await taskStorage.getAffectedRentals(id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid car id" });
+      }
+      console.error("Error fetching affected rentals:", error);
+      res.status(500).json({ message: "Failed to fetch affected rentals" });
+    }
+  });
+
+  app.get("/api/rentals/:id/car-switches", authenticate, async (req, res) => {
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      const records = await taskStorage.getCarSwitchesByRentalId(id);
+      res.json(records.map(sanitizeCarSwitchDetails));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid rental id" });
+      }
+      if (error instanceof StorageDomainError) return sendDomainError(res, error);
+      console.error("Error fetching car switches:", error);
+      res.status(500).json({ message: "Failed to fetch car switches" });
+    }
+  });
+
+  app.post("/api/rentals/:id/switch-car", authenticate, async (req: any, res) => {
+    try {
+      const userId = (req.user as User).id;
+      const user = await taskStorage.getUser(userId);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
+      const rentalId = z.coerce.number().int().positive().parse(req.params.id);
+      const body = z
+        .object({
+          newCarId: z.number().int().positive(),
+          reason: z.string().trim().min(3).max(500),
+        })
+        .strict()
+        .parse(req.body);
+      const result = await taskStorage.switchRentalCar({
+        rentalId,
+        newCarId: body.newCarId,
+        reason: body.reason,
+        userId,
+      });
+      res.json({
+        ...result,
+        switchRecord: sanitizeCarSwitchDetails(result.switchRecord),
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid car switch data", errors: error.errors });
+      }
+      if (error instanceof StorageDomainError) return sendDomainError(res, error);
+      console.error("Error switching rental car:", error);
+      res.status(500).json({ message: "Failed to switch rental car" });
+    }
+  });
 }
 
 // The rental (if any) on the same car whose dates overlap [start, end].
@@ -116,36 +325,7 @@ export async function registerRoutes(
   // Setup local authentication
   setupAuth(app);
 
-  const availabilityQuery = z.object({
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    excludeRentalId: z.coerce.number().int().positive().optional(),
-  });
-
-  app.get("/api/availability", isAuthenticated, async (req, res) => {
-    try {
-      const query = availabilityQuery.parse(req.query);
-      validateDateRange(query.startDate, query.endDate);
-      res.json(
-        await storage.getAvailability(
-          query.startDate,
-          query.endDate,
-          query.excludeRentalId,
-        ),
-      );
-    } catch (error) {
-      if (error instanceof z.ZodError || error instanceof Error) {
-        if (
-          error instanceof z.ZodError ||
-          /date|YYYY-MM-DD/i.test(error.message)
-        ) {
-          return res.status(400).json({ message: error.message });
-        }
-      }
-      console.error("Error fetching availability:", error);
-      res.status(500).json({ message: "Failed to fetch availability" });
-    }
-  });
+  registerTask4Routes(app, { storage, isAuthenticated });
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -227,90 +407,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching car:", error);
       res.status(500).json({ message: "Failed to fetch car" });
-    }
-  });
-
-  app.patch("/api/cars/:id/maintenance", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = (req.user as User).id;
-      const user = await storage.getUser(userId);
-      if (!canManageOperations(user)) {
-        return res.status(403).json({ message: "Manager or Admin access required" });
-      }
-      const id = z.coerce.number().int().positive().parse(req.params.id);
-      const body = z
-        .object({ reason: z.string().trim().min(3).max(500) })
-        .strict()
-        .parse(req.body);
-      const oldCar = await storage.getCarById(id);
-      if (!oldCar) {
-        return res.status(404).json({ message: "Car not found" });
-      }
-      const car = await storage.setCarMaintenance(id, body.reason, userId);
-      if (!car) {
-        return res.status(404).json({ message: "Car not found" });
-      }
-      await logActivity(userId, "car", id, "updated", oldCar, car);
-      res.json(car);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid maintenance data", errors: error.errors });
-      }
-      if (error instanceof StorageDomainError) {
-        return res.status(storageDomainErrorStatus(error)).json({
-          message: error.message,
-          code: error.code,
-        });
-      }
-      console.error("Error setting car maintenance:", error);
-      res.status(500).json({ message: "Failed to set car maintenance" });
-    }
-  });
-
-  app.patch("/api/cars/:id/availability", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = (req.user as User).id;
-      const user = await storage.getUser(userId);
-      if (!canManageOperations(user)) {
-        return res.status(403).json({ message: "Manager or Admin access required" });
-      }
-      const id = z.coerce.number().int().positive().parse(req.params.id);
-      z.object({}).strict().parse(req.body ?? {});
-      const oldCar = await storage.getCarById(id);
-      if (!oldCar) {
-        return res.status(404).json({ message: "Car not found" });
-      }
-      const car = await storage.clearCarMaintenance(id, userId);
-      if (!car) {
-        return res.status(404).json({ message: "Car not found" });
-      }
-      await logActivity(userId, "car", id, "updated", oldCar, car);
-      res.json(car);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "No availability fields are accepted" });
-      }
-      if (error instanceof StorageDomainError) {
-        return res.status(storageDomainErrorStatus(error)).json({
-          message: error.message,
-          code: error.code,
-        });
-      }
-      console.error("Error clearing car maintenance:", error);
-      res.status(500).json({ message: "Failed to clear car maintenance" });
-    }
-  });
-
-  app.get("/api/cars/:id/affected-rentals", isAuthenticated, async (req, res) => {
-    try {
-      const id = z.coerce.number().int().positive().parse(req.params.id);
-      res.json(await storage.getAffectedRentals(id));
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid car id" });
-      }
-      console.error("Error fetching affected rentals:", error);
-      res.status(500).json({ message: "Failed to fetch affected rentals" });
     }
   });
 
@@ -738,63 +834,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching rental:", error);
       res.status(500).json({ message: "Failed to fetch rental" });
-    }
-  });
-
-  app.get("/api/rentals/:id/car-switches", isAuthenticated, async (req, res) => {
-    try {
-      const id = z.coerce.number().int().positive().parse(req.params.id);
-      res.json(await storage.getCarSwitchesByRentalId(id));
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid rental id" });
-      }
-      if (error instanceof StorageDomainError) {
-        return res.status(storageDomainErrorStatus(error)).json({
-          message: error.message,
-          code: error.code,
-        });
-      }
-      console.error("Error fetching car switches:", error);
-      res.status(500).json({ message: "Failed to fetch car switches" });
-    }
-  });
-
-  app.post("/api/rentals/:id/switch-car", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = (req.user as User).id;
-      const user = await storage.getUser(userId);
-      if (!canManageOperations(user)) {
-        return res.status(403).json({ message: "Manager or Admin access required" });
-      }
-      const rentalId = z.coerce.number().int().positive().parse(req.params.id);
-      const body = z
-        .object({
-          newCarId: z.number().int().positive(),
-          reason: z.string().trim().min(3).max(500),
-        })
-        .strict()
-        .parse(req.body);
-      res.json(
-        await storage.switchRentalCar({
-          rentalId,
-          newCarId: body.newCarId,
-          reason: body.reason,
-          userId,
-        }),
-      );
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid car switch data", errors: error.errors });
-      }
-      if (error instanceof StorageDomainError) {
-        return res.status(storageDomainErrorStatus(error)).json({
-          message: error.message,
-          code: error.code,
-        });
-      }
-      console.error("Error switching rental car:", error);
-      res.status(500).json({ message: "Failed to switch rental car" });
     }
   });
 

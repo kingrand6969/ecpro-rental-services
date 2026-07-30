@@ -44,3 +44,26 @@ test("assertRentalCarUnchanged requires audited switching for car changes", asyn
       error.code === "CAR_CHANGE_REQUIRES_SWITCH",
   );
 });
+
+test("toSafeUser excludes password and authorization fields", async () => {
+  const { toSafeUser } = await import("./storage");
+  const projected = toSafeUser({
+    id: "manager-1",
+    username: "Manager",
+    firstName: "Manny",
+    lastName: "Ager",
+    password: "secret-hash",
+    isAdmin: true,
+    isManager: true,
+  });
+
+  assert.deepEqual(projected, {
+    id: "manager-1",
+    username: "Manager",
+    firstName: "Manny",
+    lastName: "Ager",
+  });
+  assert.equal("password" in projected, false);
+  assert.equal("isAdmin" in projected, false);
+  assert.equal("isManager" in projected, false);
+});

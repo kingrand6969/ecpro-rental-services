@@ -39,6 +39,7 @@ import {
   type MonthlyIncomePoint,
   type AvailabilityResponse,
   type CarSwitchWithDetails,
+  type SafeUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, asc, ne, inArray, sql } from "drizzle-orm";
@@ -74,6 +75,24 @@ export class StorageDomainError extends Error {
     this.name = "StorageDomainError";
   }
 }
+
+export function toSafeUser(
+  user: Pick<User, "id" | "username" | "firstName" | "lastName">,
+): SafeUser {
+  return {
+    id: user.id,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+  };
+}
+
+const safeUserSelection = {
+  id: users.id,
+  username: users.username,
+  firstName: users.firstName,
+  lastName: users.lastName,
+};
 
 function validateRentalDateRange(startDate: string, endDate: string): void {
   try {
@@ -773,7 +792,10 @@ export class DatabaseStorage implements IStorage {
           "Rental's current car was not found",
         );
       }
-      const [user] = await tx.select().from(users).where(eq(users.id, switchingUserId));
+      const [user] = await tx
+        .select(safeUserSelection)
+        .from(users)
+        .where(eq(users.id, switchingUserId));
       if (!user) {
         throw new StorageDomainError("not_found", "USER_NOT_FOUND", "Switching user not found");
       }
@@ -836,7 +858,10 @@ export class DatabaseStorage implements IStorage {
 
       const [reloadedOldCar] = await tx.select().from(cars).where(eq(cars.id, oldCar.id));
       const [reloadedNewCar] = await tx.select().from(cars).where(eq(cars.id, newCar.id));
-      const [reloadedUser] = await tx.select().from(users).where(eq(users.id, switchingUserId));
+      const [reloadedUser] = await tx
+        .select(safeUserSelection)
+        .from(users)
+        .where(eq(users.id, switchingUserId));
       if (!reloadedOldCar || !reloadedNewCar || !reloadedUser) {
         throw new StorageDomainError(
           "invariant",
@@ -852,7 +877,7 @@ export class DatabaseStorage implements IStorage {
           rental: updatedRental,
           oldCar: reloadedOldCar,
           newCar: reloadedNewCar,
-          user: reloadedUser,
+          user: toSafeUser(reloadedUser),
         },
       };
     });
@@ -874,7 +899,7 @@ export class DatabaseStorage implements IStorage {
     const [relatedRentals, relatedCars, relatedUsers] = await Promise.all([
       db.select().from(rentals).where(inArray(rentals.id, rentalIds)),
       db.select().from(cars).where(inArray(cars.id, carIds)),
-      db.select().from(users).where(inArray(users.id, userIds)),
+      db.select(safeUserSelection).from(users).where(inArray(users.id, userIds)),
     ]);
     const rentalsById = new Map(relatedRentals.map((rental) => [rental.id, rental]));
     const carsById = new Map(relatedCars.map((car) => [car.id, car]));
@@ -892,7 +917,7 @@ export class DatabaseStorage implements IStorage {
           `Related details are missing for car switch ${record.id}`,
         );
       }
-      return { ...record, rental, oldCar, newCar, user };
+      return { ...record, rental, oldCar, newCar, user: toSafeUser(user) };
     });
   }
 
