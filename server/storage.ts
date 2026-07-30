@@ -39,7 +39,8 @@ import {
   type MonthlyIncomePoint,
   type AvailabilityResponse,
   type AffectedRental,
-  type CarSwitchWithDetails,
+  type CarSwitchHistoryItem,
+  type SwitchRentalCarResult,
   type SafeUser,
 } from "@shared/schema";
 import { db } from "./db";
@@ -63,7 +64,6 @@ export type StorageDomainErrorCode =
   | "SWITCH_USER_REQUIRED"
   | "INVALID_RENTAL_DATES"
   | "CAR_CHANGE_REQUIRES_SWITCH"
-  | "CAR_SWITCH_DETAILS_RELOAD_FAILED"
   | "CAR_SWITCH_DETAILS_MISSING";
 
 export class StorageDomainError extends Error {
@@ -85,6 +85,39 @@ export function toSafeUser(
     username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
+  };
+}
+
+export function createCarSwitchAuditSnapshots(
+  rental: Pick<Rental, "id" | "totalAmount" | "paymentStatus" | "reservationStatus">,
+  oldCar: Pick<Car, "id" | "name" | "plateNumber">,
+  newCar: Pick<Car, "id" | "name" | "plateNumber">,
+  reason: string,
+) {
+  const unchangedRentalState = {
+    rentalId: rental.id,
+    price: rental.totalAmount,
+    paymentStatus: rental.paymentStatus,
+    reservationStatus: rental.reservationStatus,
+  };
+  return {
+    beforeData: {
+      ...unchangedRentalState,
+      oldCar: {
+        id: oldCar.id,
+        name: oldCar.name,
+        plateNumber: oldCar.plateNumber,
+      },
+    },
+    afterData: {
+      ...unchangedRentalState,
+      newCar: {
+        id: newCar.id,
+        name: newCar.name,
+        plateNumber: newCar.plateNumber,
+      },
+      reason,
+    },
   };
 }
 
@@ -196,8 +229,8 @@ export interface IStorage {
     newCarId: number;
     reason: string;
     userId: string;
-  }): Promise<{ rental: Rental; switchRecord: CarSwitchWithDetails }>;
-  getCarSwitchesByRentalId(rentalId: number): Promise<CarSwitchWithDetails[]>;
+  }): Promise<SwitchRentalCarResult>;
+  getCarSwitchesByRentalId(rentalId: number): Promise<CarSwitchHistoryItem[]>;
   hasCarSwitchesForRental(rentalId: number): Promise<boolean>;
 
   // Expense operations
@@ -485,6 +518,7 @@ export class DatabaseStorage implements IStorage {
         startDate: rentals.startDate,
         endDate: rentals.endDate,
         paymentStatus: rentals.paymentStatus,
+        reservationStatus: rentals.reservationStatus,
         totalAmount: rentals.totalAmount,
       })
       .from(rentals)
@@ -742,7 +776,7 @@ export class DatabaseStorage implements IStorage {
     newCarId: number;
     reason: string;
     userId: string;
-  }): Promise<{ rental: Rental; switchRecord: CarSwitchWithDetails }> {
+  }): Promise<SwitchRentalCarResult> {
     const switchReason = reason.trim();
     const switchingUserId = userId.trim();
     if (!switchReason) {
@@ -841,57 +875,47 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
+      const auditSnapshots = createCarSwitchAuditSnapshots(
+        rental,
+        oldCar,
+        newCar,
+        switchReason,
+      );
       await tx.insert(activityLogs).values({
         userId: switchingUserId,
         entityType: "rental_car_switch",
         entityId: String(rentalId),
         action: "updated",
-        beforeData: {
-          rental,
-          oldCar,
-          reason: switchReason,
-          price: rental.totalAmount,
-          paymentStatus: rental.paymentStatus,
-          reservationStatus: rental.reservationStatus,
-        },
-        afterData: {
-          rental: updatedRental,
-          newCar,
-          reason: switchReason,
-          price: updatedRental.totalAmount,
-          paymentStatus: updatedRental.paymentStatus,
-          reservationStatus: updatedRental.reservationStatus,
-        },
+        ...auditSnapshots,
       });
 
-      const [reloadedOldCar] = await tx.select().from(cars).where(eq(cars.id, oldCar.id));
-      const [reloadedNewCar] = await tx.select().from(cars).where(eq(cars.id, newCar.id));
-      const [reloadedUser] = await tx
-        .select(safeUserSelection)
-        .from(users)
-        .where(eq(users.id, switchingUserId));
-      if (!reloadedOldCar || !reloadedNewCar || !reloadedUser) {
-        throw new StorageDomainError(
-          "invariant",
-          "CAR_SWITCH_DETAILS_RELOAD_FAILED",
-          "Failed to reload car switch details",
-        );
-      }
-
       return {
-        rental: updatedRental,
+        rentalId: updatedRental.id,
+        newCarId: updatedRental.carId,
         switchRecord: {
-          ...createdSwitch,
-          rental: updatedRental,
-          oldCar: reloadedOldCar,
-          newCar: reloadedNewCar,
-          user: toSafeUser(reloadedUser),
+          id: createdSwitch.id,
+          rentalId: createdSwitch.rentalId,
+          reason: createdSwitch.reason,
+          switchedAt: createdSwitch.switchedAt,
+          oldCar: {
+            id: oldCar.id,
+            name: oldCar.name,
+            model: oldCar.model,
+            plateNumber: oldCar.plateNumber,
+          },
+          newCar: {
+            id: newCar.id,
+            name: newCar.name,
+            model: newCar.model,
+            plateNumber: newCar.plateNumber,
+          },
+          actor: toSafeUser(user),
         },
       };
     });
   }
 
-  async getCarSwitchesByRentalId(rentalId: number): Promise<CarSwitchWithDetails[]> {
+  async getCarSwitchesByRentalId(rentalId: number): Promise<CarSwitchHistoryItem[]> {
     const switches = await db
       .select()
       .from(carSwitches)
@@ -899,33 +923,45 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(carSwitches.switchedAt));
     if (switches.length === 0) return [];
 
-    const rentalIds = Array.from(new Set(switches.map((record) => record.rentalId)));
     const carIds = Array.from(
       new Set(switches.flatMap((record) => [record.oldCarId, record.newCarId])),
     );
     const userIds = Array.from(new Set(switches.map((record) => record.userId)));
-    const [relatedRentals, relatedCars, relatedUsers] = await Promise.all([
-      db.select().from(rentals).where(inArray(rentals.id, rentalIds)),
-      db.select().from(cars).where(inArray(cars.id, carIds)),
+    const [relatedCars, relatedUsers] = await Promise.all([
+      db
+        .select({
+          id: cars.id,
+          name: cars.name,
+          model: cars.model,
+          plateNumber: cars.plateNumber,
+        })
+        .from(cars)
+        .where(inArray(cars.id, carIds)),
       db.select(safeUserSelection).from(users).where(inArray(users.id, userIds)),
     ]);
-    const rentalsById = new Map(relatedRentals.map((rental) => [rental.id, rental]));
     const carsById = new Map(relatedCars.map((car) => [car.id, car]));
     const usersById = new Map(relatedUsers.map((user) => [user.id, user]));
 
     return switches.map((record) => {
-      const rental = rentalsById.get(record.rentalId);
       const oldCar = carsById.get(record.oldCarId);
       const newCar = carsById.get(record.newCarId);
       const user = usersById.get(record.userId);
-      if (!rental || !oldCar || !newCar || !user) {
+      if (!oldCar || !newCar || !user) {
         throw new StorageDomainError(
           "invariant",
           "CAR_SWITCH_DETAILS_MISSING",
           `Related details are missing for car switch ${record.id}`,
         );
       }
-      return { ...record, rental, oldCar, newCar, user: toSafeUser(user) };
+      return {
+        id: record.id,
+        rentalId: record.rentalId,
+        reason: record.reason,
+        switchedAt: record.switchedAt,
+        oldCar,
+        newCar,
+        actor: toSafeUser(user),
+      };
     });
   }
 
@@ -1097,11 +1133,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllActivityLogs(): Promise<ActivityLogWithUser[]> {
     const rows = await db
-      .select({ log: activityLogs, user: users })
+      .select({ log: activityLogs, user: safeUserSelection })
       .from(activityLogs)
       .innerJoin(users, eq(activityLogs.userId, users.id))
       .orderBy(desc(activityLogs.loggedAt));
-    return rows.map(({ log, user }) => ({ ...log, user }));
+    return rows.map(({ log, user }) => ({ ...log, user: toSafeUser(user) }));
   }
 
   async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {

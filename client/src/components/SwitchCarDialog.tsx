@@ -16,10 +16,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { AvailabilityResponse, Car, Rental } from "@shared/schema";
+import type { AffectedRental, AvailabilityResponse, Car } from "@shared/schema";
 
 type SwitchCarDialogProps = {
-  rental: Rental;
+  rental: AffectedRental;
   currentCar: Car;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,7 +37,38 @@ export const matchesApiFamily = (queryKey: readonly unknown[], path: string) =>
     queryKey[0].startsWith(`${path}/`) ||
     queryKey[0].startsWith(`${path}?`));
 
-export const isAvailabilityConflict = (error: Error) => error.message.startsWith("409:");
+export type SwitchErrorDisposition =
+  | "refresh-availability"
+  | "rental-finalized"
+  | "same-car"
+  | "fallback";
+
+export function getSwitchErrorCode(error: Error): string | undefined {
+  const separator = error.message.indexOf(":");
+  if (separator < 0) return undefined;
+  const status = Number(error.message.slice(0, separator).trim());
+  if (status !== 409) return undefined;
+  try {
+    const body = JSON.parse(error.message.slice(separator + 1).trim()) as { code?: unknown };
+    return typeof body.code === "string" ? body.code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function classifySwitchError(error: Error): SwitchErrorDisposition {
+  switch (getSwitchErrorCode(error)) {
+    case "CAR_DATE_CONFLICT":
+    case "CAR_IN_MAINTENANCE":
+      return "refresh-availability";
+    case "RENTAL_FINALIZED":
+      return "rental-finalized";
+    case "SAME_CAR":
+      return "same-car";
+    default:
+      return "fallback";
+  }
+}
 
 export function SwitchCarDialog({
   rental,
@@ -85,7 +116,8 @@ export function SwitchCarDialog({
       onOpenChange(false);
     },
     onError: async (error: Error) => {
-      if (isAvailabilityConflict(error)) {
+      const disposition = classifySwitchError(error);
+      if (disposition === "refresh-availability") {
         setSelectedCarId("");
         await refetch();
         toast({
@@ -95,9 +127,25 @@ export function SwitchCarDialog({
         });
         return;
       }
+      if (disposition === "rental-finalized") {
+        toast({
+          title: "Rental already finalized",
+          description: "Finalized rentals cannot be switched. Close this dialog to review the rental.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (disposition === "same-car") {
+        toast({
+          title: "Choose a different car",
+          description: "The selected replacement is already assigned to this rental.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: "Unable to switch car",
-        description: "The rental was not changed. Please try again.",
+        description: "The rental was not changed. Refresh the page or try again.",
         variant: "destructive",
       });
     },
@@ -114,6 +162,27 @@ export function SwitchCarDialog({
         </DialogHeader>
 
         <div className="min-w-0 flex-1 space-y-5 overflow-y-auto px-4 py-1 sm:px-6">
+          <dl className="grid min-w-0 gap-2 rounded-md border bg-muted/30 p-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-muted-foreground">Rental ID</dt>
+              <dd className="font-medium">#{rental.id}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Original car</dt>
+              <dd className="break-words font-medium">
+                {currentCar.name} ({currentCar.plateNumber})
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Reservation status</dt>
+              <dd className="capitalize">{rental.reservationStatus}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Payment status</dt>
+              <dd className="capitalize">{rental.paymentStatus}</dd>
+            </div>
+          </dl>
+
           <Alert>
             <AlertTitle>Price and payments stay unchanged</AlertTitle>
             <AlertDescription>

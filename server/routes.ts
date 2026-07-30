@@ -14,7 +14,9 @@ import {
   insertCustomerSchema,
   type InsertRental,
   type AffectedRental,
-  type CarSwitchWithDetails,
+  type AvailabilityCar,
+  type AvailabilityResponse,
+  type CarSwitchHistoryItem,
 } from "@shared/schema";
 import { z } from "zod";
 import type { User } from "@shared/schema";
@@ -72,13 +74,64 @@ const availabilityQuery = z.object({
   excludeRentalId: z.coerce.number().int().positive().optional(),
 });
 
-export function sanitizeCarSwitchDetails(
-  record: CarSwitchWithDetails,
-): CarSwitchWithDetails {
-  const { id, username, firstName, lastName } = record.user;
+export function sanitizeCarSwitchHistory(
+  record: CarSwitchHistoryItem,
+): CarSwitchHistoryItem {
+  const { id, username, firstName, lastName } = record.actor;
   return {
-    ...record,
-    user: { id, username, firstName, lastName },
+    id: record.id,
+    rentalId: record.rentalId,
+    reason: record.reason,
+    switchedAt: record.switchedAt,
+    oldCar: {
+      id: record.oldCar.id,
+      name: record.oldCar.name,
+      model: record.oldCar.model,
+      plateNumber: record.oldCar.plateNumber,
+    },
+    newCar: {
+      id: record.newCar.id,
+      name: record.newCar.name,
+      model: record.newCar.model,
+      plateNumber: record.newCar.plateNumber,
+    },
+    actor: { id, username, firstName, lastName },
+  };
+}
+
+export function sanitizeAvailabilityCar(car: AvailabilityCar): AvailabilityCar {
+  return {
+    id: car.id,
+    name: car.name,
+    brand: car.brand,
+    model: car.model,
+    plateNumber: car.plateNumber,
+    color: car.color,
+    colorCode: car.colorCode,
+    imageUrl: car.imageUrl,
+    status: car.status,
+    maintenanceReason: car.maintenanceReason,
+    availability: car.availability,
+    ...(car.conflictingRental
+      ? {
+          conflictingRental: {
+            startDate: car.conflictingRental.startDate,
+            endDate: car.conflictingRental.endDate,
+          },
+        }
+      : {}),
+  };
+}
+
+export function sanitizeAvailabilityResponse(
+  response: AvailabilityResponse,
+): AvailabilityResponse {
+  return {
+    startDate: response.startDate,
+    endDate: response.endDate,
+    available: response.available.map(sanitizeAvailabilityCar),
+    booked: response.booked.map(sanitizeAvailabilityCar),
+    maintenance: response.maintenance.map(sanitizeAvailabilityCar),
   };
 }
 
@@ -91,6 +144,7 @@ export function sanitizeAffectedRental(
     startDate,
     endDate,
     paymentStatus,
+    reservationStatus,
     totalAmount,
   } = rental;
   return {
@@ -99,6 +153,7 @@ export function sanitizeAffectedRental(
     startDate,
     endDate,
     paymentStatus,
+    reservationStatus,
     totalAmount,
   };
 }
@@ -125,11 +180,11 @@ export function registerTask4Routes(
       const query = availabilityQuery.parse(req.query);
       validateDateRange(query.startDate, query.endDate);
       res.json(
-        await taskStorage.getAvailability(
+        sanitizeAvailabilityResponse(await taskStorage.getAvailability(
           query.startDate,
           query.endDate,
           query.excludeRentalId,
-        ),
+        )),
       );
     } catch (error) {
       if (
@@ -237,11 +292,15 @@ export function registerTask4Routes(
     }
   });
 
-  app.get("/api/rentals/:id/car-switches", authenticate, async (req, res) => {
+  app.get("/api/rentals/:id/car-switches", authenticate, async (req: any, res) => {
     try {
+      const user = await taskStorage.getUser((req.user as User).id);
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
+      }
       const id = z.coerce.number().int().positive().parse(req.params.id);
       const records = await taskStorage.getCarSwitchesByRentalId(id);
-      res.json(records.map(sanitizeCarSwitchDetails));
+      res.json(records.map(sanitizeCarSwitchHistory));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid rental id" });
@@ -274,8 +333,9 @@ export function registerTask4Routes(
         userId,
       });
       res.json({
-        ...result,
-        switchRecord: sanitizeCarSwitchDetails(result.switchRecord),
+        rentalId: result.rentalId,
+        newCarId: result.newCarId,
+        switchRecord: sanitizeCarSwitchHistory(result.switchRecord),
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -284,6 +344,28 @@ export function registerTask4Routes(
       if (error instanceof StorageDomainError) return sendDomainError(res, error);
       console.error("Error switching rental car:", error);
       res.status(500).json({ message: "Failed to switch rental car" });
+    }
+  });
+}
+
+export function registerActivityLogRoutes(
+  app: Express,
+  dependencies: {
+    storage: Pick<IStorage, "getUser" | "getAllActivityLogs">;
+    isAuthenticated: RequestHandler;
+  },
+): void {
+  app.get("/api/activity-logs", dependencies.isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await dependencies.storage.getUser((req.user as User).id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const logs = await dependencies.storage.getAllActivityLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 }
@@ -1481,15 +1563,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/activity-logs", isAuthenticated, async (_req, res) => {
-    try {
-      const logs = await storage.getAllActivityLogs();
-      res.json(logs);
-    } catch (error) {
-      console.error("Error fetching activity logs:", error);
-      res.status(500).json({ message: "Failed to fetch activity logs" });
-    }
-  });
+  registerActivityLogRoutes(app, { storage, isAuthenticated });
 
   app.patch("/api/admin/users/:id/toggle-manager", isAuthenticated, async (req: any, res) => {
     try {

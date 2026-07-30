@@ -399,11 +399,22 @@ export type SafeUser = Pick<
   User,
   "id" | "username" | "firstName" | "lastName"
 >;
-export type CarSwitchWithDetails = CarSwitch & {
-  rental: Rental;
-  oldCar: Car;
-  newCar: Car;
-  user: SafeUser;
+export type SafeCarSummary = Pick<
+  Car,
+  "id" | "name" | "model" | "plateNumber"
+>;
+export type CarSwitchHistoryItem = Pick<
+  CarSwitch,
+  "id" | "rentalId" | "reason" | "switchedAt"
+> & {
+  oldCar: SafeCarSummary;
+  newCar: SafeCarSummary;
+  actor: SafeUser;
+};
+export type SwitchRentalCarResult = {
+  rentalId: number;
+  newCarId: number;
+  switchRecord: CarSwitchHistoryItem;
 };
 
 export type Expense = typeof expenses.$inferSelect;
@@ -419,7 +430,7 @@ export type RentalLog = typeof rentalLogs.$inferSelect;
 export type InsertRentalLog = z.infer<typeof insertRentalLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
-export type ActivityLogWithUser = ActivityLog & { user: User };
+export type ActivityLogWithUser = ActivityLog & { user: SafeUser };
 
 export type ExpenseLog = typeof expenseLogs.$inferSelect;
 export type InsertExpenseLog = z.infer<typeof insertExpenseLogSchema>;
@@ -490,9 +501,21 @@ export type MonthlyIncomePoint = {
 
 export type AvailabilityReason = "available" | "booked" | "maintenance";
 
-export type AvailabilityCar = Car & {
+export type AvailabilityCar = Pick<
+  Car,
+  | "id"
+  | "name"
+  | "brand"
+  | "model"
+  | "plateNumber"
+  | "color"
+  | "colorCode"
+  | "imageUrl"
+  | "status"
+  | "maintenanceReason"
+> & {
   availability: AvailabilityReason;
-  conflictingRental?: Pick<Rental, "id" | "customerName" | "startDate" | "endDate">;
+  conflictingRental?: Pick<Rental, "startDate" | "endDate">;
 };
 
 export type AvailabilityResponse = {
@@ -505,7 +528,13 @@ export type AvailabilityResponse = {
 
 export type AffectedRental = Pick<
   Rental,
-  "id" | "customerName" | "startDate" | "endDate" | "paymentStatus" | "totalAmount"
+  | "id"
+  | "customerName"
+  | "startDate"
+  | "endDate"
+  | "paymentStatus"
+  | "reservationStatus"
+  | "totalAmount"
 >;
 
 // Extended types with relations

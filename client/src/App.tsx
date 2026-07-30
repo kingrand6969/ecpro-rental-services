@@ -47,7 +47,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -87,7 +87,9 @@ function Router() {
         <Route path="/rentals" component={Rentals} />
         <Route path="/customers" component={Customers} />
         <Route path="/finances" component={Finances} />
-        <Route path="/logs" component={Logs} />
+        <Route path="/logs">
+          {isAdmin ? <Logs /> : <NotFound />}
+        </Route>
         <Route path="/admin" component={Admin} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

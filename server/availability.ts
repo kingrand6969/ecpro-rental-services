@@ -47,9 +47,21 @@ export function classifyCarAvailability(
   excludeRentalId?: number,
 ): AvailabilityCar {
   validateDateRange(startDate, endDate);
+  const safeCar = {
+    id: car.id,
+    name: car.name,
+    brand: car.brand,
+    model: car.model,
+    plateNumber: car.plateNumber,
+    color: car.color,
+    colorCode: car.colorCode,
+    imageUrl: car.imageUrl,
+    status: car.status,
+    maintenanceReason: car.maintenanceReason,
+  };
 
   if (car.status === "maintenance") {
-    return { ...car, availability: "maintenance" };
+    return { ...safeCar, availability: "maintenance" };
   }
 
   const conflict = rentals.find(
@@ -60,15 +72,13 @@ export function classifyCarAvailability(
   );
 
   if (!conflict) {
-    return { ...car, availability: "available" };
+    return { ...safeCar, availability: "available" };
   }
 
   return {
-    ...car,
+    ...safeCar,
     availability: "booked",
     conflictingRental: {
-      id: conflict.id,
-      customerName: conflict.customerName,
       startDate: conflict.startDate,
       endDate: conflict.endDate,
     },

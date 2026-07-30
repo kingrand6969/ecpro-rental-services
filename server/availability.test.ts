@@ -91,11 +91,11 @@ test("overlap is classified as booked with a conflict snapshot", () => {
 
   assert.equal(result.availability, "booked");
   assert.deepEqual(result.conflictingRental, {
-    id: 7,
-    customerName: "Customer 7",
     startDate: "2026-08-02",
     endDate: "2026-08-04",
   });
+  assert.equal("monthlyPayment" in result, false);
+  assert.equal("downPayment" in result, false);
 });
 
 test("requested start equal to existing end is available for same-day handover", () => {

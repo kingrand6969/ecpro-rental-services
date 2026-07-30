@@ -1,18 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  classifySwitchError,
   formatRentalPrice,
-  isAvailabilityConflict,
+  getSwitchErrorCode,
   matchesApiFamily,
 } from "../client/src/components/SwitchCarDialog";
+import { getSwitchHistoryViewState } from "../client/src/components/RentalDetailsDialog";
 
 test("switch price formatter applies pesos only to rental money", () => {
   assert.equal(formatRentalPrice("12500"), "₱12,500.00");
 });
 
-test("only an HTTP 409 keeps the switch workflow in conflict recovery", () => {
-  assert.equal(isAvailabilityConflict(new Error('409: {"message":"Car is no longer available"}')), true);
-  assert.equal(isAvailabilityConflict(new Error('500: {"message":"Unexpected error"}')), false);
+test("switch conflicts use stable response codes instead of status alone", () => {
+  assert.equal(
+    classifySwitchError(new Error('409: {"code":"CAR_DATE_CONFLICT"}')),
+    "refresh-availability",
+  );
+  assert.equal(
+    classifySwitchError(new Error('409: {"code":"CAR_IN_MAINTENANCE"}')),
+    "refresh-availability",
+  );
+  assert.equal(
+    classifySwitchError(new Error('409: {"code":"RENTAL_FINALIZED"}')),
+    "rental-finalized",
+  );
+  assert.equal(
+    classifySwitchError(new Error('409: {"code":"SAME_CAR"}')),
+    "same-car",
+  );
+  assert.equal(classifySwitchError(new Error("409: not-json")), "fallback");
+  assert.equal(classifySwitchError(new Error('500: {"code":"CAR_DATE_CONFLICT"}')), "fallback");
+  assert.equal(getSwitchErrorCode(new Error("Network error")), undefined);
+});
+
+test("history errors remain distinct from empty history", () => {
+  assert.equal(getSwitchHistoryViewState(true, false, 0), "loading");
+  assert.equal(getSwitchHistoryViewState(false, true, 0), "error");
+  assert.equal(getSwitchHistoryViewState(false, false, 0), "empty");
+  assert.equal(getSwitchHistoryViewState(false, false, 1), "ready");
 });
 
 test("switch invalidation matches path, query-string, and nested API cache keys", () => {

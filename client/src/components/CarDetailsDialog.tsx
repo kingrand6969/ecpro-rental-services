@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { getOilChangeStatus, formatDaysAge, DEFAULT_OIL_INTERVAL_DAYS } from "@/lib/oilChange";
-import type { AffectedRental, Car, Rental } from "@shared/schema";
+import type { AffectedRental, Car } from "@shared/schema";
 import { useEffect, useState } from "react";
 import { MaintenanceStatusDialog } from "@/components/MaintenanceStatusDialog";
 import { SwitchCarDialog } from "@/components/SwitchCarDialog";
@@ -107,8 +107,7 @@ export function CarDetailsDialog({
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
   const [registrationDate, setRegistrationDate] = useState("");
   const [maintenanceMode, setMaintenanceMode] = useState<"maintenance" | "available" | null>(null);
-  const [switchRental, setSwitchRental] = useState<Rental | null>(null);
-  const [loadingSwitchRentalId, setLoadingSwitchRentalId] = useState<number | null>(null);
+  const [switchRental, setSwitchRental] = useState<AffectedRental | null>(null);
 
   const {
     data: affectedRentals = [],
@@ -150,7 +149,6 @@ export function CarDetailsDialog({
       setRegistrationDate("");
       setMaintenanceMode(null);
       setSwitchRental(null);
-      setLoadingSwitchRentalId(null);
     }
   }, [car, form]);
 
@@ -240,28 +238,13 @@ export function CarDetailsDialog({
     confirmRegistrationMutation.mutate(registrationDate);
   };
 
-  const handleSwitchCar = async (rental: AffectedRental) => {
+  const handleSwitchCar = (rental: AffectedRental) => {
     if (!canManage) return;
     if (onSwitchCar) {
       onSwitchCar(rental);
       return;
     }
-    setLoadingSwitchRentalId(rental.id);
-    try {
-      const fullRental = await queryClient.fetchQuery<Rental>({
-        queryKey: [`/api/rentals/${rental.id}`],
-        staleTime: 0,
-      });
-      setSwitchRental(fullRental);
-    } catch {
-      toast({
-        title: "Unable to load rental",
-        description: "The rental details could not be loaded. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingSwitchRentalId(null);
-    }
+    setSwitchRental(rental);
   };
 
   return (
@@ -571,12 +554,11 @@ export function CarDetailsDialog({
                               type="button"
                               variant="outline"
                               className="min-h-11 w-full shrink-0 sm:w-auto"
-                              onClick={() => void handleSwitchCar(rental)}
-                              disabled={loadingSwitchRentalId === rental.id}
+                              onClick={() => handleSwitchCar(rental)}
                               title={`Switch the car for ${rental.customerName}`}
                               data-testid={`button-switch-car-${rental.id}`}
                             >
-                              {loadingSwitchRentalId === rental.id ? "Loading…" : "Switch Car"}
+                              Switch Car
                             </Button>
                           )}
                         </div>

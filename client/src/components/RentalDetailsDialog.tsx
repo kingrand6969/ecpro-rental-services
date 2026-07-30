@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, User, Phone, Mail, DollarSign, FileText, Image, CheckCircle, Landmark, Wallet, RefreshCw } from "lucide-react";
 import { ConfirmPaymentDialog, type ConfirmPaymentKind } from "@/components/ConfirmPaymentDialog";
 import { useAuth } from "@/hooks/useAuth";
-import type { Car, CarSwitchWithDetails, Rental } from "@shared/schema";
+import type { Car, CarSwitchHistoryItem, Rental } from "@shared/schema";
 
 interface RentalDetailsDialogProps {
   rental: Rental | null;
@@ -22,15 +22,36 @@ interface RentalDetailsDialogProps {
   onClose: () => void;
 }
 
+export function getSwitchHistoryViewState(
+  isLoading: boolean,
+  isError: boolean,
+  itemCount: number,
+): "loading" | "error" | "empty" | "ready" {
+  if (isLoading) return "loading";
+  if (isError) return "error";
+  return itemCount === 0 ? "empty" : "ready";
+}
+
 export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialogProps) {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, canManage } = useAuth();
   const [confirmKind, setConfirmKind] = useState<ConfirmPaymentKind | null>(null);
-  const { data: switchHistory = [], isLoading: switchHistoryLoading } = useQuery<CarSwitchWithDetails[]>({
+  const {
+    data: switchHistory = [],
+    isLoading: switchHistoryLoading,
+    isError: switchHistoryError,
+    isFetching: switchHistoryFetching,
+    refetch: refetchSwitchHistory,
+  } = useQuery<CarSwitchHistoryItem[]>({
     queryKey: [`/api/rentals/${rental?.id}/car-switches`],
-    enabled: Boolean(rental?.id),
+    enabled: Boolean(canManage && rental?.id),
     staleTime: 0,
     refetchOnMount: "always",
   });
+  const switchHistoryState = getSwitchHistoryViewState(
+    switchHistoryLoading,
+    switchHistoryError,
+    switchHistory.length,
+  );
   if (!rental) return null;
 
   return (
@@ -349,15 +370,31 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
             </>
           )}
 
-          <Separator />
-          <section className="min-w-0 space-y-3" aria-labelledby="car-switch-history-heading">
+          {canManage && (
+            <>
+              <Separator />
+              <section className="min-w-0 space-y-3" aria-labelledby="car-switch-history-heading">
             <h4 id="car-switch-history-heading" className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-muted-foreground">
               <RefreshCw className="h-3.5 w-3.5 text-neon-cyan" />
               Car Switch History
             </h4>
-            {switchHistoryLoading ? (
+            {switchHistoryState === "loading" ? (
               <p className="text-sm text-muted-foreground">Loading switch history…</p>
-            ) : switchHistory.length === 0 ? (
+            ) : switchHistoryState === "error" ? (
+              <div className="rounded-md border border-destructive/40 p-3 text-sm" role="alert">
+                <p>Car switch history could not be loaded.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 min-h-11"
+                  disabled={switchHistoryFetching}
+                  onClick={() => void refetchSwitchHistory()}
+                >
+                  {switchHistoryFetching ? "Retrying…" : "Try again"}
+                </Button>
+              </div>
+            ) : switchHistoryState === "empty" ? (
               <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
                 This rental has no car switches.
               </p>
@@ -374,14 +411,16 @@ export function RentalDetailsDialog({ rental, car, onClose }: RentalDetailsDialo
                       </div>
                       <p className="mt-2 break-words text-muted-foreground">{record.reason}</p>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {record.user.firstName || record.user.username || "Unknown user"} ·{" "}
+                        {record.actor.firstName || record.actor.username || "Unknown user"} ·{" "}
                         {format(new Date(record.switchedAt), "MMM d, yyyy h:mm a")}
                       </p>
                     </li>
                   ))}
               </ol>
             )}
-          </section>
+              </section>
+            </>
+          )}
 
           <div className="pt-4">
             <Button

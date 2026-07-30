@@ -67,3 +67,59 @@ test("toSafeUser excludes password and authorization fields", async () => {
   assert.equal("isAdmin" in projected, false);
   assert.equal("isManager" in projected, false);
 });
+
+test("car switch audit snapshots contain only operationally required fields", async () => {
+  const { createCarSwitchAuditSnapshots } = await import("./storage");
+  const snapshots = createCarSwitchAuditSnapshots(
+    {
+      id: 12,
+      totalAmount: "12500.00",
+      paymentStatus: "confirmed",
+      reservationStatus: "confirmed",
+      customerName: "Private Customer",
+      paymentScreenshotUrl: "https://private.example/payment.png",
+      notes: "Private notes",
+    },
+    {
+      id: 1,
+      name: "Old Car",
+      plateNumber: "OLD-1",
+      monthlyPayment: "private",
+    },
+    {
+      id: 2,
+      name: "New Car",
+      plateNumber: "NEW-2",
+      downPayment: "private",
+    },
+    "Engine service",
+  );
+
+  assert.deepEqual(snapshots, {
+    beforeData: {
+      rentalId: 12,
+      price: "12500.00",
+      paymentStatus: "confirmed",
+      reservationStatus: "confirmed",
+      oldCar: { id: 1, name: "Old Car", plateNumber: "OLD-1" },
+    },
+    afterData: {
+      rentalId: 12,
+      price: "12500.00",
+      paymentStatus: "confirmed",
+      reservationStatus: "confirmed",
+      newCar: { id: 2, name: "New Car", plateNumber: "NEW-2" },
+      reason: "Engine service",
+    },
+  });
+  const serialized = JSON.stringify(snapshots);
+  for (const sensitive of [
+    "Private Customer",
+    "paymentScreenshotUrl",
+    "Private notes",
+    "monthlyPayment",
+    "downPayment",
+  ]) {
+    assert.equal(serialized.includes(sensitive), false);
+  }
+});

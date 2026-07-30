@@ -61,14 +61,14 @@ const mainNavItems = [
     url: "/finances",
     icon: DollarSign,
   },
+];
+
+const adminNavItems = [
   {
     title: "Logs",
     url: "/logs",
     icon: History,
   },
-];
-
-const adminNavItems = [
   {
     title: "Admin Settings",
     url: "/admin",

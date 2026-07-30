@@ -47,6 +47,40 @@ async function withTask4Api(
   }
 }
 
+async function withActivityLogApi(
+  options: {
+    user?: Record<string, unknown>;
+    logs?: unknown[];
+  },
+  run: (baseUrl: string) => Promise<void>,
+) {
+  const { registerActivityLogRoutes } = await import("./routes");
+  const app = express();
+  const authenticate: RequestHandler = (req: any, res, next) => {
+    if (!options.user) return res.status(401).json({ message: "Unauthorized" });
+    req.user = options.user;
+    next();
+  };
+  registerActivityLogRoutes(app, {
+    isAuthenticated: authenticate,
+    storage: {
+      getUser: async () => options.user as any,
+      getAllActivityLogs: async () => (options.logs ?? []) as any,
+    },
+  });
+  const server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert(address && typeof address === "object");
+  try {
+    await run(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+}
+
 async function jsonRequest(baseUrl: string, path: string, init?: RequestInit) {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
@@ -186,6 +220,77 @@ test("regular users cannot mutate maintenance or switch cars", async () => {
         body: JSON.stringify({ newCarId: 2, reason: "Engine service" }),
       });
       assert.equal(carSwitch.response.status, 403);
+
+      const history = await jsonRequest(baseUrl, "/api/rentals/1/car-switches");
+      assert.equal(history.response.status, 403);
+    },
+  );
+});
+
+test("availability remains readable by regular users and returns only safe fields", async () => {
+  await withTask4Api(
+    {
+      user: { id: "user-1", username: "User", isAdmin: false, isManager: false },
+      storage: {
+        getAvailability: async () => ({
+          startDate: "2026-08-10",
+          endDate: "2026-08-12",
+          available: [],
+          maintenance: [],
+          booked: [
+            {
+              id: 2,
+              name: "Safe Car",
+              brand: "Brand",
+              model: "Model",
+              plateNumber: "SAFE-2",
+              color: "Blue",
+              colorCode: "#00f",
+              imageUrl: "/safe.png",
+              status: "available",
+              maintenanceReason: null,
+              availability: "booked",
+              monthlyPayment: "99999.00",
+              downPayment: "50000.00",
+              currentMileage: 5000,
+              conflictingRental: {
+                id: 99,
+                customerName: "Private Customer",
+                startDate: "2026-08-10",
+                endDate: "2026-08-12",
+              },
+            },
+          ],
+        }),
+      },
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(
+        baseUrl,
+        "/api/availability?startDate=2026-08-10&endDate=2026-08-12",
+      );
+      assert.equal(response.status, 200);
+      assert.deepEqual(body.booked[0], {
+        id: 2,
+        name: "Safe Car",
+        brand: "Brand",
+        model: "Model",
+        plateNumber: "SAFE-2",
+        color: "Blue",
+        colorCode: "#00f",
+        imageUrl: "/safe.png",
+        status: "available",
+        maintenanceReason: null,
+        availability: "booked",
+        conflictingRental: {
+          startDate: "2026-08-10",
+          endDate: "2026-08-12",
+        },
+      });
+      const serialized = JSON.stringify(body);
+      for (const sensitive of ["Private Customer", "monthlyPayment", "downPayment", "currentMileage"]) {
+        assert.equal(serialized.includes(sensitive), false);
+      }
     },
   );
 });
@@ -221,6 +326,7 @@ test("affected rental responses expose only maintenance workflow fields", async 
             startDate: "2026-08-10",
             endDate: "2026-08-12",
             paymentStatus: "pending",
+            reservationStatus: "confirmed",
             totalAmount: "200.00",
             customerEmail: "private@example.com",
             customerPhone: "555-0100",
@@ -244,6 +350,7 @@ test("affected rental responses expose only maintenance workflow fields", async 
           startDate: "2026-08-10",
           endDate: "2026-08-12",
           paymentStatus: "pending",
+          reservationStatus: "confirmed",
           totalAmount: "200.00",
         },
       ]);
@@ -270,19 +377,16 @@ test("Managers and Admins can perform Task 4 mutations", async () => {
           switchRentalCar: async () => {
             switchCalls += 1;
             return {
-              rental: { id: 12 },
+              rentalId: 12,
+              newCarId: 2,
               switchRecord: {
                 id: 1,
                 rentalId: 12,
-                oldCarId: 1,
-                newCarId: 2,
                 reason: "Engine service",
-                userId: user.id,
                 switchedAt: new Date(),
-                rental: { id: 12 },
-                oldCar: { id: 1 },
-                newCar: { id: 2 },
-                user: {
+                oldCar: { id: 1, name: "Old", model: "Model", plateNumber: "OLD-1" },
+                newCar: { id: 2, name: "New", model: "Model", plateNumber: "NEW-2" },
+                actor: {
                   id: user.id,
                   username: user.username,
                   firstName: null,
@@ -392,7 +496,7 @@ test("switch route maps missing records to 404 and conflicts to 409", async () =
   }
 });
 
-test("switch and history responses never serialize user passwords", async () => {
+test("switch and Manager/Admin history responses use narrow safe DTOs", async () => {
   const unsafeUser = {
     id: "manager-1",
     username: "Manager",
@@ -405,22 +509,31 @@ test("switch and history responses never serialize user passwords", async () => 
   const switchRecord = {
     id: 4,
     rentalId: 12,
-    oldCarId: 1,
-    newCarId: 2,
     reason: "Engine service",
-    userId: unsafeUser.id,
     switchedAt: new Date("2026-08-01T00:00:00Z"),
-    rental: { id: 12 },
-    oldCar: { id: 1 },
-    newCar: { id: 2 },
-    user: unsafeUser,
+    oldCar: {
+      id: 1,
+      name: "Old Car",
+      model: "Old Model",
+      plateNumber: "OLD-1",
+      monthlyPayment: "private",
+    },
+    newCar: {
+      id: 2,
+      name: "New Car",
+      model: "New Model",
+      plateNumber: "NEW-2",
+      downPayment: "private",
+    },
+    actor: unsafeUser,
   };
   await withTask4Api(
     {
       user: unsafeUser,
       storage: {
         switchRentalCar: async () => ({
-          rental: switchRecord.rental,
+          rentalId: 12,
+          newCarId: 2,
           switchRecord,
         }),
         getCarSwitchesByRentalId: async () => [switchRecord],
@@ -432,23 +545,107 @@ test("switch and history responses never serialize user passwords", async () => 
         body: JSON.stringify({ newCarId: 2, reason: "Engine service" }),
       });
       assert.equal(switched.response.status, 200);
-      assert.deepEqual(switched.body.switchRecord.user, {
+      assert.equal(switched.body.rentalId, 12);
+      assert.equal(switched.body.newCarId, 2);
+      assert.deepEqual(switched.body.switchRecord.actor, {
         id: "manager-1",
         username: "Manager",
         firstName: "Manny",
         lastName: "Ager",
       });
-      assert.equal(JSON.stringify(switched.body).includes("secret-hash"), false);
+      assert.equal(JSON.stringify(switched.body).includes("Private Customer"), false);
 
       const history = await jsonRequest(baseUrl, "/api/rentals/12/car-switches");
       assert.equal(history.response.status, 200);
-      assert.deepEqual(history.body[0].user, {
+      assert.deepEqual(history.body[0], {
+        id: 4,
+        rentalId: 12,
+        reason: "Engine service",
+        switchedAt: "2026-08-01T00:00:00.000Z",
+        oldCar: { id: 1, name: "Old Car", model: "Old Model", plateNumber: "OLD-1" },
+        newCar: { id: 2, name: "New Car", model: "New Model", plateNumber: "NEW-2" },
+        actor: {
         id: "manager-1",
         username: "Manager",
         firstName: "Manny",
         lastName: "Ager",
+        },
       });
-      assert.equal(JSON.stringify(history.body).includes("secret-hash"), false);
+      const serialized = JSON.stringify({ switch: switched.body, history: history.body });
+      for (const sensitive of [
+        "secret-hash",
+        "monthlyPayment",
+        "downPayment",
+        "paymentScreenshotUrl",
+        "Private notes",
+      ]) {
+        assert.equal(serialized.includes(sensitive), false);
+      }
+    },
+  );
+});
+
+test("Admin can read narrow switch history", async () => {
+  await withTask4Api(
+    {
+      user: { id: "admin-1", username: "Admin", isAdmin: true, isManager: false },
+      storage: {
+        getCarSwitchesByRentalId: async () => [
+          {
+            id: 5,
+            rentalId: 12,
+            reason: "Scheduled service",
+            switchedAt: new Date("2026-08-02T00:00:00Z"),
+            oldCar: { id: 1, name: "Old", model: "A", plateNumber: "OLD-1" },
+            newCar: { id: 2, name: "New", model: "B", plateNumber: "NEW-2" },
+            actor: {
+              id: "manager-1",
+              username: "Manager",
+              firstName: null,
+              lastName: null,
+            },
+          },
+        ],
+      },
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(baseUrl, "/api/rentals/12/car-switches");
+      assert.equal(response.status, 200);
+      assert.equal(body[0].rentalId, 12);
+      assert.deepEqual(Object.keys(body[0]).sort(), [
+        "actor",
+        "id",
+        "newCar",
+        "oldCar",
+        "reason",
+        "rentalId",
+        "switchedAt",
+      ]);
+    },
+  );
+});
+
+test("activity-log reads require Admin and return data only to Admin", async () => {
+  for (const user of [
+    { id: "user-1", isAdmin: false, isManager: false },
+    { id: "manager-1", isAdmin: false, isManager: true },
+  ]) {
+    await withActivityLogApi({ user, logs: [{ id: 1 }] }, async (baseUrl) => {
+      const { response, body } = await jsonRequest(baseUrl, "/api/activity-logs");
+      assert.equal(response.status, 403);
+      assert.equal(body.message, "Admin access required");
+    });
+  }
+
+  await withActivityLogApi(
+    {
+      user: { id: "admin-1", isAdmin: true, isManager: false },
+      logs: [{ id: 1, entityType: "rental_car_switch" }],
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(baseUrl, "/api/activity-logs");
+      assert.equal(response.status, 200);
+      assert.deepEqual(body, [{ id: 1, entityType: "rental_car_switch" }]);
     },
   );
 });
