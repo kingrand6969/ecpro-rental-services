@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateRentalDialog } from "@/components/CreateRentalDialog";
+import { useAuth } from "@/hooks/useAuth";
 import type { AvailabilityCar, AvailabilityResponse } from "@shared/schema";
 
 function getErrorMessage(error: Error) {
@@ -169,6 +170,7 @@ function GroupedResults({
 }
 
 export default function Availability() {
+  const { canManage } = useAuth();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [submittedRange, setSubmittedRange] = useState<{
@@ -322,14 +324,14 @@ export default function Availability() {
                     <ResultCard
                       key={car.id}
                       car={car}
-                      action={
+                      action={canManage ? (
                         <Button
                           className="h-11 w-full"
                           onClick={() => selectCar(car.id)}
                         >
                           Select &amp; Create Rental
                         </Button>
-                      }
+                      ) : undefined}
                     />
                   ))}
                 </div>
@@ -363,14 +365,16 @@ export default function Availability() {
         )}
       </main>
 
-      <CreateRentalDialog
-        open={rentalDialogOpen}
-        onOpenChange={setRentalDialogOpen}
-        initialCarId={selectedCarId}
-        initialStartDate={submittedRange?.startDate}
-        initialEndDate={submittedRange?.endDate}
-        onCreated={handleRentalCreated}
-      />
+      {canManage && (
+        <CreateRentalDialog
+          open={rentalDialogOpen}
+          onOpenChange={setRentalDialogOpen}
+          initialCarId={selectedCarId}
+          initialStartDate={submittedRange?.startDate}
+          initialEndDate={submittedRange?.endDate}
+          onCreated={handleRentalCreated}
+        />
+      )}
     </div>
   );
 }

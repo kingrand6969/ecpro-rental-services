@@ -44,7 +44,7 @@ import {
   type SafeUser,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, asc, ne, inArray, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, ne, inArray, sql } from "drizzle-orm";
 import { classifyCarAvailability, datesConflict, validateDateRange } from "./availability";
 
 export type StorageDomainErrorKind = "not_found" | "conflict" | "validation" | "invariant";
@@ -212,6 +212,7 @@ export interface IStorage {
   getAffectedRentals(carId: number): Promise<AffectedRental[]>;
   setCarMaintenance(carId: number, reason: string, userId: string): Promise<Car | undefined>;
   clearCarMaintenance(carId: number, userId: string): Promise<Car | undefined>;
+  hasCarSwitchesForCar(carId: number): Promise<boolean>;
 
   // Rental operations
   getAllRentals(): Promise<Rental[]>;
@@ -554,19 +555,36 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    const now = new Date();
-    const [updated] = await db
-      .update(cars)
-      .set({
-        status: "maintenance",
-        maintenanceReason,
-        maintenanceUpdatedAt: now,
-        maintenanceUpdatedBy,
-        updatedAt: now,
-      })
-      .where(eq(cars.id, carId))
-      .returning();
-    return updated;
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(cars)
+        .where(eq(cars.id, carId))
+        .for("update");
+      if (!before) return undefined;
+
+      const now = new Date();
+      const [updated] = await tx
+        .update(cars)
+        .set({
+          status: "maintenance",
+          maintenanceReason,
+          maintenanceUpdatedAt: now,
+          maintenanceUpdatedBy,
+          updatedAt: now,
+        })
+        .where(eq(cars.id, carId))
+        .returning();
+      await tx.insert(activityLogs).values({
+        userId: maintenanceUpdatedBy,
+        entityType: "car",
+        entityId: String(carId),
+        action: "updated",
+        beforeData: before,
+        afterData: updated,
+      });
+      return updated;
+    });
   }
 
   async clearCarMaintenance(carId: number, userId: string): Promise<Car | undefined> {
@@ -579,19 +597,36 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    const now = new Date();
-    const [updated] = await db
-      .update(cars)
-      .set({
-        status: "available",
-        maintenanceReason: null,
-        maintenanceUpdatedAt: now,
-        maintenanceUpdatedBy,
-        updatedAt: now,
-      })
-      .where(eq(cars.id, carId))
-      .returning();
-    return updated;
+    return db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(cars)
+        .where(eq(cars.id, carId))
+        .for("update");
+      if (!before) return undefined;
+
+      const now = new Date();
+      const [updated] = await tx
+        .update(cars)
+        .set({
+          status: "available",
+          maintenanceReason: null,
+          maintenanceUpdatedAt: now,
+          maintenanceUpdatedBy,
+          updatedAt: now,
+        })
+        .where(eq(cars.id, carId))
+        .returning();
+      await tx.insert(activityLogs).values({
+        userId: maintenanceUpdatedBy,
+        entityType: "car",
+        entityId: String(carId),
+        action: "updated",
+        beforeData: before,
+        afterData: updated,
+      });
+      return updated;
+    });
   }
 
   // Rental operations
@@ -970,6 +1005,15 @@ export class DatabaseStorage implements IStorage {
       .select({ id: carSwitches.id })
       .from(carSwitches)
       .where(eq(carSwitches.rentalId, rentalId))
+      .limit(1);
+    return Boolean(record);
+  }
+
+  async hasCarSwitchesForCar(carId: number): Promise<boolean> {
+    const [record] = await db
+      .select({ id: carSwitches.id })
+      .from(carSwitches)
+      .where(or(eq(carSwitches.oldCarId, carId), eq(carSwitches.newCarId, carId)))
       .limit(1);
     return Boolean(record);
   }

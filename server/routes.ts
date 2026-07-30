@@ -58,14 +58,14 @@ export function storageDomainErrorStatus(error: StorageDomainError): number {
 type Task4Storage = Pick<
   IStorage,
   | "getUser"
-  | "createActivityLog"
   | "getAvailability"
-  | "getCarById"
   | "setCarMaintenance"
   | "clearCarMaintenance"
   | "getAffectedRentals"
   | "switchRentalCar"
   | "getCarSwitchesByRentalId"
+  | "hasCarSwitchesForCar"
+  | "deleteCar"
 >;
 
 const availabilityQuery = z.object({
@@ -158,6 +158,19 @@ export function sanitizeAffectedRental(
   };
 }
 
+const genericCarEditableFields = new Set([
+  "name", "brand", "model", "plateNumber", "color", "colorCode",
+  "monthlyPayment", "downPayment", "lastOilChangeMileage",
+  "currentMileage", "oilChangeIntervalKm", "oilChangeIntervalDays",
+  "lastMaintenanceDate", "dateAcquired", "registrationConfirmedAt", "imageUrl",
+]);
+
+export function sanitizeGenericCarPatch(body: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(body).filter(([field]) => genericCarEditableFields.has(field)),
+  );
+}
+
 export function registerTask4Routes(
   app: Express,
   dependencies: {
@@ -210,22 +223,10 @@ export function registerTask4Routes(
         .object({ reason: z.string().trim().min(3).max(500) })
         .strict()
         .parse(req.body);
-      const oldCar = await taskStorage.getCarById(id);
-      if (!oldCar) {
-        return res.status(404).json({ message: "Car not found" });
-      }
       const car = await taskStorage.setCarMaintenance(id, body.reason, userId);
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
       }
-      await taskStorage.createActivityLog({
-        userId,
-        entityType: "car",
-        entityId: String(id),
-        action: "updated",
-        beforeData: oldCar as any,
-        afterData: car as any,
-      });
       res.json(car);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -246,22 +247,10 @@ export function registerTask4Routes(
       }
       const id = z.coerce.number().int().positive().parse(req.params.id);
       z.object({}).strict().parse(req.body ?? {});
-      const oldCar = await taskStorage.getCarById(id);
-      if (!oldCar) {
-        return res.status(404).json({ message: "Car not found" });
-      }
       const car = await taskStorage.clearCarMaintenance(id, userId);
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
       }
-      await taskStorage.createActivityLog({
-        userId,
-        entityType: "car",
-        entityId: String(id),
-        action: "updated",
-        beforeData: oldCar as any,
-        afterData: car as any,
-      });
       res.json(car);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -344,6 +333,30 @@ export function registerTask4Routes(
       if (error instanceof StorageDomainError) return sendDomainError(res, error);
       console.error("Error switching rental car:", error);
       res.status(500).json({ message: "Failed to switch rental car" });
+    }
+  });
+
+  app.delete("/api/cars/:id", authenticate, async (req: any, res) => {
+    try {
+      const user = await taskStorage.getUser((req.user as User).id);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      if (await taskStorage.hasCarSwitchesForCar(id)) {
+        return res.status(409).json({
+          message: "Cars with rental switch history cannot be deleted",
+          code: "CAR_HAS_SWITCH_HISTORY",
+        });
+      }
+      await taskStorage.deleteCar(id);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid car id" });
+      }
+      console.error("Error deleting car:", error);
+      res.status(500).json({ message: "Failed to delete car" });
     }
   });
 }
@@ -560,16 +573,7 @@ export async function registerRoutes(
       if (!canManageOperations(user)) {
         return res.status(403).json({ message: "Manager or Admin access required" });
       }
-      const editableCarFields = [
-        "name", "brand", "model", "plateNumber", "color", "colorCode",
-        "monthlyPayment", "downPayment", "lastOilChangeMileage",
-        "currentMileage", "oilChangeIntervalKm", "oilChangeIntervalDays",
-        "lastMaintenanceDate", "status", "dateAcquired",
-        "registrationConfirmedAt", "imageUrl",
-      ];
-      req.body = Object.fromEntries(
-        Object.entries(req.body).filter(([field]) => editableCarFields.includes(field)),
-      );
+      req.body = sanitizeGenericCarPatch(req.body);
 
       if (req.body.monthlyPayment !== undefined) {
         if (!user?.isAdmin) {
@@ -642,7 +646,6 @@ export async function registerRoutes(
         oilChangeIntervalKm: 'Oil Change Interval (km)',
         oilChangeIntervalDays: 'Oil Change Interval (days)',
         lastMaintenanceDate: 'Last Maintenance Date',
-        status: 'Status',
         dateAcquired: 'Date Acquired',
         registrationConfirmedAt: 'Registration Confirmed',
         imageUrl: 'Image URL',
@@ -674,23 +677,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating car:", error);
       res.status(500).json({ message: "Failed to update car" });
-    }
-  });
-
-  app.delete("/api/cars/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = (req.user as User).id;
-      const user = await storage.getUser(userId);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const id = parseInt(req.params.id);
-      await storage.deleteCar(id);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting car:", error);
-      res.status(500).json({ message: "Failed to delete car" });
     }
   });
 

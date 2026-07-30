@@ -447,7 +447,7 @@ test("maintenance returns 404 when the car does not exist", async () => {
   await withTask4Api(
     {
       user: { id: "manager-1", username: "Manager", isManager: true },
-      storage: { getCarById: async () => undefined },
+      storage: { setCarMaintenance: async () => undefined },
     },
     async (baseUrl) => {
       const { response } = await jsonRequest(baseUrl, "/api/cars/99/maintenance", {
@@ -623,6 +623,99 @@ test("Admin can read narrow switch history", async () => {
       ]);
     },
   );
+});
+
+test("generic car patches omit status and maintenance provenance fields", async () => {
+  const { sanitizeGenericCarPatch } = await import("./routes");
+
+  assert.deepEqual(
+    sanitizeGenericCarPatch({
+      name: "Updated name",
+      status: "maintenance",
+      maintenanceReason: "Bypass",
+      maintenanceUpdatedAt: "2026-08-01T00:00:00Z",
+      maintenanceUpdatedBy: "manager-1",
+      unknown: "ignored",
+    }),
+    { name: "Updated name" },
+  );
+});
+
+test("maintenance routes delegate the transition and required log atomically to storage", async () => {
+  let setCalls = 0;
+  let separateLogCalls = 0;
+  await withTask4Api(
+    {
+      user: { id: "manager-1", isAdmin: false, isManager: true },
+      storage: {
+        setCarMaintenance: async () => {
+          setCalls += 1;
+          return { id: 8, status: "maintenance" };
+        },
+        createActivityLog: async () => {
+          separateLogCalls += 1;
+        },
+      },
+    },
+    async (baseUrl) => {
+      const { response } = await jsonRequest(baseUrl, "/api/cars/8/maintenance", {
+        method: "PATCH",
+        body: JSON.stringify({ reason: "Scheduled service" }),
+      });
+      assert.equal(response.status, 200);
+    },
+  );
+  assert.equal(setCalls, 1);
+  assert.equal(separateLogCalls, 0);
+});
+
+test("car delete returns 409 before deletion when switch history exists", async () => {
+  let deleteCalls = 0;
+  await withTask4Api(
+    {
+      user: { id: "admin-1", isAdmin: true, isManager: false },
+      storage: {
+        hasCarSwitchesForCar: async (carId: number) => {
+          assert.equal(carId, 7);
+          return true;
+        },
+        deleteCar: async () => {
+          deleteCalls += 1;
+        },
+      },
+    },
+    async (baseUrl) => {
+      const { response, body } = await jsonRequest(baseUrl, "/api/cars/7", {
+        method: "DELETE",
+      });
+      assert.equal(response.status, 409);
+      assert.equal(body.code, "CAR_HAS_SWITCH_HISTORY");
+    },
+  );
+  assert.equal(deleteCalls, 0);
+});
+
+test("car delete proceeds when no switch history exists", async () => {
+  let deleteCalls = 0;
+  await withTask4Api(
+    {
+      user: { id: "admin-1", isAdmin: true, isManager: false },
+      storage: {
+        hasCarSwitchesForCar: async () => false,
+        deleteCar: async (carId: number) => {
+          assert.equal(carId, 7);
+          deleteCalls += 1;
+        },
+      },
+    },
+    async (baseUrl) => {
+      const { response } = await jsonRequest(baseUrl, "/api/cars/7", {
+        method: "DELETE",
+      });
+      assert.equal(response.status, 204);
+    },
+  );
+  assert.equal(deleteCalls, 1);
 });
 
 test("activity-log reads require Admin and return data only to Admin", async () => {
