@@ -51,16 +51,22 @@ const rentalSchema = z.object({
 
 type RentalFormData = z.infer<typeof rentalSchema>;
 
-interface CreateRentalDialogProps {
+type CreateRentalDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedDate?: Date | null;
-}
+  initialCarId?: number;
+  initialStartDate?: string;
+  initialEndDate?: string;
+};
 
 export function CreateRentalDialog({
   open,
   onOpenChange,
   selectedDate,
+  initialCarId,
+  initialStartDate,
+  initialEndDate,
 }: CreateRentalDialogProps) {
   const { toast } = useToast();
   const [step, setStep] = useState<"car" | "dates" | "details">("car");
@@ -86,11 +92,40 @@ export function CreateRentalDialog({
   });
 
   useEffect(() => {
-    if (selectedDate && step === "dates") {
-      form.setValue("startDate", selectedDate);
-      form.setValue("endDate", addDays(selectedDate, 1));
-    }
-  }, [selectedDate, form, step]);
+    if (!open) return;
+
+    const prefilledStartDate = initialStartDate
+      ? parseISO(initialStartDate)
+      : selectedDate ?? undefined;
+    const prefilledEndDate = initialEndDate
+      ? parseISO(initialEndDate)
+      : selectedDate
+        ? addDays(selectedDate, 1)
+        : undefined;
+
+    form.reset({
+      carId: initialCarId?.toString() ?? "",
+      customerName: "",
+      customerEmail: "",
+      customerPhone: "",
+      startDate: prefilledStartDate,
+      endDate: prefilledEndDate,
+      totalAmount: "",
+      notes: "",
+      reservationFee: "",
+      reservationDate: format(new Date(), "yyyy-MM-dd"),
+      reservationBank: "",
+    });
+    setReservationScreenshotUrl(null);
+    setStep(initialCarId ? "details" : "car");
+  }, [
+    form,
+    initialCarId,
+    initialEndDate,
+    initialStartDate,
+    open,
+    selectedDate,
+  ]);
 
   const startDate = form.watch("startDate");
   const endDate = form.watch("endDate");
@@ -236,6 +271,9 @@ export function CreateRentalDialog({
                             src={car.imageUrl}
                             alt={car.name}
                             className="w-full h-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none";
+                            }}
                             data-testid={`img-car-${car.id}`}
                           />
                         ) : (

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
+import Availability from "@/pages/Availability";
 import Cars from "@/pages/Cars";
 import Rentals from "@/pages/Rentals";
 import Customers from "@/pages/Customers";
@@ -81,6 +82,7 @@ function Router() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/availability" component={Availability} />
         <Route path="/cars" component={Cars} />
         <Route path="/rentals" component={Rentals} />
         <Route path="/customers" component={Customers} />

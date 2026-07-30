@@ -27,6 +27,7 @@ import {
   Settings2,
   Users,
   History,
+  SearchCheck,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -34,6 +35,11 @@ const mainNavItems = [
     title: "Calendar",
     url: "/",
     icon: Calendar,
+  },
+  {
+    title: "Availability",
+    url: "/availability",
+    icon: SearchCheck,
   },
   {
     title: "Cars",
