@@ -64,8 +64,7 @@ type Task4Storage = Pick<
   | "getAffectedRentals"
   | "switchRentalCar"
   | "getCarSwitchesByRentalId"
-  | "hasCarSwitchesForCar"
-  | "deleteCar"
+  | "deleteCarPreservingSwitchHistory"
 >;
 
 const availabilityQuery = z.object({
@@ -343,18 +342,13 @@ export function registerTask4Routes(
         return res.status(403).json({ message: "Admin access required" });
       }
       const id = z.coerce.number().int().positive().parse(req.params.id);
-      if (await taskStorage.hasCarSwitchesForCar(id)) {
-        return res.status(409).json({
-          message: "Cars with rental switch history cannot be deleted",
-          code: "CAR_HAS_SWITCH_HISTORY",
-        });
-      }
-      await taskStorage.deleteCar(id);
+      await taskStorage.deleteCarPreservingSwitchHistory(id);
       res.status(204).send();
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid car id" });
       }
+      if (error instanceof StorageDomainError) return sendDomainError(res, error);
       console.error("Error deleting car:", error);
       res.status(500).json({ message: "Failed to delete car" });
     }

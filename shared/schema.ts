@@ -337,6 +337,7 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
 });
 
 export const insertCarSchema = createInsertSchema(cars).omit({
+  status: true,
   maintenanceReason: true,
   maintenanceUpdatedAt: true,
   maintenanceUpdatedBy: true,

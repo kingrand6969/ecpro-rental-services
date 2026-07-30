@@ -669,18 +669,21 @@ test("maintenance routes delegate the transition and required log atomically to 
   assert.equal(separateLogCalls, 0);
 });
 
-test("car delete returns 409 before deletion when switch history exists", async () => {
-  let deleteCalls = 0;
+test("car delete maps the guarded storage conflict to 409", async () => {
+  const { StorageDomainError } = await import("./storage");
+  let guardedDeleteCalls = 0;
   await withTask4Api(
     {
       user: { id: "admin-1", isAdmin: true, isManager: false },
       storage: {
-        hasCarSwitchesForCar: async (carId: number) => {
+        deleteCarPreservingSwitchHistory: async (carId: number) => {
           assert.equal(carId, 7);
-          return true;
-        },
-        deleteCar: async () => {
-          deleteCalls += 1;
+          guardedDeleteCalls += 1;
+          throw new StorageDomainError(
+            "conflict",
+            "CAR_HAS_SWITCH_HISTORY",
+            "Cars with rental switch history cannot be deleted",
+          );
         },
       },
     },
@@ -692,19 +695,22 @@ test("car delete returns 409 before deletion when switch history exists", async 
       assert.equal(body.code, "CAR_HAS_SWITCH_HISTORY");
     },
   );
-  assert.equal(deleteCalls, 0);
+  assert.equal(guardedDeleteCalls, 1);
 });
 
-test("car delete proceeds when no switch history exists", async () => {
-  let deleteCalls = 0;
+test("car delete delegates only to the transactional guarded storage method", async () => {
+  let guardedDeleteCalls = 0;
+  let legacyDeleteCalls = 0;
   await withTask4Api(
     {
       user: { id: "admin-1", isAdmin: true, isManager: false },
       storage: {
-        hasCarSwitchesForCar: async () => false,
-        deleteCar: async (carId: number) => {
+        deleteCarPreservingSwitchHistory: async (carId: number) => {
           assert.equal(carId, 7);
-          deleteCalls += 1;
+          guardedDeleteCalls += 1;
+        },
+        deleteCar: async () => {
+          legacyDeleteCalls += 1;
         },
       },
     },
@@ -715,7 +721,8 @@ test("car delete proceeds when no switch history exists", async () => {
       assert.equal(response.status, 204);
     },
   );
-  assert.equal(deleteCalls, 1);
+  assert.equal(guardedDeleteCalls, 1);
+  assert.equal(legacyDeleteCalls, 0);
 });
 
 test("activity-log reads require Admin and return data only to Admin", async () => {

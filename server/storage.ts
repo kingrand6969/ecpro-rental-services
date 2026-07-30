@@ -64,7 +64,8 @@ export type StorageDomainErrorCode =
   | "SWITCH_USER_REQUIRED"
   | "INVALID_RENTAL_DATES"
   | "CAR_CHANGE_REQUIRES_SWITCH"
-  | "CAR_SWITCH_DETAILS_MISSING";
+  | "CAR_SWITCH_DETAILS_MISSING"
+  | "CAR_HAS_SWITCH_HISTORY";
 
 export class StorageDomainError extends Error {
   constructor(
@@ -176,6 +177,30 @@ export function assertRentalCarUnchanged(
   }
 }
 
+export function forceNewCarAvailable(car: InsertCar) {
+  return { ...car, status: "available" as const };
+}
+
+export function isPostgresForeignKeyViolation(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "23503",
+  );
+}
+
+export function mapCarDeleteForeignKeyViolation(
+  error: unknown,
+): StorageDomainError | undefined {
+  if (!isPostgresForeignKeyViolation(error)) return undefined;
+  return new StorageDomainError(
+    "conflict",
+    "CAR_HAS_SWITCH_HISTORY",
+    "Cars with rental switch history cannot be deleted",
+  );
+}
+
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -207,6 +232,7 @@ export interface IStorage {
   createCar(car: InsertCar): Promise<Car>;
   updateCar(id: number, car: Partial<InsertCar>): Promise<Car | undefined>;
   deleteCar(id: number): Promise<void>;
+  deleteCarPreservingSwitchHistory(id: number): Promise<void>;
   recordOilChange(id: number): Promise<Car | undefined>;
   getAvailability(startDate: string, endDate: string, excludeRentalId?: number): Promise<AvailabilityResponse>;
   getAffectedRentals(carId: number): Promise<AffectedRental[]>;
@@ -438,7 +464,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCar(car: InsertCar): Promise<Car> {
-    const [created] = await db.insert(cars).values(car).returning();
+    const [created] = await db.insert(cars).values(forceNewCarAvailable(car)).returning();
     return created;
   }
 
@@ -453,6 +479,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCar(id: number): Promise<void> {
     await db.delete(cars).where(eq(cars.id, id));
+  }
+
+  async deleteCarPreservingSwitchHistory(id: number): Promise<void> {
+    try {
+      await db.transaction(async (tx) => {
+        const [car] = await tx
+          .select({ id: cars.id })
+          .from(cars)
+          .where(eq(cars.id, id))
+          .for("update");
+        if (!car) return;
+
+        const [switchRecord] = await tx
+          .select({ id: carSwitches.id })
+          .from(carSwitches)
+          .where(or(eq(carSwitches.oldCarId, id), eq(carSwitches.newCarId, id)))
+          .limit(1);
+        if (switchRecord) {
+          throw new StorageDomainError(
+            "conflict",
+            "CAR_HAS_SWITCH_HISTORY",
+            "Cars with rental switch history cannot be deleted",
+          );
+        }
+
+        await tx.delete(cars).where(eq(cars.id, id));
+      });
+    } catch (error) {
+      if (error instanceof StorageDomainError) throw error;
+      const mappedError = mapCarDeleteForeignKeyViolation(error);
+      if (mappedError) throw mappedError;
+      throw error;
+    }
   }
 
   async recordOilChange(id: number, mileage?: number): Promise<Car | undefined> {

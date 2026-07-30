@@ -123,3 +123,39 @@ test("car switch audit snapshots contain only operationally required fields", as
     assert.equal(serialized.includes(sensitive), false);
   }
 });
+
+test("public car creation strips supplied status and storage forces available", async () => {
+  const { insertCarSchema } = await import("@shared/schema");
+  const { forceNewCarAvailable } = await import("./storage");
+  const baseCar = {
+    name: "Test Car",
+    model: "Test Model",
+    plateNumber: "TEST-1",
+    color: "Black",
+    colorCode: "#000000",
+    monthlyPayment: "0.00",
+  };
+
+  for (const status of ["maintenance", "arbitrary-status"]) {
+    const parsed = insertCarSchema.parse({ ...baseCar, status });
+    assert.equal("status" in parsed, false);
+    assert.equal(forceNewCarAvailable(parsed).status, "available");
+  }
+});
+
+test("Postgres foreign-key violations map to the stable car switch conflict", async () => {
+  const {
+    isPostgresForeignKeyViolation,
+    mapCarDeleteForeignKeyViolation,
+    StorageDomainError,
+  } = await import("./storage");
+
+  assert.equal(isPostgresForeignKeyViolation({ code: "23503" }), true);
+  assert.equal(isPostgresForeignKeyViolation({ code: "23505" }), false);
+  assert.equal(isPostgresForeignKeyViolation(new Error("foreign key")), false);
+  const mapped = mapCarDeleteForeignKeyViolation({ code: "23503" });
+  assert(mapped instanceof StorageDomainError);
+  assert.equal(mapped.kind, "conflict");
+  assert.equal(mapped.code, "CAR_HAS_SWITCH_HISTORY");
+  assert.equal(mapCarDeleteForeignKeyViolation({ code: "23505" }), undefined);
+});
