@@ -135,7 +135,29 @@ export async function registerRoutes(
   app.patch("/api/cars/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
+
+      if (req.body.monthlyPayment !== undefined) {
+        if (user?.username !== "Admin") {
+          return res.status(403).json({
+            message: "Only the Admin user can change monthly amortization",
+          });
+        }
+
+        const monthlyPayment = z.coerce
+          .number()
+          .finite()
+          .min(0)
+          .max(100_000_000)
+          .safeParse(req.body.monthlyPayment);
+        if (!monthlyPayment.success) {
+          return res.status(400).json({
+            message: "Monthly amortization must be a valid non-negative amount",
+          });
+        }
+        req.body.monthlyPayment = monthlyPayment.data.toFixed(2);
+      }
       
       // Get current car state BEFORE update to capture old values
       const currentCar = await storage.getCarById(id);
