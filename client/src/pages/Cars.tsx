@@ -89,7 +89,9 @@ export default function Cars() {
                     {car.name}
                   </h3>
                   <Badge className={statusBadge[car.status] ?? ""}>
-                    {car.status.charAt(0).toUpperCase() + car.status.slice(1)}
+                    {car.status === "maintenance"
+                      ? "Under Maintenance"
+                      : car.status.charAt(0).toUpperCase() + car.status.slice(1)}
                   </Badge>
                 </div>
                 <div className="px-4 pb-4 flex-1 flex flex-col">
@@ -117,6 +119,17 @@ export default function Cars() {
                         <span className="font-mono tabular-nums text-foreground">
                           {format(parseISO(car.lastMaintenanceDate as string), "MMM d, yyyy")}
                         </span>
+                      </div>
+                    )}
+
+                    {car.status === "maintenance" && (
+                      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2">
+                        <p className="font-mono text-[11px] uppercase tracking-widest text-amber-800 dark:text-amber-200">
+                          Maintenance Reason
+                        </p>
+                        <p className="mt-1 line-clamp-2 break-words text-sm">
+                          {car.maintenanceReason || "No reason recorded."}
+                        </p>
                       </div>
                     )}
 
@@ -227,6 +240,7 @@ export default function Cars() {
       <CarDetailsDialog
         car={selectedCar}
         onClose={() => setSelectedCar(null)}
+        onMaintenanceChanged={() => setSelectedCar(null)}
       />
     </div>
   );

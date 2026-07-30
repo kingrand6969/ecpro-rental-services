@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,14 +22,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Wrench, Calendar, ImageIcon, AlertTriangle, CheckCircle } from "lucide-react";
+import { Wrench, Calendar, ImageIcon, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { getOilChangeStatus, formatDaysAge, DEFAULT_OIL_INTERVAL_DAYS } from "@/lib/oilChange";
-import type { Car } from "@shared/schema";
+import type { Car, Rental } from "@shared/schema";
 import { useEffect, useState } from "react";
+import { MaintenanceStatusDialog } from "@/components/MaintenanceStatusDialog";
 
 export type RegistrationStatus = "ok" | "warning" | "overdue";
 
@@ -90,13 +91,31 @@ type UpdateCarFormData = z.infer<typeof updateCarSchema>;
 interface CarDetailsDialogProps {
   car: Car | null;
   onClose: () => void;
+  onMaintenanceChanged?: (car: Car) => void;
+  onSwitchCar?: (rental: Rental) => void;
 }
 
-export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
+export function CarDetailsDialog({
+  car,
+  onClose,
+  onMaintenanceChanged,
+  onSwitchCar,
+}: CarDetailsDialogProps) {
   const { toast } = useToast();
   const { isAdmin, canManage } = useAuth();
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null);
   const [registrationDate, setRegistrationDate] = useState("");
+  const [maintenanceMode, setMaintenanceMode] = useState<"maintenance" | "available" | null>(null);
+
+  const {
+    data: affectedRentals = [],
+    isLoading: affectedRentalsLoading,
+    isError: affectedRentalsError,
+    refetch: refetchAffectedRentals,
+  } = useQuery<Rental[]>({
+    queryKey: [`/api/cars/${car?.id}/affected-rentals`],
+    enabled: Boolean(car?.id && car.status === "maintenance"),
+  });
 
   const form = useForm<UpdateCarFormData>({
     resolver: zodResolver(updateCarSchema),
@@ -124,6 +143,7 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
       });
       setNewImageUrl(null);
       setRegistrationDate("");
+      setMaintenanceMode(null);
     }
   }, [car, form]);
 
@@ -409,6 +429,140 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
 
           <Separator />
 
+          <section className="space-y-3" aria-labelledby="maintenance-status-heading">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4
+                  id="maintenance-status-heading"
+                  className="font-mono text-xs uppercase tracking-widest text-muted-foreground"
+                >
+                  Maintenance Status
+                </h4>
+                {car.status === "maintenance" ? (
+                  <Badge className="mt-2 border border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                    <Wrench className="mr-1.5 h-3.5 w-3.5" />
+                    Under Maintenance
+                  </Badge>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">No active maintenance hold.</p>
+                )}
+              </div>
+              {canManage && (
+                <Button
+                  type="button"
+                  variant={car.status === "maintenance" ? "default" : "outline"}
+                  className="min-h-11 w-full sm:w-auto"
+                  onClick={() =>
+                    setMaintenanceMode(car.status === "maintenance" ? "available" : "maintenance")
+                  }
+                  data-testid="button-maintenance-status"
+                >
+                  {car.status === "maintenance" ? "Return to Available" : "Mark Under Maintenance"}
+                </Button>
+              )}
+            </div>
+
+            {car.status === "maintenance" && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  Reason
+                </p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+                  {car.maintenanceReason || "No reason recorded."}
+                </p>
+              </div>
+            )}
+          </section>
+
+          {car.status === "maintenance" && (
+            <>
+              <Separator />
+              <section className="space-y-3" aria-labelledby="affected-rentals-heading">
+                <div>
+                  <h4
+                    id="affected-rentals-heading"
+                    className="font-mono text-xs uppercase tracking-widest text-muted-foreground"
+                  >
+                    Affected Rentals
+                  </h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Active and upcoming rentals assigned to this car.
+                  </p>
+                </div>
+
+                {affectedRentalsLoading ? (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    Loading affected rentals...
+                  </p>
+                ) : affectedRentalsError ? (
+                  <div className="rounded-md border border-destructive/30 p-3" role="alert">
+                    <p className="text-sm text-destructive">Affected rentals could not be loaded.</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-3 min-h-11"
+                      onClick={() => refetchAffectedRentals()}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Try Again
+                    </Button>
+                  </div>
+                ) : affectedRentals.length === 0 ? (
+                  <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
+                    No active or upcoming rentals are affected.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {affectedRentals.map((rental) => (
+                      <article
+                        key={rental.id}
+                        className="rounded-md border border-border bg-card p-3"
+                        data-testid={`affected-rental-${rental.id}`}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 space-y-1">
+                            <p className="break-words font-medium">{rental.customerName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {format(parseISO(rental.startDate), "MMM d, yyyy")} –{" "}
+                              {format(parseISO(rental.endDate), "MMM d, yyyy")}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                              <Badge variant="outline">
+                                Payment: {rental.paymentStatus}
+                              </Badge>
+                              <span className="font-mono tabular-nums">
+                                ₱{Number(rental.totalAmount).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                          {canManage && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="min-h-11 w-full shrink-0 sm:w-auto"
+                              onClick={() => onSwitchCar?.(rental)}
+                              disabled={!onSwitchCar}
+                              title={
+                                onSwitchCar
+                                  ? `Switch the car for ${rental.customerName}`
+                                  : "Car switching will be connected in the next workflow step"
+                              }
+                              data-testid={`button-switch-car-${rental.id}`}
+                            >
+                              Switch Car
+                            </Button>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+
+          <Separator />
+
           <div className="space-y-3">
             <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
               <Wrench className="h-3.5 w-3.5 text-neon-cyan" />
@@ -608,6 +762,17 @@ export function CarDetailsDialog({ car, onClose }: CarDetailsDialogProps) {
           </Form>}
         </div>
       </DialogContent>
+      {maintenanceMode && (
+        <MaintenanceStatusDialog
+          car={car}
+          mode={maintenanceMode}
+          onClose={() => setMaintenanceMode(null)}
+          onSuccess={(updatedCar) => {
+            onMaintenanceChanged?.(updatedCar);
+            onClose();
+          }}
+        />
+      )}
     </Dialog>
   );
 }
