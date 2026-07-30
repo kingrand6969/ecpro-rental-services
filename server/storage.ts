@@ -44,6 +44,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   toggleUserAdmin(id: string): Promise<User | undefined>;
+  toggleUserManager(id: string): Promise<User | undefined>;
   approveUser(id: string): Promise<User | undefined>;
   getPendingUsers(): Promise<User[]>;
   deleteUser(id: string): Promise<void>;
@@ -159,7 +160,19 @@ export class DatabaseStorage implements IStorage {
 
     const [updated] = await db
       .update(users)
-      .set({ isAdmin: !user.isAdmin, updatedAt: new Date() })
+      .set({ isAdmin: !user.isAdmin, isManager: false, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async toggleUserManager(id: string): Promise<User | undefined> {
+    const user = await this.getUser(id);
+    if (!user) return undefined;
+
+    const [updated] = await db
+      .update(users)
+      .set({ isManager: !user.isManager, isAdmin: false, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return updated;

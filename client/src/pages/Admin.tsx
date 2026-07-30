@@ -112,6 +112,26 @@ export default function Admin() {
     },
   });
 
+  const toggleManagerMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiRequest("PATCH", `/api/admin/users/${userId}/toggle-manager`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Success",
+        description: "User manager status updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update manager status",
+        variant: "destructive",
+      });
+    },
+  });
+
   const approveMutation = useMutation({
     mutationFn: async (userId: string) => {
       await apiRequest("PATCH", `/api/admin/users/${userId}/approve`);
@@ -312,7 +332,7 @@ export default function Admin() {
           <div className="p-4 border-b border-border">
             <h2 className={sectionTitle}>User Management</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Manage user permissions and admin access
+              Assign User, Manager, or Admin access
             </p>
           </div>
           <div>
@@ -330,6 +350,7 @@ export default function Admin() {
                     <TableHead className={headTh}>Email</TableHead>
                     <TableHead className={headTh}>Role</TableHead>
                     <TableHead className={headTh}>Joined</TableHead>
+                    <TableHead className={`${headTh} text-center`}>Manager</TableHead>
                     <TableHead className={`${headTh} text-center`}>Admin</TableHead>
                     <TableHead className={`${headTh} text-right`}>Actions</TableHead>
                   </TableRow>
@@ -365,6 +386,10 @@ export default function Admin() {
                             <Badge className="bg-neon-cyan/15 border border-neon-cyan/40 text-neon-cyan font-mono text-[10px] uppercase tracking-widest hover:bg-neon-cyan/15">
                               Admin
                             </Badge>
+                          ) : user.isManager ? (
+                            <Badge className="border border-chart-4/40 bg-chart-4/15 font-mono text-[10px] uppercase tracking-widest text-chart-4 hover:bg-chart-4/15">
+                              Manager
+                            </Badge>
                           ) : (
                             <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-widest">
                               User
@@ -375,6 +400,14 @@ export default function Admin() {
                           {user.createdAt
                             ? new Date(user.createdAt).toLocaleDateString()
                             : "-"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={user.isManager}
+                            disabled={isCurrentUser || toggleManagerMutation.isPending}
+                            onCheckedChange={() => toggleManagerMutation.mutate(user.id)}
+                            data-testid={`switch-manager-${user.id}`}
+                          />
                         </TableCell>
                         <TableCell className="text-center">
                           <Switch

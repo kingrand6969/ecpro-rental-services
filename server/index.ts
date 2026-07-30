@@ -8,6 +8,9 @@ import { pool } from "./db";
 
 async function ensureSchema() {
   await pool.query(
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_manager boolean NOT NULL DEFAULT false`
+  );
+  await pool.query(
     `ALTER TABLE cars ADD COLUMN IF NOT EXISTS down_payment numeric(12, 2) NOT NULL DEFAULT 0`
   );
   await pool.query(

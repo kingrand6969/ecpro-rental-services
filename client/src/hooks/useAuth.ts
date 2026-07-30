@@ -28,6 +28,8 @@ export function useAuth() {
     isLoading,
     isAuthenticated,
     isAdmin: isAuthenticated && (user?.isAdmin ?? false),
+    isManager: isAuthenticated && (user?.isManager ?? false),
+    canManage: isAuthenticated && ((user?.isAdmin ?? false) || (user?.isManager ?? false)),
     isSuperAdmin: isAuthenticated && user?.username === "Admin",
   };
 }

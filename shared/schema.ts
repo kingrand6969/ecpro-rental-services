@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   isAdmin: boolean("is_admin").default(false).notNull(),
+  isManager: boolean("is_manager").default(false).notNull(),
   isApproved: boolean("is_approved").default(false).notNull(),
   mustChangePassword: boolean("must_change_password").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),

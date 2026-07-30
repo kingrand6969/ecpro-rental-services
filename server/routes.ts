@@ -1082,6 +1082,30 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/admin/users/:id/toggle-manager", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = (req.user as User).id;
+      const currentUser = await storage.getUser(currentUserId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const targetId = req.params.id;
+      if (targetId === currentUserId) {
+        return res.status(400).json({ message: "You cannot change your own manager role" });
+      }
+
+      const user = await storage.toggleUserManager(targetId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error toggling manager status:", error);
+      res.status(500).json({ message: "Failed to update manager status" });
+    }
+  });
+
   app.patch("/api/admin/users/:id/approve", isAuthenticated, async (req: any, res) => {
     try {
       const currentUserId = (req.user as User).id;
