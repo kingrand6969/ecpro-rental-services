@@ -602,49 +602,43 @@ export class DatabaseStorage implements IStorage {
         userId: switchingUserId,
         entityType: "rental_car_switch",
         entityId: String(rentalId),
-        action: "update",
+        action: "updated",
         beforeData: {
           rental,
           oldCar,
           reason: switchReason,
-          priceStatus: {
-            totalAmount: rental.totalAmount,
-            daysRented: rental.daysRented,
-            paymentStatus: rental.paymentStatus,
-            paymentDate: rental.paymentDate,
-            paymentBank: rental.paymentBank,
-            reservationFee: rental.reservationFee,
-            reservationStatus: rental.reservationStatus,
-            reservationDate: rental.reservationDate,
-            reservationBank: rental.reservationBank,
-          },
+          price: rental.totalAmount,
+          paymentStatus: rental.paymentStatus,
+          reservationStatus: rental.reservationStatus,
         },
         afterData: {
           rental: updatedRental,
           newCar,
           reason: switchReason,
-          priceStatus: {
-            totalAmount: updatedRental.totalAmount,
-            daysRented: updatedRental.daysRented,
-            paymentStatus: updatedRental.paymentStatus,
-            paymentDate: updatedRental.paymentDate,
-            paymentBank: updatedRental.paymentBank,
-            reservationFee: updatedRental.reservationFee,
-            reservationStatus: updatedRental.reservationStatus,
-            reservationDate: updatedRental.reservationDate,
-            reservationBank: updatedRental.reservationBank,
-          },
+          price: updatedRental.totalAmount,
+          paymentStatus: updatedRental.paymentStatus,
+          reservationStatus: updatedRental.reservationStatus,
         },
       });
+
+      const [reloadedOldCar] = await tx.select().from(cars).where(eq(cars.id, oldCar.id));
+      const [reloadedNewCar] = await tx.select().from(cars).where(eq(cars.id, newCar.id));
+      const [reloadedUser] = await tx.select().from(users).where(eq(users.id, switchingUserId));
+      if (!reloadedOldCar || !reloadedNewCar || !reloadedUser) {
+        throw new StorageConflictError(
+          "CAR_SWITCH_DETAILS_RELOAD_FAILED",
+          "Failed to reload car switch details",
+        );
+      }
 
       return {
         rental: updatedRental,
         switchRecord: {
           ...createdSwitch,
           rental: updatedRental,
-          oldCar,
-          newCar,
-          user,
+          oldCar: reloadedOldCar,
+          newCar: reloadedNewCar,
+          user: reloadedUser,
         },
       };
     });
