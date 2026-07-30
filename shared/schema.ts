@@ -197,6 +197,19 @@ export const rentalLogs = pgTable("rental_logs", {
   loggedAt: timestamp("logged_at").defaultNow().notNull(),
 });
 
+// Unified operational audit trail. Full before/after snapshots preserve every
+// submitted field while the older module-specific logs remain available.
+export const activityLogs = pgTable("activity_logs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  entityId: varchar("entity_id", { length: 100 }).notNull(),
+  action: varchar("action", { length: 20 }).notNull(),
+  beforeData: jsonb("before_data"),
+  afterData: jsonb("after_data"),
+  loggedAt: timestamp("logged_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   rentals: many(rentals),
@@ -315,6 +328,11 @@ export const insertRentalLogSchema = createInsertSchema(rentalLogs).omit({
   loggedAt: true,
 });
 
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  loggedAt: true,
+});
+
 export const insertExpenseLogSchema = createInsertSchema(expenseLogs).omit({
   id: true,
   loggedAt: true,
@@ -345,6 +363,9 @@ export type InsertEditLog = z.infer<typeof insertEditLogSchema>;
 
 export type RentalLog = typeof rentalLogs.$inferSelect;
 export type InsertRentalLog = z.infer<typeof insertRentalLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLogWithUser = ActivityLog & { user: User };
 
 export type ExpenseLog = typeof expenseLogs.$inferSelect;
 export type InsertExpenseLog = z.infer<typeof insertExpenseLogSchema>;

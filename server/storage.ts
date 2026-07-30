@@ -8,6 +8,7 @@ import {
   editLogs,
   rentalLogs,
   expenseLogs,
+  activityLogs,
   type User,
   type UpsertUser,
   type Car,
@@ -29,6 +30,9 @@ import {
   type ExpenseLog,
   type InsertExpenseLog,
   type ExpenseLogWithUser,
+  type ActivityLog,
+  type InsertActivityLog,
+  type ActivityLogWithUser,
   type DashboardStats,
   type DashboardExceptions,
   type MonthlyIncomePoint,
@@ -102,6 +106,8 @@ export interface IStorage {
   getAllExpenseLogs(): Promise<ExpenseLogWithUser[]>;
   getExpenseLogsByCarId(carId: number): Promise<ExpenseLogWithUser[]>;
   createExpenseLog(log: InsertExpenseLog): Promise<ExpenseLog>;
+  getAllActivityLogs(): Promise<ActivityLogWithUser[]>;
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   updateExpense(id: number, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
   getExpenseById(id: number): Promise<Expense | undefined>;
 
@@ -541,6 +547,20 @@ export class DatabaseStorage implements IStorage {
 
   async createExpenseLog(log: InsertExpenseLog): Promise<ExpenseLog> {
     const [created] = await db.insert(expenseLogs).values(log).returning();
+    return created;
+  }
+
+  async getAllActivityLogs(): Promise<ActivityLogWithUser[]> {
+    const rows = await db
+      .select({ log: activityLogs, user: users })
+      .from(activityLogs)
+      .innerJoin(users, eq(activityLogs.userId, users.id))
+      .orderBy(desc(activityLogs.loggedAt));
+    return rows.map(({ log, user }) => ({ ...log, user }));
+  }
+
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [created] = await db.insert(activityLogs).values(log).returning();
     return created;
   }
 

@@ -7,6 +7,18 @@ import { seedAdminUser } from "./auth";
 import { pool } from "./db";
 
 async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      user_id varchar NOT NULL REFERENCES users(id),
+      entity_type varchar(50) NOT NULL,
+      entity_id varchar(100) NOT NULL,
+      action varchar(20) NOT NULL,
+      before_data jsonb,
+      after_data jsonb,
+      logged_at timestamp NOT NULL DEFAULT now()
+    )
+  `);
   await pool.query(
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_manager boolean NOT NULL DEFAULT false`
   );

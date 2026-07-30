@@ -54,6 +54,23 @@ export async function registerRoutes(
 ): Promise<Server> {
   const canManageOperations = (user: User | undefined) =>
     Boolean(user?.isAdmin || user?.isManager);
+  const logActivity = async (
+    userId: string,
+    entityType: string,
+    entityId: string | number,
+    action: "created" | "updated",
+    beforeData: unknown,
+    afterData: unknown,
+  ) => {
+    await storage.createActivityLog({
+      userId,
+      entityType,
+      entityId: String(entityId),
+      action,
+      beforeData: beforeData as any,
+      afterData: afterData as any,
+    });
+  };
 
   // Setup local authentication
   setupAuth(app);
@@ -140,6 +157,7 @@ export async function registerRoutes(
 
       const validated = insertCarSchema.parse(req.body);
       const car = await storage.createCar(validated);
+      await logActivity(userId, "car", car.id, "created", null, car);
       res.status(201).json(car);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -155,9 +173,19 @@ export async function registerRoutes(
       const userId = (req.user as User).id;
       const user = await storage.getUser(userId);
       const id = parseInt(req.params.id);
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      if (!canManageOperations(user)) {
+        return res.status(403).json({ message: "Manager or Admin access required" });
       }
+      const editableCarFields = [
+        "name", "brand", "model", "plateNumber", "color", "colorCode",
+        "monthlyPayment", "downPayment", "lastOilChangeMileage",
+        "currentMileage", "oilChangeIntervalKm", "oilChangeIntervalDays",
+        "lastMaintenanceDate", "status", "dateAcquired",
+        "registrationConfirmedAt", "imageUrl",
+      ];
+      req.body = Object.fromEntries(
+        Object.entries(req.body).filter(([field]) => editableCarFields.includes(field)),
+      );
 
       if (req.body.monthlyPayment !== undefined) {
         if (!user?.isAdmin) {
@@ -215,6 +243,7 @@ export async function registerRoutes(
       if (!updatedCar) {
         return res.status(500).json({ message: "Failed to update car" });
       }
+      await logActivity(userId, "car", id, "updated", beforeUpdate, updatedCar);
 
       // Log each field change AFTER successful update
       const fieldLabels: Record<string, string> = {
@@ -292,6 +321,7 @@ export async function registerRoutes(
       const id = parseInt(req.params.id);
       const { registrationDate } = req.body;
       const dateValue = registrationDate || new Date().toISOString().split('T')[0];
+      const beforeUpdate = await storage.getCarById(id);
       const car = await storage.updateCar(id, { registrationConfirmedAt: dateValue });
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
@@ -304,6 +334,7 @@ export async function registerRoutes(
         oldValue: '',
         newValue: dateValue,
       });
+      await logActivity(userId, "car", id, "updated", beforeUpdate, car);
 
       res.json(car);
     } catch (error) {
@@ -322,10 +353,12 @@ export async function registerRoutes(
 
       const id = parseInt(req.params.id);
       const mileage = req.body.mileage ? parseInt(req.body.mileage) : undefined;
+      const beforeUpdate = await storage.getCarById(id);
       const car = await storage.recordOilChange(id, mileage);
       if (!car) {
         return res.status(404).json({ message: "Car not found" });
       }
+      await logActivity(userId, "car", id, "updated", beforeUpdate, car);
       res.json(car);
     } catch (error) {
       console.error("Error recording oil change:", error);
@@ -375,12 +408,14 @@ export async function registerRoutes(
 
   app.post("/api/customers", isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser((req.user as User).id);
+      const userId = (req.user as User).id;
+      const user = await storage.getUser(userId);
       if (!canManageOperations(user)) {
         return res.status(403).json({ message: "Manager or Admin access required" });
       }
       const validated = insertCustomerSchema.parse(req.body);
       const customer = await storage.createCustomer(validated);
+      await logActivity(userId, "customer", customer.id, "created", null, customer);
       res.status(201).json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -400,11 +435,16 @@ export async function registerRoutes(
       }
 
       const id = parseInt(req.params.id);
+      const beforeUpdate = await storage.getCustomerById(id);
+      if (!beforeUpdate) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
       const validated = insertCustomerSchema.partial().parse(req.body);
       const customer = await storage.updateCustomer(id, validated);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
+      await logActivity(userId, "customer", id, "updated", beforeUpdate, customer);
       res.json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -596,6 +636,7 @@ export async function registerRoutes(
       }
 
       const rental = await storage.createRental(validated);
+      await logActivity(userId, "rental", rental.id, "created", null, rental);
       
       // Log the rental creation
       const car = await storage.getCarById(rental.carId);
@@ -634,6 +675,16 @@ export async function registerRoutes(
       if (!canManageOperations(user)) {
         return res.status(403).json({ message: "Manager or Admin access required" });
       }
+      const editableRentalFields = [
+        "carId", "customerId", "customerName", "customerPhone", "customerEmail",
+        "startDate", "endDate", "totalAmount", "paymentStatus", "paymentDate",
+        "paymentBank", "paymentScreenshotUrl", "reservationFee",
+        "reservationStatus", "reservationDate", "reservationBank",
+        "reservationScreenshotUrl", "isFinalized", "notes",
+      ];
+      req.body = Object.fromEntries(
+        Object.entries(req.body).filter(([field]) => editableRentalFields.includes(field)),
+      );
 
       // Only admin can edit finalized rentals
       if (existing.isFinalized && !user?.isAdmin) {
@@ -724,6 +775,7 @@ export async function registerRoutes(
       }
 
       const rental = await storage.updateRental(id, req.body);
+      await logActivity(userId, "rental", id, "updated", existing, rental);
 
       // Log each changed field
       const car = await storage.getCarById(existing.carId);
@@ -840,6 +892,7 @@ export async function registerRoutes(
       };
       const validated = insertExpenseSchema.parse(expenseData);
       const expense = await storage.createExpense(validated);
+      await logActivity(userId, "expense", expense.id, "created", null, expense);
 
       // If category is "Oil Change", update the car's lastOilChangeMileage
       if (expense.category === "Oil Change" && expense.mileageAtExpense && expense.carId) {
@@ -911,6 +964,7 @@ export async function registerRoutes(
       if (!updated) {
         return res.status(404).json({ message: "Expense not found" });
       }
+      await logActivity(userId, "expense", id, "updated", existing, updated);
 
       // Log each changed field
       try {
@@ -1107,6 +1161,16 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error toggling admin:", error);
       res.status(500).json({ message: "Failed to toggle admin status" });
+    }
+  });
+
+  app.get("/api/activity-logs", isAuthenticated, async (_req, res) => {
+    try {
+      const logs = await storage.getAllActivityLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
     }
   });
 

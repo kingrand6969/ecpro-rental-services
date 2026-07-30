@@ -49,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -89,6 +89,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
   const [incomeFrom, setIncomeFrom] = useState("");
   const [incomeTo, setIncomeTo] = useState("");
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
 
   const { data: car } = useQuery<Car>({
     queryKey: ["/api/cars", carId],
@@ -158,6 +159,30 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: ExpenseFormData) => {
+      if (!expenseToEdit) return;
+      await apiRequest("PATCH", `/api/expenses/${expenseToEdit.id}`, {
+        category: data.category,
+        description: data.description,
+        amount: data.amount,
+        mileageAtExpense: data.mileageAtExpense ? parseInt(data.mileageAtExpense) : null,
+        expenseDate: data.expenseDate,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cars", carId, "expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
+      toast({ title: "Success", description: "Expense updated successfully" });
+      setExpenseToEdit(null);
+      setActiveTab("list");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update expense", variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (expenseId: number) => {
       await apiRequest("DELETE", `/api/expenses/${expenseId}`);
@@ -181,7 +206,23 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
   });
 
   const onSubmit = (data: ExpenseFormData) => {
-    createMutation.mutate(data);
+    if (expenseToEdit) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const startEditingExpense = (expense: Expense) => {
+    setExpenseToEdit(expense);
+    form.reset({
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      mileageAtExpense: expense.mileageAtExpense?.toString() ?? "",
+      expenseDate: expense.expenseDate as string,
+    });
+    setActiveTab("add");
   };
 
   const totalExpenses = expenses?.reduce((sum, e) => sum + parseFloat(e.amount), 0) ?? 0;
@@ -269,7 +310,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
               Expenses
             </TabsTrigger>
             {canManage && <TabsTrigger value="add" data-testid="tab-add-expense" className="font-mono text-xs uppercase tracking-wider">
-              Add Expense
+              {expenseToEdit ? "Edit Expense" : "Add Expense"}
             </TabsTrigger>}
           </TabsList>
 
@@ -371,7 +412,7 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                       <TableHead className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Description</TableHead>
                       <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Amount</TableHead>
                       <TableHead className="text-right font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Mileage</TableHead>
-                      {isAdmin && <TableHead className="w-10" />}
+                      {canManage && <TableHead className="w-20" />}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -390,8 +431,18 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                         <TableCell className="text-right tabular-nums text-muted-foreground">
                           {expense.mileageAtExpense?.toLocaleString() ?? "-"}
                         </TableCell>
-                        {isAdmin && (
+                        {canManage && (
                           <TableCell>
+                            <div className="flex items-center justify-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => startEditingExpense(expense)}
+                                data-testid={`button-edit-expense-${expense.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              {isAdmin && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -401,6 +452,8 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -526,7 +579,10 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setActiveTab("list")}
+                    onClick={() => {
+                      setExpenseToEdit(null);
+                      setActiveTab("list");
+                    }}
                     className="flex-1 font-mono text-xs uppercase tracking-wider"
                   >
                     Cancel
@@ -534,10 +590,16 @@ export function CarExpensesDialog({ carId, onClose }: CarExpensesDialogProps) {
                   <Button
                     type="submit"
                     className="flex-1 font-mono text-xs uppercase tracking-wider shadow-cyan-glow"
-                    disabled={createMutation.isPending}
+                    disabled={createMutation.isPending || updateMutation.isPending}
                     data-testid="button-save-expense"
                   >
-                    {createMutation.isPending ? "Adding..." : "Add Expense"}
+                    {updateMutation.isPending
+                      ? "Updating..."
+                      : createMutation.isPending
+                        ? "Adding..."
+                        : expenseToEdit
+                          ? "Update Expense"
+                          : "Add Expense"}
                   </Button>
                 </div>
               </form>

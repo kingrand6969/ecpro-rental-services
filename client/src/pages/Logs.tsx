@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { History, Car, User, Calendar, ArrowRight, ClipboardList, Plus, Pencil, Trash2, Receipt } from "lucide-react";
-import type { EditLogWithDetails, Car as CarType, RentalLogWithUser, ExpenseLogWithUser } from "@shared/schema";
+import type { EditLogWithDetails, Car as CarType, RentalLogWithUser, ExpenseLogWithUser, ActivityLogWithUser } from "@shared/schema";
 import { LogDetailsDialog } from "@/components/LogDetailsDialog";
 
 type SelectedLog =
@@ -24,7 +24,7 @@ function readInitialFiltersFromUrl(): { tab: string; carId: string } {
   const params = new URLSearchParams(window.location.search);
   const tabParam = params.get("tab");
   const carIdParam = params.get("carId");
-  const allowedTabs = new Set(["all", "cars", "rentals", "expenses"]);
+  const allowedTabs = new Set(["all", "cars", "rentals", "expenses", "activity"]);
   return {
     tab: tabParam && allowedTabs.has(tabParam) ? tabParam : "all",
     carId: carIdParam && /^\d+$/.test(carIdParam) ? carIdParam : "all",
@@ -59,6 +59,10 @@ export default function Logs() {
     queryKey: ["/api/expense-logs"],
   });
 
+  const { data: activityLogs, isLoading: activityLogsLoading } = useQuery<ActivityLogWithUser[]>({
+    queryKey: ["/api/activity-logs"],
+  });
+
   const filteredEditLogs = editLogs?.filter(log =>
     selectedCarId === "all" || log.carId === parseInt(selectedCarId)
   ) || [];
@@ -71,7 +75,19 @@ export default function Logs() {
     selectedCarId === "all" || log.carId === parseInt(selectedCarId)
   ) || [];
 
-  const isLoading = carsLoading || editLogsLoading || rentalLogsLoading || expenseLogsLoading;
+  const isLoading = carsLoading || editLogsLoading || rentalLogsLoading || expenseLogsLoading || activityLogsLoading;
+
+  const getAuditDetails = (log: ActivityLogWithUser) => {
+    const before = (log.beforeData ?? {}) as Record<string, unknown>;
+    const after = (log.afterData ?? {}) as Record<string, unknown>;
+    return Object.keys(after)
+      .filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+      .map((key) => ({
+        key,
+        before: before[key],
+        after: after[key],
+      }));
+  };
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -176,6 +192,10 @@ export default function Logs() {
             <TabsTrigger value="expenses" data-testid="tab-expense-logs">
               <Receipt className="h-4 w-4 mr-1" />
               Expenses ({filteredExpenseLogs.length})
+            </TabsTrigger>
+            <TabsTrigger value="activity" data-testid="tab-activity-logs">
+              <History className="h-4 w-4 mr-1" />
+              Audit ({activityLogs?.length ?? 0})
             </TabsTrigger>
           </TabsList>
 
@@ -615,6 +635,65 @@ export default function Logs() {
                   </Table>
                 )}
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="activity" className="mt-4">
+            <div className="glass-panel rounded-md overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h2 className={sectionTitle}>Complete Add & Edit Audit</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Full field-level details for every operational record created or changed.
+                </p>
+              </div>
+              {isLoading ? (
+                <div className="space-y-3 p-4">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+                </div>
+              ) : activityLogs && activityLogs.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border">
+                      <TableHead className={headTh}>Date</TableHead>
+                      <TableHead className={headTh}>User</TableHead>
+                      <TableHead className={headTh}>Record</TableHead>
+                      <TableHead className={headTh}>Action</TableHead>
+                      <TableHead className={headTh}>Information Added or Changed</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activityLogs.map((log) => (
+                      <TableRow key={log.id} className="border-border align-top">
+                        <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                          {log.loggedAt ? format(new Date(log.loggedAt), "MMM d, yyyy h:mm a") : "-"}
+                        </TableCell>
+                        <TableCell>{log.user.firstName || log.user.username || "Unknown"}</TableCell>
+                        <TableCell className="capitalize">
+                          {log.entityType} #{log.entityId}
+                        </TableCell>
+                        <TableCell>{getActionBadge(log.action)}</TableCell>
+                        <TableCell>
+                          <div className="max-w-xl space-y-1 text-xs">
+                            {getAuditDetails(log).map((detail) => (
+                              <div key={detail.key} className="break-words">
+                                <span className="font-mono font-medium text-foreground">{detail.key}: </span>
+                                {log.action === "updated" && (
+                                  <span className="text-muted-foreground">
+                                    {String(detail.before ?? "—")} <ArrowRight className="mx-1 inline h-3 w-3" />
+                                  </span>
+                                )}
+                                <span>{String(detail.after ?? "—")}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="p-8 text-center text-sm text-muted-foreground">No complete audit records yet.</div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
